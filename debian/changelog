@@ -1,0 +1,40 @@
+fonttools (1.99+2.0b1+cvs20031014-1) unstable; urgency=low
+
+  * CVS updates as of 2003-10-14.
+  * Lib/fontTools/unicode.py: Updated to Unicode 4.0.0.
+  * Standards-Version: 3.6.1.
+
+ -- Anthony Fok <foka@debian.org>  Tue, 18 Nov 2003 00:53:59 +0800
+
+fonttools (1.99+2.0b1+cvs20030629-1) unstable; urgency=low
+
+  * CVS updates as of 2003-06-29.
+  * Updated dependencies to Python 2.3.
+  * Standards-Version: 3.6.0.
+
+ -- Anthony Fok <foka@debian.org>  Wed, 13 Aug 2003 01:38:17 +0800
+
+fonttools (1.99+2.0b1+cvs20030223-1) unstable; urgency=low
+
+  * ttx.py: typo fixes
+  * _c_m_a_p.py: For subtables, change "version" to language.
+    Modified cmap_format_12.compile() to make CMap format 12 creation
+    actually work.
+  * unicode.py: Updated to Unicode 3.2.0 with characters beyond the BMP.
+
+ -- Anthony Fok <foka@debian.org>  Wed,  5 Mar 2003 02:46:40 +0800
+
+fonttools (1.99+2.0b1+cvs20030208-1) unstable; urgency=low
+
+  * CVS update as of 2003-02-08, with newly added CMap format 12 support
+    contributed by rroberts.
+
+ -- Anthony Fok <foka@debian.org>  Mon, 10 Feb 2003 01:54:30 +0800
+
+fonttools (1.99+2.0b1+cvs20030125-1) unstable; urgency=low
+
+  * Initial Release.
+  * Patched _n_a_m_e.py to handle fonts with wrong stringOffset.
+
+ -- Anthony Fok <foka@debian.org>  Sat, 25 Jan 2003 13:54:31 +0800
+
