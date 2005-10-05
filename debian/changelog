@@ -1,3 +1,31 @@
+fonttools (1.99+2.0b1+cvs20050624-2) unstable; urgency=low
+
+  * Fix byte-compiling python files
+
+ -- Paul Wise <pabs3@bonedaddy.net>  Wed,  5 Oct 2005 21:12:31 +0800
+
+fonttools (1.99+2.0b1+cvs20050624-1) unstable; urgency=low
+
+  * New maintainer (Closes: #330480)
+  * New upstream release (CVS from 2005-06-24)
+    - Drop patches (everything included upstream)
+    - Fixes traceback for newer OS/2 tables (Closes: #306287)
+  * Update Standards-Version (no changes)
+  * Include ttx manpage from Florent Rougon (Closes: #249673)
+  * Fix Kiev summer traceback (fix by Eugeniy Meshcheryakov closes: #328098)
+  * Improve CJK font performance (fix by Tomasz Wegrzanowski closes: #312379)
+  * Remove example menu file and manpages from dh_make
+  * Fix and use the doc-base example from dh_make
+  * Clean up debian/rules
+  * Remove install instructions from Docs/install.txt and install as README
+    - Thanks to prec from #sed on freenode for the sed script to do this
+  * Don't install README.txt
+  * Install Docs/changes.txt as NEWS
+  * Use dh_python and update debian/control to prepare for Python 2.4
+  * chmod a+x the ttx.py script
+
+ -- Paul Wise <pabs3@bonedaddy.net>  Thu, 29 Sep 2005 17:18:28 +0800
+
 fonttools (1.99+2.0b1+cvs20031014-1) unstable; urgency=low
 
   * CVS updates as of 2003-10-14.

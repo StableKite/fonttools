@@ -63,6 +63,8 @@ class table__h_e_a_d(DefaultTable.DefaultTable):
 			if name in ("created", "modified"):
 				value = time.asctime(time.gmtime(max(0, value + mac_epoch_diff)))
 			if name in ("magicNumber", "checkSumAdjustment"):
+				if value < 0:
+					value = value + 0x100000000L
 				value = hex(value)
 				if value[-1:] == "L":
 					value = value[:-1]
@@ -100,7 +102,10 @@ def calc_mac_epoch_diff():
 	to the epoch on this machine.
 	"""
 	safe_epoch_t = (1972, 1, 1, 0, 0, 0, 0, 0, 0)
-	safe_epoch = time.mktime(safe_epoch_t) - time.timezone
+	if time.daylight:
+		safe_epoch = time.mktime(safe_epoch_t) - time.altzone
+	else:
+		safe_epoch = time.mktime(safe_epoch_t) - time.timezone
 	assert time.gmtime(safe_epoch)[:6] == safe_epoch_t[:6]
 	seconds1904to1972 = 60 * 60 * 24 * (365 * (1972-1904) + 17) # thanks, Laurence!
 	return long(safe_epoch - seconds1904to1972)
@@ -121,7 +126,10 @@ def parse_date(datestring):
 	day = int(day)
 	hour, minute, second = map(int, string.split(tim, ":"))
 	t = (year, month, day, hour, minute, second, weekday, 0, 0)
-	return long(time.mktime(t) - time.timezone)
+	try:
+		return long(time.mktime(t) - time.timezone)
+	except OverflowError:
+		return 0L
 
 
 def bin2long(data):

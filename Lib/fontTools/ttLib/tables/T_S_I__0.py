@@ -20,7 +20,7 @@ class table_T_S_I__0(DefaultTable.DefaultTable):
 			indices.append((glyphID, textLength, textOffset))
 			data = data[size:]
 		assert len(data) == 0
-		assert indices[-5] == (0XFFFE, 0, 0xABFC1F34), "bad magic number"
+		assert indices[-5] == (0XFFFE, 0, -1409540300), "bad magic number"  # 0xABFC1F34
 		self.indices = indices[:-5]
 		self.extra_indices = indices[-4:]
 	
@@ -32,7 +32,7 @@ class table_T_S_I__0(DefaultTable.DefaultTable):
 		data = ""
 		for index, textLength, textOffset in self.indices:
 			data = data + struct.pack(tsi0Format, index, textLength, textOffset)
-		data = data + struct.pack(tsi0Format, 0XFFFE, 0, 0xABFC1F34)
+		data = data + struct.pack(tsi0Format, 0XFFFE, 0, -1409540300)  # 0xABFC1F34
 		for index, textLength, textOffset in self.extra_indices:
 			data = data + struct.pack(tsi0Format, index, textLength, textOffset)
 		return data

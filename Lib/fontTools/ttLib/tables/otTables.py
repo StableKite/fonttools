@@ -44,7 +44,7 @@ class Coverage(FormatSwitchingBaseTable):
 			assert 0, "unknown format: %s" % self.Format
 	
 	def preWrite(self, font):
-		glyphs = getattr(self, "glyphs")
+		glyphs = getattr(self, "glyphs", None)
 		if glyphs is None:
 			glyphs = self.glyphs = []
 		format = 1
@@ -99,7 +99,7 @@ class SingleSubst(FormatSwitchingBaseTable):
 
 	def postRead(self, rawTable, font):
 		mapping = {}
-		input = rawTable["Coverage"].glyphs
+		input = _getGlyphsFromCoverageTable(rawTable["Coverage"])
 		if self.Format == 1:
 			delta = rawTable["DeltaGlyphID"]
 			for inGlyph in input:
@@ -116,7 +116,10 @@ class SingleSubst(FormatSwitchingBaseTable):
 		self.mapping = mapping
 	
 	def preWrite(self, font):
-		items = self.mapping.items()
+		mapping = getattr(self, "mapping", None)
+		if mapping is None:
+			mapping = self.mapping = {}
+		items = mapping.items()
 		for i in range(len(items)):
 			inGlyph, outGlyph = items[i]
 			items[i] = font.getGlyphID(inGlyph), font.getGlyphID(outGlyph), \
@@ -192,27 +195,33 @@ class ClassDef(FormatSwitchingBaseTable):
 		self.classDefs = classDefs
 	
 	def preWrite(self, font):
-		items = self.classDefs.items()
+		classDefs = getattr(self, "classDefs", None)
+		if classDefs is None:
+			classDefs = self.classDefs = {}
+		items = classDefs.items()
 		for i in range(len(items)):
 			glyphName, cls = items[i]
 			items[i] = font.getGlyphID(glyphName), glyphName, cls
 		items.sort()
-		last, lastName, lastCls = items[0]
-		rec = ClassRangeRecord()
-		rec.Start = lastName
-		rec.Class = lastCls
-		ranges = [rec]
-		for glyphID, glyphName, cls in items[1:]:
-			if glyphID != last + 1 or cls != lastCls:
-				rec.End = lastName
-				rec = ClassRangeRecord()
-				rec.Start = glyphName
-				rec.Class = cls
-				ranges.append(rec)
-			last = glyphID
-			lastName = glyphName
-			lastCls = cls
-		rec.End = lastName
+		if items:
+			last, lastName, lastCls = items[0]
+			rec = ClassRangeRecord()
+			rec.Start = lastName
+			rec.Class = lastCls
+			ranges = [rec]
+			for glyphID, glyphName, cls in items[1:]:
+				if glyphID != last + 1 or cls != lastCls:
+					rec.End = lastName
+					rec = ClassRangeRecord()
+					rec.Start = glyphName
+					rec.Class = cls
+					ranges.append(rec)
+				last = glyphID
+				lastName = glyphName
+				lastCls = cls
+			rec.End = lastName
+		else:
+			ranges = []
 		self.Format = 2  # currently no support for Format 1
 		return {"ClassRangeRecord": ranges}
 	
@@ -236,7 +245,7 @@ class AlternateSubst(FormatSwitchingBaseTable):
 	def postRead(self, rawTable, font):
 		alternates = {}
 		if self.Format == 1:
-			input = rawTable["Coverage"].glyphs
+			input = _getGlyphsFromCoverageTable(rawTable["Coverage"])
 			alts = rawTable["AlternateSet"]
 			assert len(input) == len(alts)
 			for i in range(len(input)):
@@ -247,7 +256,10 @@ class AlternateSubst(FormatSwitchingBaseTable):
 	
 	def preWrite(self, font):
 		self.Format = 1
-		items = self.alternates.items()
+		alternates = getattr(self, "alternates", None)
+		if alternates is None:
+			alternates = self.alternates = {}
+		items = alternates.items()
 		for i in range(len(items)):
 			glyphName, set = items[i]
 			items[i] = font.getGlyphID(glyphName), glyphName, set
@@ -295,7 +307,7 @@ class LigatureSubst(FormatSwitchingBaseTable):
 	def postRead(self, rawTable, font):
 		ligatures = {}
 		if self.Format == 1:
-			input = rawTable["Coverage"].glyphs
+			input = _getGlyphsFromCoverageTable(rawTable["Coverage"])
 			ligSets = rawTable["LigatureSet"]
 			assert len(input) == len(ligSets)
 			for i in range(len(input)):
@@ -306,7 +318,10 @@ class LigatureSubst(FormatSwitchingBaseTable):
 	
 	def preWrite(self, font):
 		self.Format = 1
-		items = self.ligatures.items()
+		ligatures = getattr(self, "ligatures", None)
+		if ligatures is None:
+			ligatures = self.ligatures = {}
+		items = ligatures.items()
 		for i in range(len(items)):
 			glyphName, set = items[i]
 			items[i] = font.getGlyphID(glyphName), glyphName, set
@@ -461,3 +476,11 @@ def _buildClasses():
 
 
 _buildClasses()
+
+
+def _getGlyphsFromCoverageTable(coverage):
+	if coverage is None:
+		# empty coverage table
+		return []
+	else:
+		return coverage.glyphs

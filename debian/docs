@@ -1,4 +1,5 @@
-README.txt
+build/README
+build/NEWS
 Doc/bugs.txt
-Doc/changes.txt
 Doc/documentation.html
+debian/changelog.CVS

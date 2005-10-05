@@ -42,7 +42,7 @@ Dumping 'prep' table...
 """
 
 #
-# $Id: __init__.py,v 1.43 2003/08/28 18:23:43 jvr Exp $
+# $Id: __init__.py,v 1.47 2005/03/08 09:50:56 jvr Exp $
 #
 
 import sys
@@ -137,7 +137,7 @@ class TTFont:
 		if self.reader is not None:
 			self.reader.close()
 	
-	def save(self, file, makeSuitcase=0):
+	def save(self, file, makeSuitcase=0, reorderTables=1):
 		"""Save the font to disk. Similarly to the constructor, 
 		the 'file' argument can be either a pathname or a writable
 		file object.
@@ -165,13 +165,27 @@ class TTFont:
 		if "GlyphOrder" in tags:
 			tags.remove("GlyphOrder")
 		numTables = len(tags)
-		writer = sfnt.SFNTWriter(file, numTables, self.sfntVersion)
+		if reorderTables:
+			import tempfile
+			tmp = tempfile.TemporaryFile(prefix="ttx-fonttools")
+		else:
+			tmp = file
+		writer = sfnt.SFNTWriter(tmp, numTables, self.sfntVersion)
 		
 		done = []
 		for tag in tags:
 			self._writeTable(tag, writer, done)
 		
-		writer.close(closeStream)
+		writer.close()
+
+		if reorderTables:
+			tmp.flush()
+			tmp.seek(0)
+			reorderFontTables(tmp, file)
+			tmp.close()
+
+		if closeStream:
+			file.close()
 	
 	def saveXML(self, fileOrPath, progress=None, 
 			tables=None, skipTables=None, splitTables=0, disassembleInstructions=1):
@@ -305,14 +319,10 @@ class TTFont:
 				if key not in keys:
 					keys.append(key)
 
-		if "glyf" in keys:
-			tableSort = sortTTFFont
-		elif "CFF " in keys:
-			tableSort = sortOTFFont
-		else:
-			assert 0, "Font has neither glyf nor CFF table. Table list:" + str(keys)
-		keys.sort(tableSort)
-		return keys
+		if "GlyphOrder" in keys:
+			keys.remove("GlyphOrder")
+		keys = sortedTagList(keys)
+		return ["GlyphOrder"] + keys
 	
 	def __len__(self):
 		return len(self.keys())
@@ -558,8 +568,8 @@ class TTFont:
 			return self["CFF "].cff.values()[0].CharStrings
 		if self.has_key("glyf"):
 			return _TTGlyphSet(self)
-		if not preferCFF and self.has_key("CFF "):
-			return self["CFF "].cff.values(0).CharStrings
+		if self.has_key("CFF "):
+			return self["CFF "].cff.values()[0].CharStrings
 		raise TTLibError, "Font contains no outlines"
 
 
@@ -580,12 +590,18 @@ class _TTGlyphSet:
 		return self._ttFont["glyf"].keys()
 	
 	def has_key(self, glyphName):
-		return self._glyfTable.has_key(glyphName)
+		return self._ttFont["glyf"].has_key(glyphName)
 	
 	__contains__ = has_key
 
 	def __getitem__(self, glyphName):
 		return _TTGlyph(glyphName, self._ttFont)
+
+	def get(self, glyphName, default=None):
+		try:
+			return self[glyphName]
+		except KeyError:
+			return default
 
 
 class _TTGlyph:
@@ -795,7 +811,7 @@ def tagToXML(tag):
 	if tag == "OS/2":
 		return "OS_2"
 	elif tag == "GlyphOrder":
-		return "GlyphOrder"
+		return tag
 	if re.match("[A-Za-z_][A-Za-z_0-9]* *$", tag):
 		return string.strip(tag)
 	else:
@@ -818,44 +834,47 @@ def debugmsg(msg):
 	print msg + time.strftime("  (%H:%M:%S)", time.localtime(time.time()))
 
 
+# Table order as recommended in the OpenType specification 1.4
+TTFTableOrder = ["head", "hhea", "maxp", "OS/2", "hmtx", "LTSH", "VDMX",
+                  "hdmx", "cmap", "fpgm", "prep", "cvt ", "loca", "glyf",
+                  "kern", "name", "post", "gasp", "PCLT"]
 
-# Table sorting algorithm pre recommendations in OpenType Spec v1.4
-kTTFTableOrder = ["GlyphOrder", "head", "hhea", "maxp", "OS/2", "hmtx", "LTSH", "VDMX", "hdmx", "cmap", "fpgm", "prep", "cvt", "loca", "glyf", "kern", "name", "post", "gasp", "PCLT"]
-kOTFTableOrder = ["GlyphOrder", "head", "hhea", "maxp", "OS/2", "name", "cmap", "post", "CFF "]
-kNotInTableIndex = 10000 # an arbitrary value larger than will ever be a font.
-def sortFontTables(tag1, tag2, tableOrder):
-	#No need to allow for two tags with the same name.
-	if tag1 == "DSIG":
-		ret = -1
-	elif tag2 == "DSIG":
-		ret = 1
-	else:
-		try:
-			i1 = tableOrder.index(tag1)
-		except ValueError:
-			i1 = kNotInTableIndex
-		try:
-			i2 = tableOrder.index(tag2)
-		except ValueError:
-			i2 = kNotInTableIndex
-		
-		if i1 > i2:
-			ret = 1
-		elif i1 < i2:
-			ret  = -1
+OTFTableOrder = ["head", "hhea", "maxp", "OS/2", "name", "cmap", "post",
+                  "CFF "]
+
+def sortedTagList(tagList, tableOrder=None):
+	"""Return a sorted copy of tagList, sorted according to the OpenType
+	specification, or according to a custom tableOrder. If given and not
+	None, tableOrder needs to be a list of tag names.
+	"""
+	tagList = list(tagList)
+	tagList.sort()
+	if tableOrder is None:
+		if "DSIG" in tagList:
+			# DSIG should be last (XXX spec reference?)
+			tagList.remove("DSIG")
+			tagList.append("DSIG")
+		if "CFF " in tagList:
+			tableOrder = OTFTableOrder
 		else:
-			if tag1 < tag2:
-				ret = 1
-			elif tag1 < tag2:
-				ret = -1
-			else:
-				ret = 0
-	return ret
+			tableOrder = TTFTableOrder
+	orderedTables = []
+	for tag in tableOrder:
+		if tag in tagList:
+			orderedTables.append(tag)
+			tagList.remove(tag)
+	orderedTables.extend(tagList)
+	return orderedTables
 
 
-def sortTTFFont(tag1, tag2):
-	return sortFontTables(tag1, tag2, kTTFTableOrder)
-
-
-def sortOTFFont(tag1, tag2):
-	return sortFontTables(tag1, tag2, kOTFTableOrder)
+def reorderFontTables(inFile, outFile, tableOrder=None, checkChecksums=0):
+	"""Rewrite a font file, ordering the tables as recommended by the
+	OpenType specification 1.4.
+	"""
+	from fontTools.ttLib.sfnt import SFNTReader, SFNTWriter
+	reader = SFNTReader(inFile, checkChecksums=checkChecksums)
+	writer = SFNTWriter(outFile, reader.numTables, reader.sfntVersion)
+	tables = reader.keys()
+	for tag in sortedTagList(tables, tableOrder):
+		writer[tag] = reader[tag]
+	writer.close()

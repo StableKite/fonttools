@@ -15103,53 +15103,49 @@ FFFFD	<Plane 15 Private Use, Last>
 10FFFD	<Plane 16 Private Use, Last>
 """
 
-def _makeunicode():
-	from string import split, atoi
+def _makeunicodes():
 	import re
 	firstRE = re.compile("<(.*?), First>")
 	firstREmatch = firstRE.match
 	lastRE = re.compile("<(.*?), Last>")
 	lastREmatch = lastRE.match
 
-	lines = split(_unicode, '\n')
+	lines = _unicode.splitlines()
 	while not lines[-1]:
 		del lines[-1] # empty string
 
-	unicode = ['????'] * 0x110000
+	unicodes = {}
 	i = 0
 	lenLines = len(lines)
 	while i < lenLines:
 		line = lines[i]
-		num, name = split(line, '\t')
-		num = atoi(num, 16)
+		num, name = line.split('\t')
+		num = int(num, 16)
 		if firstREmatch(name) is not None:
 			i = i + 1
 			line = lines[i]
-			numLast, nameLast = split(line, '\t')
+			numLast, nameLast = line.split('\t')
 			m = lastREmatch(nameLast)
 			assert m is not None
 			name = m.group(1)
-			numLast = atoi(numLast, 16)
-			unicode[num:numLast+1] = [name] * (numLast - num + 1)
+			numLast = int(numLast, 16)
+			for num in range(num, numLast + 1):
+				unicodes[num] = name
 		else:
-			unicode[num] = name
+			unicodes[num] = name
 		i = i + 1
-	while not unicode[-1]:
-		del unicode[-1] # empty string
-	return unicode
+	return unicodes
 
 
 class _Unicode:
 
 	def __init__(self):
-		self.codes = _makeunicode()
+		self.codes = _makeunicodes()
 
 	def __getitem__(self, charCode):
-		if charCode > 0x10ffff:
-			raise IndexError, "charCode out of range"
 		try:
 			return self.codes[charCode]
-		except IndexError:
+		except KeyError:
 			return "????"
 
 
