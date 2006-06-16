@@ -1,3 +1,21 @@
+fonttools (1.99+2.0b1+cvs20060225-1) unstable; urgency=low
+
+  * New upstream bugfix snapshot
+  * Migrate patches from the diff.gz to quilt
+  * Remove changelog.CVS, instead update upstream's changelog file
+  * Fix the watch file, in case upstream ever releases
+  * Make homepage in the description comply with devref 6.2.4
+  * Tidy the copyright file and fix the copyright years
+  * Don't byte-compile .py files at build time
+  * Ensure CFLAGS is passed to setup.py
+  * Clean unused parts of debian/rules
+  * 10_fix_summertime_traceback: return a constant from calc_mac_epoch_diff
+    Finally closes: #328098
+  * Update for the new Python policy
+  * Bump Standards-Version (no changes)
+
+ -- Paul Wise <pabs3@bonedaddy.net>  Fri, 16 Jun 2006 19:26:14 +0800
+
 fonttools (1.99+2.0b1+cvs20050624-2) unstable; urgency=low
 
   * Fix byte-compiling python files

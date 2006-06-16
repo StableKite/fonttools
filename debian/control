@@ -2,12 +2,14 @@ Source: fonttools
 Section: text
 Priority: optional
 Maintainer: Paul Wise <pabs3@bonedaddy.net>
-Build-Depends: debhelper (>> 4.0.0), python-dev, python-numeric, python-xml
-Standards-Version: 3.6.2
+Build-Depends: debhelper (>= 5.0.37.1), python (>= 2.3.5-7), python-all, python-all-dev, python-central (>= 0.4.10), quilt (>= 0.40), python-numeric, python-xml
+Standards-Version: 3.7.2
+XS-Python-Version: all
 
 Package: fonttools
 Architecture: any
 Depends: ${shlibs:Depends}, ${python:Depends}, python-numeric, python-xml
+XB-Python-Version: ${python:Versions}
 Description: Converts OpenType and TrueType fonts to and from XML
  FontTools/TTX is a library to manipulate font files from Python.
  It supports reading and writing of TrueType/OpenType fonts, reading
@@ -15,4 +17,4 @@ Description: Converts OpenType and TrueType fonts to and from XML
  fonts.  It also contains a tool called "TTX" which converts
  TrueType/OpenType fonts to and from an XML-based format.
  .
- Home Page: http://sourceforge.net/projects/fonttools/
+  Homepage: http://sourceforge.net/projects/fonttools/

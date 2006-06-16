@@ -61,7 +61,10 @@ class table__h_e_a_d(DefaultTable.DefaultTable):
 		for name in names:
 			value = getattr(self, name)
 			if name in ("created", "modified"):
-				value = time.asctime(time.gmtime(max(0, value + mac_epoch_diff)))
+				try:
+					value = time.asctime(time.gmtime(max(0, value + mac_epoch_diff)))
+				except ValueError:
+					value = time.asctime(time.gmtime(0))
 			if name in ("magicNumber", "checkSumAdjustment"):
 				if value < 0:
 					value = value + 0x100000000L
@@ -102,10 +105,7 @@ def calc_mac_epoch_diff():
 	to the epoch on this machine.
 	"""
 	safe_epoch_t = (1972, 1, 1, 0, 0, 0, 0, 0, 0)
-	if time.daylight:
-		safe_epoch = time.mktime(safe_epoch_t) - time.altzone
-	else:
-		safe_epoch = time.mktime(safe_epoch_t) - time.timezone
+	safe_epoch = time.mktime(safe_epoch_t) - time.timezone
 	assert time.gmtime(safe_epoch)[:6] == safe_epoch_t[:6]
 	seconds1904to1972 = 60 * 60 * 24 * (365 * (1972-1904) + 17) # thanks, Laurence!
 	return long(safe_epoch - seconds1904to1972)

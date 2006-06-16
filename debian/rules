@@ -1,26 +1,23 @@
 #!/usr/bin/make -f
-# debian/rules for fonttools
+
+include /usr/share/quilt/quilt.make
 
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
-ifneq (,$(findstring debug,$(DEB_BUILD_OPTIONS)))
-	CFLAGS += -g
-endif
-ifeq (,$(findstring nostrip,$(DEB_BUILD_OPTIONS)))
-	INSTALL_PROGRAM += -s
-endif
+PYVERS=$(shell pyversions -r debian/control)
 
+CFLAGS=-Wall -g
 
-build: build-stamp
+build: patch build-stamp
 build-stamp:
 	dh_testdir
-	python2.3 ./setup.py build
+	set -e ; for python in $(PYVERS); do CFLAGS="$(CFLAGS)" $$python setup.py build; done
 	cp Doc/changes.txt build/NEWS
 	sed -f debian/stripinstall < Doc/install.txt > build/README
 	touch build-stamp
 
-clean:
+clean: unpatch
 	dh_testdir
 	dh_testroot
 	rm -f build-stamp
@@ -32,23 +29,19 @@ install: build
 	dh_testroot
 	dh_clean -k
 	dh_installdirs
-	python2.3 setup.py install --root=$(CURDIR)/debian/fonttools
-	chmod a+x $(CURDIR)/debian/fonttools/usr/lib/python2.3/site-packages/FontTools/fontTools/ttx.py
+	set -e ; for python in $(PYVERS); do $$python setup.py install --no-compile --root=debian/fonttools; done
+	chmod a+x $(CURDIR)/debian/fonttools/usr/lib/python*/site-packages/FontTools/fontTools/ttx.py
 
-# Build architecture-independent files here.
 binary-indep: build install
-# We have nothing to do by default.
-
-# Build architecture-dependent files here.
 binary-arch: build install
 	dh_testdir
 	dh_testroot
 	dh_installdocs
 	dh_installexamples
 	dh_installman
-	dh_installchangelogs Doc/ChangeLog.txt 
+	dh_installchangelogs Doc/ChangeLog.txt
+	dh_pycentral
 	dh_python
-	dh_link
 	dh_strip
 	dh_compress
 	dh_fixperms
