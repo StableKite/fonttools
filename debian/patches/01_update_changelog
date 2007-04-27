@@ -1,11 +1,111 @@
-Author: Paul Wise <pabs3@bonedaddy.net>
+Author: Paul Wise <pabs@debian.org>
 Description: Update upstream's changelog using their CVS log and buildChangeLog.py script
-Index: fonttools-1.99+2.0b1+cvs20060225/Doc/ChangeLog.txt
+Index: Doc/ChangeLog.txt
 ===================================================================
---- fonttools-1.99+2.0b1+cvs20060225.orig/Doc/ChangeLog.txt	2006-04-28 21:48:46.000000000 +0800
-+++ fonttools-1.99+2.0b1+cvs20060225/Doc/ChangeLog.txt	2006-04-28 21:53:42.000000000 +0800
-@@ -1,4 +1,69 @@
+--- Doc/ChangeLog.txt.orig	2007-04-26 20:02:41.000000000 +1000
++++ Doc/ChangeLog.txt	2007-04-26 20:03:41.000000000 +1000
+@@ -1,4 +1,169 @@
  ----------------------------
++2006/10/21 14:12:38 jvr Lib/fontTools/ttx.py 1.9
++2006/10/21 14:12:38 jvr Lib/fontTools/ttLib/tables/otTables.py 1.16
++2006/10/21 14:12:38 jvr Lib/fontTools/ttLib/tables/otData.py 1.6
++2006/10/21 14:12:38 jvr Lib/fontTools/ttLib/tables/otConverters.py 1.6
++2006/10/21 14:12:38 jvr Lib/fontTools/ttLib/tables/otBase.py 1.12
++2006/10/21 14:12:38 jvr Lib/fontTools/ttLib/__init__.py 1.48
++Misc patches from rroberts:
++
++fontTools/ttx.py
++  # support virtual GIDs, support handling some GSUB offset overflows.
++
++fontTools/ttlib/__init__.py
++# 1) make getReverseGlyphMap  a public function; I find a reverse map
++to often be useful
++# 2) support virtual glyphs, e.g. references to GID's that are not in the font.
++# Added the TTFont argument allowVID (default 0) to turn this off and on;
++# added the arg requireReal ( default 0) so as to get the obvious
++default behaviour when
++# allowVID is 0 or 1, but to allow requiring a true GID when allowVID is 1.
++
++fontTools/ttlib/tables/otBase.py
++fontTools/ttlib/tables/otConverters.py
++fontTools/ttlib/tables/otData.py
++fontTools/ttlib/tables/otTables.py
++# 1) speed optimization
++# - collapse for loops
++# - do not decompile extension lookups until a record is requested
++from within the lookup.
++# 2) handling offset overflows
++# 3) support of extension lookups
++# 4) Fixed FetauresParam converter class def so as to survive a font
++that has this offset non-NULL.
++# This fixes a stack dump.
++# The data will now just get ignored
++----------------------------
++2006/10/21 13:54:30 jvr Lib/fontTools/ttLib/tables/_c_m_a_p.py 1.16
++patches from rroberts:
++
++# 1) Switched to using Numeric module arrays rather than array modules arrays,
++#  because of a memory leak in array.array when handling elements > 1 byte.
++# 2) speed optimizations:
++# -  For loops are collapsed when possible
++# - the data for a subtable is parsed only if a mapping value is requested
++# - if two subtables share the same data offset, then on
++decompilation, they will
++# share the same cmap dict, and not get decompiled twice. Same for compiling.
++# - as before, two tables with the same contents will get compiled to a single
++# data block in the font.
++# 3) added  (self.platformID, self.platEncID) == (3, 10) to the list
++of subtables that
++# get Unicode comments.
++# 4) allow item reference by GID as well as by name. I did this when
++experimenting to see if using GID references only would speed the
++compile; it didn't but it seemed useful enough to leave in.
++# 5) Fixed compile to/from XML: for cmap type unknown ( aka cmap
++format 10, in practice.)
++----------------------------
++2006/10/21 13:41:18 jvr Lib/fontTools/cffLib.py 1.32
++Some edits from rroberts:
++# 1) speed optimizations
++# 2) fixed parseCharset0 to support CFF-CID fonts.
++# 3) fixed CharsetConverter.read to work a font that actually has one
++of the pre-canned encodings.
++# This fixes a stack dump.
++# I did not try to support using these encodings when writing a font,
++# as the cases will be so rare as to not justify the processing
++overhead for all other fonts.
++
++(Read: I took out some of your loop optimizations since I believe they
++made the code a lot less clear. I also have my doubts whether they were
++actually performance improvements.)
++----------------------------
++2006/10/21 13:29:47 jvr Lib/fontTools/ttLib/tables/V_O_R_G_.py 1.2
++Speed optimizations from rroberts
++----------------------------
++2006/10/21 13:27:25 jvr Lib/fontTools/ttLib/tables/__init__.py 1.6
++2006/10/21 13:27:25 jvr Lib/fontTools/ttLib/tables/S_I_N_G_.py 1.1
++2006/10/21 13:27:25 jvr Lib/fontTools/ttLib/tables/M_E_T_A_.py 1.1
++2006/10/21 13:27:25 jvr Lib/fontTools/ttLib/tables/G_P_K_G_.py 1.1
++2006/10/21 13:27:25 jvr Lib/fontTools/ttLib/tables/G_M_A_P_.py 1.1
++2006/10/21 13:27:25 jvr Doc/documentation.html 1.10
++Some non-official OT tables from rrboerts. He wrote:
++
++There are also some new files, for SING glyphlet support, that you
++may or may not want to add, because they are not in the OpenType spec.
++
++M_E_T_A_.py # SING glyphlet meta data table. see
++'http://partners.adobe.com/public/developer/opentype/gdk/topic.html"
++S_I_N_G_.py # SING glyphlet basic info. See same web site as for META
++data table.
++
++G_M_A_P_.py # Summary of sing glyphlet info that has been stuck into
++a parent font. Not documented anywhere yet.
++G_P_K_G_.py # Opaque wrapper for SING glyphlet info; travels with
++application document. Is also stuck into augmented parent font. Not
++documented anywhere yet
++----------------------------
++2006/10/21 13:16:51 jvr Lib/fontTools/nfntLib.py 1.5
++make this module work with semi-recent MacPython
++----------------------------
 +2006/02/25 21:39:33 jvr Lib/fontTools/misc/psCharStrings.py 1.23
 +support the deprecated dotsection T2 operator
 +----------------------------

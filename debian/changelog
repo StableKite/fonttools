@@ -1,3 +1,12 @@
+fonttools (1.99+2.0b1+cvs20061021-1) unstable; urgency=low
+
+  * New upstream release (CVS from 2006-10-21)
+    - Update changelog patch from CVS
+  * Change my email address now that I'm a Debian Developer
+  * Update python dependencies and stuff to lintian's liking
+
+ -- Paul Wise <pabs@debian.org>  Fri, 27 Apr 2007 18:03:46 +1000
+
 fonttools (1.99+2.0b1+cvs20060225-1) unstable; urgency=low
 
   * New upstream bugfix snapshot

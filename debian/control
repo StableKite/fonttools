@@ -1,8 +1,8 @@
 Source: fonttools
 Section: text
 Priority: optional
-Maintainer: Paul Wise <pabs3@bonedaddy.net>
-Build-Depends: debhelper (>= 5.0.37.1), python (>= 2.3.5-7), python-all, python-all-dev, python-central (>= 0.4.10), quilt (>= 0.40), python-numeric, python-xml
+Maintainer: Paul Wise <pabs@debian.org>
+Build-Depends: debhelper (>= 5.0.37.2), python (>= 2.3.5-7), python-all, python-all-dev, python-central (>= 0.5), quilt (>= 0.40), python-numeric, python-xml
 Standards-Version: 3.7.2
 XS-Python-Version: all
 

@@ -1,18 +1,19 @@
 This package was debianized by Anthony Fok <foka@debian.org> on
 Mon, 16 Sep 2002 01:26:10 +0800.
-This package was adopted by Paul Wise <pabs3@bonedaddy.net> on
+This package was adopted by Paul Wise <pabs@debian.org> on
 Fri, 07 Oct 2005 12:27:52 +0800
 
-It was downloaded from
-    http://umn.dl.sourceforge.net/sourceforge/fonttools/fonttools-2.0b1.tgz
- with CVS updates from
-    :pserver:anonymous@cvs.fonttools.sourceforge.net:/cvsroot/fonttools
+Downloaded from:
 
-Author: Just van Rossum <just@letterror.com>
+  :pserver:anonymous@cvs.fonttools.sourceforge.net:/cvsroot/fonttools
+
+Author:
+
+  Just van Rossum <just@letterror.com>
 
 Copyright:
 
-Copyright 1996-2004 Just van Rossum
+  Copyright 1996-2004 Just van Rossum
 
 Licence:
 

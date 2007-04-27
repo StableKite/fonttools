@@ -1,4 +1,4 @@
-Author: Paul Wise <pabs3@bonedaddy.net>
+Author: Paul Wise <pabs@debian.org>
 Fixes: #328098
 Description: Fixes tracebacks in some timezones
 Index: fonttools-1.99+2.0b1+cvs20060225/Lib/fontTools/ttLib/tables/_h_e_a_d.py
