@@ -12,7 +12,8 @@ CFLAGS=-Wall -g
 build: patch build-stamp
 build-stamp:
 	dh_testdir
-	set -e ; for python in $(PYVERS); do CFLAGS="$(CFLAGS)" $$python setup.py build; done
+	python setup.py build_py build_scripts
+	set -e ; for python in $(PYVERS); do CFLAGS="$(CFLAGS)" $$python setup.py build_ext build_clib; done
 	cp Doc/changes.txt build/NEWS
 	sed -f debian/stripinstall < Doc/install.txt > build/README
 	touch build-stamp
@@ -30,6 +31,7 @@ install: build
 	dh_clean -k
 	dh_installdirs
 	set -e ; for python in $(PYVERS); do $$python setup.py install --no-compile --root=debian/fonttools; done
+	python setup.py install_scripts --force --install-dir=debian/fonttools/usr/bin
 	chmod a+x $(CURDIR)/debian/fonttools/usr/lib/python*/site-packages/FontTools/fontTools/ttx.py
 
 binary-indep: build install
@@ -41,7 +43,6 @@ binary-arch: build install
 	dh_installman
 	dh_installchangelogs Doc/ChangeLog.txt
 	dh_pycentral
-	dh_python
 	dh_strip
 	dh_compress
 	dh_fixperms

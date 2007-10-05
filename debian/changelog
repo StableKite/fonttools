@@ -1,3 +1,11 @@
+fonttools (1.99+2.0b1+cvs20061021-2) unstable; urgency=low
+
+  * Hack around distutils poor multiple-version support (Closes: #445261)
+  * Drop obsolete use of dh_python
+  * Switch to new Homepage field
+
+ -- Paul Wise <pabs@debian.org>  Fri, 05 Oct 2007 13:18:31 +0930
+
 fonttools (1.99+2.0b1+cvs20061021-1) unstable; urgency=low
 
   * New upstream release (CVS from 2006-10-21)

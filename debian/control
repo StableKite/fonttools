@@ -5,6 +5,7 @@ Maintainer: Paul Wise <pabs@debian.org>
 Build-Depends: debhelper (>= 5.0.37.2), python (>= 2.3.5-7), python-all, python-all-dev, python-central (>= 0.5), quilt (>= 0.40), python-numeric, python-xml
 Standards-Version: 3.7.2
 XS-Python-Version: all
+Homepage: http://sourceforge.net/projects/fonttools/
 
 Package: fonttools
 Architecture: any
@@ -16,5 +17,3 @@ Description: Converts OpenType and TrueType fonts to and from XML
  and writing of AFM files, reading (and partially writing) of PS Type 1
  fonts.  It also contains a tool called "TTX" which converts
  TrueType/OpenType fonts to and from an XML-based format.
- .
-  Homepage: http://sourceforge.net/projects/fonttools/
