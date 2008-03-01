@@ -1,2 +1,2 @@
-version=2
-http://sf.net/fonttools/fontools-([a-z\d.]*).tgz debian uupdate
+version=3
+http://sf.net/fonttools/fonttools-([\d\.]*)\.tar\.gz debian uupdate

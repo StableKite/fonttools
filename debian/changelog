@@ -1,3 +1,15 @@
+fonttools (2.1-1) unstable; urgency=low
+
+  * New upstream release
+    - Fixes traceback on amd64 with DejaVuSans.ttf (Closes: #434377)
+    - Drop 20_cjk_performance_improvement, 01_update_changelog,
+      both have been applied upstream
+  * Fix watch file so that it works with the release (Closes: #449785)
+  * Drop unneeded dependency on python-xml (Closes: #468585)
+  * Bump Standards-Version (no changes needed)
+
+ -- Paul Wise <pabs@debian.org>  Sat, 01 Mar 2008 16:58:54 +0900
+
 fonttools (1.99+2.0b1+cvs20061021-2) unstable; urgency=low
 
   * Hack around distutils poor multiple-version support (Closes: #445261)
