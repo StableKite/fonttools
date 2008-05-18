@@ -70,6 +70,8 @@ corresponding input file.
 .It Fl v
 Be verbose.  Write more messages to the standard output describing what
 is being done.
+.It Fl a
+Allow virtual glyphs ID's on compile or decompile.
 .El
 .Ss "Dump options"
 The following options control the process of dumping font files
@@ -117,6 +119,8 @@ file as hexadecimal data instead of
 assembly.  This saves some time and results in smaller
 .Tn TTX
 files.
+.It Fl e
+Don't ignore decompilation errors, but show a full traceback and abort.
 .El
 .Ss "Compilation options"
 The following options control the process of compiling
@@ -142,9 +146,8 @@ file as is.
 You can find some information about the
 .Tn TTX
 file format in
-.Pa /usr/share/doc/fonttools/documentation.html
-on Debian systems.  In particular, you will find in that file the list
-of tables understood by
+.Pa documentation.html .
+In particular, you will find in that file the list of tables understood by
 .Nm
 and the relations between TrueType GlyphIDs and the glyph names used in
 .Tn TTX
@@ -184,35 +187,17 @@ to
 .Pp
 .Dl ttx -t cmap FreeSans.ttf
 .Sh NOTES
-This manual page is not the autoritative documentation for
-.Nm .
-It is hoped that it will be useful to you but you should consult other
-sources for autoritative information.  The ones I am aware of are the
-output of
-.Bk
-.Ql ttx -h
-.Ek
-and the
-.Pa /usr/share/doc/fonttools/documentation.html
-file on Debian systems.
-.Pp
 On MS\-Windows and MacOS,
 .Nm
 is available as a graphical application to which files can be dropped.
 .Sh SEE ALSO
-.Pa /usr/share/doc/fonttools/documentation.html
+.Pa documentation.html
 .Pp
 .Xr fontforge 1 ,
 .Xr ftinfo 1 ,
 .Xr gfontview 1 ,
-.Xr xmbdfed 1
-.Pp
-The
-.Li libfont-ttf-perl
-Debian package might also be of interest.  To list its manual pages,
-you can install it and run the following command:
-.Pp
-.Dl dpkg -L libfont-ttf-perl | grep '^/usr/share/man/'
+.Xr xmbdfed 1 ,
+.Xr Font::TTF 3pm
 .Sh AUTHORS
 .Nm
 was written by
@@ -223,11 +208,7 @@ This manual page was written by
 .An "Florent Rougon" Aq f.rougon@free.fr
 for the Debian GNU/Linux system based on the existing FontTools
 documentation.  It may be freely used, modified and distributed without
-restrictions.  Any mistakes or omissions in this manual page are my
-fault; inquiries about or corrections to this manual page should be
-directed to me or to the Debian Bug Tracking System, at least as long as
-this manual page is not included in the upstream distribution of the
-FontTools.
+restrictions.
 .\" For Emacs:
 .\" Local Variables:
 .\" fill-column: 72

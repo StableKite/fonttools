@@ -11,10 +11,10 @@ except ImportError:
 	pass
 
 try:
-	import Numeric
+	import numpy
 except ImportError:
-	print "*** Warning: FontTools needs Numerical Python (NumPy), see:"
-	print "        http://sourceforge.net/projects/numpy/"
+	print "*** Warning: FontTools needs the numpy library, see:"
+	print "        http://numpy.scipy.org/"
 
 try:
 	import xml.parsers.expat
@@ -64,7 +64,7 @@ TrueType/OpenType fonts to and from an XML-based format.
 
 setup(
 		name = "fonttools",
-		version = "2.1",
+		version = "2.2",
 		description = "Tools to manipulate font files",
 		author = "Just van Rossum",
 		author_email = "just@letterror.com",
@@ -99,5 +99,6 @@ setup(
 		],
 		scripts = ["Tools/ttx"],
 		cmdclass = {"build_ext": build_ext_optional},
+		data_files = [('man/man1', ["Doc/ttx.1"])],
 		**classifiers
 	)

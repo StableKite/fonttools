@@ -30,7 +30,7 @@ install: build
 	dh_testroot
 	dh_clean -k
 	dh_installdirs
-	set -e ; for python in $(PYVERS); do $$python setup.py install --no-compile --root=debian/fonttools; done
+	set -e ; for python in $(PYVERS); do $$python setup.py install --install-data=/usr/share --no-compile --root=debian/fonttools; done
 	python setup.py install_scripts --force --install-dir=debian/fonttools/usr/bin
 	chmod a+x $(CURDIR)/debian/fonttools/usr/lib/python*/site-packages/FontTools/fontTools/ttx.py
 
@@ -40,7 +40,6 @@ binary-arch: build install
 	dh_testroot
 	dh_installdocs
 	dh_installexamples
-	dh_installman
 	dh_installchangelogs Doc/ChangeLog.txt
 	dh_pycentral
 	dh_strip

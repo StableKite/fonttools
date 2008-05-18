@@ -1,6 +1,7 @@
+import sys
 import DefaultTable
 import array
-import Numeric
+import numpy
 from fontTools import ttLib
 import struct
 
@@ -16,9 +17,9 @@ class table__l_o_c_a(DefaultTable.DefaultTable):
 			format = "H"
 		locations = array.array(format)
 		locations.fromstring(data)
-		if ttLib.endian <> "big":
+		if sys.byteorder <> "big":
 			locations.byteswap()
-		locations = Numeric.array(locations, Numeric.Int32)
+		locations = numpy.array(locations, numpy.int32)
 		if not longFormat:
 			locations = locations * 2
 		if len(locations) < (ttFont['maxp'].numGlyphs + 1):
@@ -29,16 +30,16 @@ class table__l_o_c_a(DefaultTable.DefaultTable):
 		locations = self.locations
 		if max(locations) < 0x20000:
 			locations = locations / 2
-			locations = locations.astype(Numeric.Int16)
+			locations = locations.astype(numpy.int16)
 			ttFont['head'].indexToLocFormat = 0
 		else:
 			ttFont['head'].indexToLocFormat = 1
-		if ttLib.endian <> "big":
-			locations = locations.byteswapped()
+		if sys.byteorder <> "big":
+			locations = locations.byteswap()
 		return locations.tostring()
 	
 	def set(self, locations):
-		self.locations = Numeric.array(locations, Numeric.Int32)
+		self.locations = numpy.array(locations, numpy.int32)
 	
 	def toXML(self, writer, ttFont):
 		writer.comment("The 'loca' table will be calculated by the compiler")
@@ -51,5 +52,5 @@ class table__l_o_c_a(DefaultTable.DefaultTable):
 		return len(self.locations)
 	
 	def __cmp__(self, other):
-		return cmp(len(self), len(other)) or not Numeric.alltrue(Numeric.equal(self.locations, other.locations))
+		return cmp(len(self), len(other)) or not numpy.alltrue(numpy.equal(self.locations, other.locations))
 

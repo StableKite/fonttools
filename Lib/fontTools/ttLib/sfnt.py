@@ -12,8 +12,9 @@ classes, since whenever to number of tables changes or whenever
 a table's length chages you need to rewrite the whole file anyway.
 """
 
+import sys
 import struct, sstruct
-import Numeric
+import numpy
 import os
 
 
@@ -142,7 +143,7 @@ class SFNTWriter:
 	def calcMasterChecksum(self, directory):
 		# calculate checkSumAdjustment
 		tags = self.tables.keys()
-		checksums = Numeric.zeros(len(tags)+1)
+		checksums = numpy.zeros(len(tags)+1, numpy.int32)
 		for i in range(len(tags)):
 			checksums[i] = self.tables[tags[i]].checkSum
 		
@@ -150,14 +151,14 @@ class SFNTWriter:
 		assert directory_end == len(directory)
 		
 		checksums[-1] = calcChecksum(directory)
-		checksum = Numeric.add.reduce(checksums)
+		checksum = numpy.add.reduce(checksums)
 		# BiboAfba!
-		checksumadjustment = Numeric.array(0xb1b0afbaL - 0x100000000L,
-				Numeric.Int32) - checksum
+		checksumadjustment = numpy.array(0xb1b0afbaL - 0x100000000L,
+				numpy.int32) - checksum
 		# write the checksum to the file
 		self.file.seek(self.tables['head'].offset + 8)
 		self.file.write(struct.pack(">l", checksumadjustment))
-		
+
 
 # -- sfnt directory helpers and cruft
 
@@ -214,10 +215,10 @@ def calcChecksum(data, start=0):
 	remainder = len(data) % 4
 	if remainder:
 		data = data + '\0' * (4-remainder)
-	a = Numeric.fromstring(struct.pack(">l", start) + data, Numeric.Int32)
-	if ttLib.endian <> "big":
-		a = a.byteswapped()
-	return Numeric.add.reduce(a)
+	a = numpy.fromstring(struct.pack(">l", start) + data, numpy.int32)
+	if sys.byteorder <> "big":
+		a = a.byteswap()
+	return numpy.add.reduce(a)
 
 
 def maxPowerOfTwo(x):
