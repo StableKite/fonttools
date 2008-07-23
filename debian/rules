@@ -1,7 +1,5 @@
 #!/usr/bin/make -f
 
-include /usr/share/quilt/quilt.make
-
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
@@ -9,7 +7,13 @@ PYVERS=$(shell pyversions -r debian/control)
 
 CFLAGS=-Wall -g
 
-build: patch build-stamp
+ifneq (,$(filter noopt,$(DEB_BUILD_OPTIONS)))
+	CFLAGS += -O0
+else
+	CFLAGS += -O2
+endif
+
+build: build-stamp
 build-stamp:
 	dh_testdir
 	python setup.py build_py build_scripts
@@ -18,7 +22,7 @@ build-stamp:
 	sed -f debian/stripinstall < Doc/install.txt > build/README
 	touch build-stamp
 
-clean: unpatch
+clean:
 	dh_testdir
 	dh_testroot
 	rm -f build-stamp
