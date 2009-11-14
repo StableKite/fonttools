@@ -1,3 +1,23 @@
+fonttools (2.3-1) unstable; urgency=low
+
+  * New upstream release
+    - TrueType Collection (TTC) support
+    - Python 2.6 support
+    - Unicode 5.2.0 data
+  * Split the eexecOp module out into a separate package, switch fonttools
+    to arch all and recommend the arch any eexecOp module to reduce archive
+    space used by duplicates of the arch all python scripts in fonttools
+  * Switch to debhelper compat 7 and dh for debian/rules
+  * Adapt installation and rules for Python 2.6 (Closes: #547821)
+  * Add ${misc:Depends} to dependencies for debhelper
+  * Switch the section to fonts in line with the override
+  * Bump Standards-Version, no changes needed
+  * Switch to dpkg source format version 3
+  * Switch from python-central to python-support and handle upgrades from
+    pycentral with removal in preinst
+
+ -- Paul Wise <pabs@debian.org>  Sat, 14 Nov 2009 22:58:53 +0800
+
 fonttools (2.2-2) unstable; urgency=medium
 
   * Fix dependencies to use Numpy instead of Numeric (Closes: #492010)

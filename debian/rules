@@ -1,59 +1,19 @@
 #!/usr/bin/make -f
+%:
+	+dh $@
 
-# Uncomment this to turn on verbose mode.
-#export DH_VERBOSE=1
-
-PYVERS=$(shell pyversions -r debian/control)
-
-CFLAGS=-Wall -g
-
-ifneq (,$(filter noopt,$(DEB_BUILD_OPTIONS)))
-	CFLAGS += -O0
-else
-	CFLAGS += -O2
-endif
-
-build: build-stamp
-build-stamp:
-	dh_testdir
-	python setup.py build_py build_scripts
-	set -e ; for python in $(PYVERS); do CFLAGS="$(CFLAGS)" $$python setup.py build_ext build_clib; done
+override_dh_auto_build:
+	dh_auto_build
 	cp Doc/changes.txt build/NEWS
 	sed -f debian/stripinstall < Doc/install.txt > build/README
-	touch build-stamp
 
-clean:
-	dh_testdir
-	dh_testroot
-	rm -f build-stamp
-	rm -rf build
-	dh_clean
+override_dh_auto_clean:
+	rm -f build/NEWS build/README
+	dh_auto_clean
 
-install: build
-	dh_testdir
-	dh_testroot
-	dh_clean -k
-	dh_installdirs
-	set -e ; for python in $(PYVERS); do $$python setup.py install --install-data=/usr/share --no-compile --root=debian/fonttools; done
-	python setup.py install_scripts --force --install-dir=debian/fonttools/usr/bin
-	chmod a+x $(CURDIR)/debian/fonttools/usr/lib/python*/site-packages/FontTools/fontTools/ttx.py
+override_dh_pysupport:
+	rm -f debian/fonttools/usr/lib/python*/*-packages/FontTools/fontTools/misc/eexecOp.so
+	dh_pysupport
 
-binary-indep: build install
-binary-arch: build install
-	dh_testdir
-	dh_testroot
-	dh_installdocs
-	dh_installexamples
-	dh_installchangelogs Doc/ChangeLog.txt
-	dh_pycentral
-	dh_strip
-	dh_compress
-	dh_fixperms
-	dh_installdeb
-	dh_shlibdeps
-	dh_gencontrol
-	dh_md5sums
-	dh_builddeb
-
-binary: binary-indep binary-arch
-.PHONY: build clean binary-indep binary-arch binary install
+override_dh_installchangelogs:
+	dh_installchangelogs Doc/ChangeLog

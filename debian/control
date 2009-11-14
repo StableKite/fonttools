@@ -1,19 +1,29 @@
 Source: fonttools
-Section: text
+Section: fonts
 Priority: optional
 Maintainer: Paul Wise <pabs@debian.org>
-Build-Depends: debhelper (>= 5.0.37.2), python (>= 2.4), python-all, python-all-dev, python-central (>= 0.5), python-numpy
-Standards-Version: 3.8.0
-XS-Python-Version: all
+Build-Depends: debhelper (>= 7.0.50~), python (>= 2.4), python-all, python-all-dev, python-support, python-numpy
+Standards-Version: 3.8.3
 Homepage: http://sourceforge.net/projects/fonttools/
 
 Package: fonttools
-Architecture: any
-Depends: ${shlibs:Depends}, ${python:Depends}, python-numpy
-XB-Python-Version: ${python:Versions}
+Architecture: all
+Depends: ${misc:Depends}, ${python:Depends}, python-numpy
+Recommends: fonttools-eexecop (>= ${source:Version})
 Description: Converts OpenType and TrueType fonts to and from XML
  FontTools/TTX is a library to manipulate font files from Python.
  It supports reading and writing of TrueType/OpenType fonts, reading
  and writing of AFM files, reading (and partially writing) of PS Type 1
  fonts.  It also contains a tool called "TTX" which converts
  TrueType/OpenType fonts to and from an XML-based format.
+
+Package: fonttools-eexecop
+Architecture: any
+Enhances: fonttools
+Depends: ${misc:Depends}, ${shlibs:Depends}, ${python:Depends}
+Description: python extension to speed up fonttools
+ This is an optional C implementation of part of fonttools that speeds
+ up the eexec and charstring encryption algorithms as used by PostScript
+ Type 1 fonts. fonttools is much faster with it, it is quite small but
+ most people will be using fonttools with TrueType or OpenType fonts
+ so fonttools recommends it instead of depending on it.
