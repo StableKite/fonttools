@@ -396,7 +396,7 @@ class FontFamily:
 	
 	def _updatestylemappingtable(self):
 		# Update the glyphTableOffset field.
-		# This is neccesary since we have to build this table to 
+		# This is necessary since we have to build this table to 
 		# know what the glyphTableOffset will be.
 		# And we don't want to build it twice, do we?
 		data = self._rawstylemappingtable
@@ -472,8 +472,6 @@ def makeLWFNfilename(name):
 class BitmapFontFile:
 	
 	def __init__(self, path, mode='r'):
-		import macfs
-		
 		if mode == 'r':
 			permission = 1	# read only
 		elif mode == 'w':
@@ -481,8 +479,7 @@ class BitmapFontFile:
 		else:
 			raise error, 'mode should be either "r" or "w"'
 		self.mode = mode
-		fss = macfs.FSSpec(path)
-		self.resref = Res.FSpOpenResFile(fss, permission)
+		self.resref = Res.FSOpenResFile(path, permission)
 		Res.UseResFile(self.resref)
 		self.path = path
 		self.fonds = []

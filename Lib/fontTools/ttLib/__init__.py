@@ -64,7 +64,7 @@ class TTFont:
 	
 	"""The main font object. It manages file input and output, and offers
 	a convenient way of accessing tables. 
-	Tables will be only decompiled when neccesary, ie. when they're actually
+	Tables will be only decompiled when necessary, ie. when they're actually
 	accessed. This means that simple operations can be extremely fast.
 	"""
 	
@@ -178,9 +178,8 @@ class TTFont:
 			else:
 				file = open(file, "wb")
 				if os.name == "mac":
-					import macfs
-					fss = macfs.FSSpec(file.name)
-					fss.SetCreatorType('mdos', 'BINA')
+					from fontTools.misc.macCreator import setMacCreatorAndType
+					setMacCreatorAndType(file.name, 'mdos', 'BINA')
 		else:
 			# assume "file" is a writable file object
 			closeStream = 0

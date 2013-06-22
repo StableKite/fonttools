@@ -1,3 +1,17 @@
+fonttools (2.4-1) unstable; urgency=low
+
+  * New upstream release
+    - Fixes error in OS/2 table of mona.ttf (LP: #223884)
+  * Switch to dh_python2
+  * Switch to debhelper 9
+  * Bump Standards-Version, no changes needed
+  * Drop unneeded postinst
+  * Improve the watch file
+  * Adjust download location
+  * Add a file with upstream info
+
+ -- Paul Wise <pabs@debian.org>  Sat, 22 Jun 2013 23:48:19 +0800
+
 fonttools (2.3-1) unstable; urgency=low
 
   * New upstream release

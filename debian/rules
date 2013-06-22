@@ -1,19 +1,15 @@
 #!/usr/bin/make -f
 %:
-	+dh $@
+	+dh $@ --with python2
 
 override_dh_auto_build:
 	dh_auto_build
 	cp Doc/changes.txt build/NEWS
 	sed -f debian/stripinstall < Doc/install.txt > build/README
 
-override_dh_auto_clean:
-	rm -f build/NEWS build/README
-	dh_auto_clean
-
-override_dh_pysupport:
-	rm -f debian/fonttools/usr/lib/python*/*-packages/FontTools/fontTools/misc/eexecOp.so
-	dh_pysupport
+override_dh_install:
+	dh_install --package=fonttools --exclude=.so
+	dh_install --remaining-packages
 
 override_dh_installchangelogs:
 	dh_installchangelogs Doc/ChangeLog
