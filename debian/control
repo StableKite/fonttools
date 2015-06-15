@@ -1,15 +1,15 @@
 Source: fonttools
 Section: fonts
 Priority: optional
-Maintainer: Paul Wise <pabs@debian.org>
+Maintainer: Debian QA Group <packages@qa.debian.org>
 Build-Depends:
  debhelper (>= 9),
- python (>= 2.4),
- python-all,
- python-all-dev,
+ python (>= 2.6.6-3~),
+ python-all (>= 2.6.6-3~),
+ python-all-dev (>= 2.6.6-3~),
  python-numpy,
- python-support
-Standards-Version: 3.9.4
+ dh-python
+Standards-Version: 3.9.6
 Homepage: http://sourceforge.net/projects/fonttools/
 
 Package: fonttools
@@ -35,7 +35,7 @@ Depends:
  ${misc:Depends},
  ${python:Depends},
  ${shlibs:Depends}
-Description: python extension to speed up fonttools
+Description: Python extension to speed up fonttools
  This is an optional C implementation of part of fonttools that speeds
  up the eexec and charstring encryption algorithms as used by PostScript
  Type 1 fonts. fonttools is much faster with it, it is quite small but

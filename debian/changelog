@@ -1,3 +1,13 @@
+fonttools (2.4-2) unstable; urgency=medium
+
+  * QA upload.
+    - Set Maintainer to Debian QA Group.
+  * Remove obsolete python-support build-dependency (Closes: #786279).
+  * Move upstream metadata into its correct location.
+  * Bump Standards-Version to 3.9.6.
+
+ -- Luca Falavigna <dktrkranz@debian.org>  Mon, 15 Jun 2015 18:27:04 +0200
+
 fonttools (2.4-1) unstable; urgency=low
 
   * New upstream release
