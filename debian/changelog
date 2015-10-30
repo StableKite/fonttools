@@ -1,3 +1,14 @@
+fonttools (3.0-1) unstable; urgency=medium
+
+  * New upstream release
+  * Adopt package (closes: #764300)
+  * Remove fonttools-eexecop package; code dropped upstream
+  * Switch to pybuild
+  * Drop dependency on python-all-dev
+  * Update watch and copyright to point to GitHub
+
+ -- Luke Faraone <lfaraone@debian.org>  Fri, 30 Oct 2015 04:57:37 +0000
+
 fonttools (2.4-2) unstable; urgency=medium
 
   * QA upload.

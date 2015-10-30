@@ -1,15 +1,14 @@
 #!/usr/bin/make -f
 %:
-	+dh $@ --with python2
+	+dh $@ --with python2 --buildsystem=pybuild
 
 override_dh_auto_build:
-	dh_auto_build
+	dh_auto_build --buildsystem=pybuild
 	cp Doc/changes.txt build/NEWS
 	sed -f debian/stripinstall < Doc/install.txt > build/README
 
 override_dh_install:
-	dh_install --package=fonttools --exclude=.so
-	dh_install --remaining-packages
+	dh_install --package=fonttools
 
 override_dh_installchangelogs:
-	dh_installchangelogs Doc/ChangeLog
+	dh_installchangelogs Doc/changes.txt

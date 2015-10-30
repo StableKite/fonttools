@@ -1,7 +1,8 @@
-import DefaultTable
-import sstruct
+from __future__ import print_function, division, absolute_import
+from fontTools.misc.py23 import *
+from fontTools.misc import sstruct
 from fontTools.misc.textTools import safeEval
-
+from . import DefaultTable
 
 hheaFormat = """
 		>  # big endian
@@ -26,37 +27,51 @@ hheaFormat = """
 
 
 class table__h_h_e_a(DefaultTable.DefaultTable):
-	
+
+	# Note: Keep in sync with table__v_h_e_a
+
 	dependencies = ['hmtx', 'glyf']
-	
+
 	def decompile(self, data, ttFont):
 		sstruct.unpack(hheaFormat, data, self)
-	
+
 	def compile(self, ttFont):
 		if ttFont.isLoaded('glyf') and ttFont.recalcBBoxes:
 			self.recalc(ttFont)
 		return sstruct.pack(hheaFormat, self)
-	
+
 	def recalc(self, ttFont):
 		hmtxTable = ttFont['hmtx']
-		if ttFont.has_key('glyf'):
+		if 'glyf' in ttFont:
 			glyfTable = ttFont['glyf']
-			advanceWidthMax = -100000    # arbitrary big negative number
-			minLeftSideBearing = 100000  # arbitrary big number
-			minRightSideBearing = 100000 # arbitrary big number
-			xMaxExtent = -100000         # arbitrary big negative number
-			
+			INFINITY = 100000
+			advanceWidthMax = 0
+			minLeftSideBearing = +INFINITY  # arbitrary big number
+			minRightSideBearing = +INFINITY # arbitrary big number
+			xMaxExtent = -INFINITY          # arbitrary big negative number
+
 			for name in ttFont.getGlyphOrder():
 				width, lsb = hmtxTable[name]
-				g = glyfTable[name]
-				if g.numberOfContours <= 0:
-					continue
 				advanceWidthMax = max(advanceWidthMax, width)
+				g = glyfTable[name]
+				if g.numberOfContours == 0:
+					continue
+				if g.numberOfContours < 0 and not hasattr(g, "xMax"):
+					# Composite glyph without extents set.
+					# Calculate those.
+					g.recalcBounds(glyfTable)
 				minLeftSideBearing = min(minLeftSideBearing, lsb)
 				rsb = width - lsb - (g.xMax - g.xMin)
 				minRightSideBearing = min(minRightSideBearing, rsb)
 				extent = lsb + (g.xMax - g.xMin)
 				xMaxExtent = max(xMaxExtent, extent)
+
+			if xMaxExtent == -INFINITY:
+				# No glyph has outlines.
+				minLeftSideBearing = 0
+				minRightSideBearing = 0
+				xMaxExtent = 0
+
 			self.advanceWidthMax = advanceWidthMax
 			self.minLeftSideBearing = minLeftSideBearing
 			self.minRightSideBearing = minRightSideBearing
@@ -64,16 +79,13 @@ class table__h_h_e_a(DefaultTable.DefaultTable):
 		else:
 			# XXX CFF recalc...
 			pass
-	
+
 	def toXML(self, writer, ttFont):
 		formatstring, names, fixes = sstruct.getformat(hheaFormat)
 		for name in names:
 			value = getattr(self, name)
-			if type(value) == type(0L):
-				value = int(value)
 			writer.simpletag(name, value=value)
 			writer.newline()
-	
-	def fromXML(self, (name, attrs, content), ttFont):
-		setattr(self, name, safeEval(attrs["value"]))
 
+	def fromXML(self, name, attrs, content, ttFont):
+		setattr(self, name, safeEval(attrs["value"]))

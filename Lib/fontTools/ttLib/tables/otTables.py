@@ -4,51 +4,75 @@ OpenType subtables.
 Most are constructed upon import from data in otData.py, all are populated with
 converter objects from otConverters.py.
 """
+from __future__ import print_function, division, absolute_import
+from fontTools.misc.py23 import *
+from .otBase import BaseTable, FormatSwitchingBaseTable
 import operator
-from otBase import BaseTable, FormatSwitchingBaseTable
-from types import TupleType
-
-
-class LookupOrder(BaseTable):
-	"""Dummy class; this table isn't defined, but is used, and is always NULL."""
+import warnings
 
 
 class FeatureParams(BaseTable):
-	"""This class has been used by Adobe, but but this one implementation was done wrong.
-	No other use has been made, becuase there is no way to know how to interpret
-	the data at the offset.. For now, if we see one, just skip the data on
-	decompiling and dumping to XML. """
-	# XXX The above is no longer true; the 'size' feature uses FeatureParams now.
-	def __init__(self):
-		BaseTable.__init__(self)
-		self.converters = []
+
+	def compile(self, writer, font):
+		assert featureParamTypes.get(writer['FeatureTag']) == self.__class__, "Wrong FeatureParams type for feature '%s': %s" % (writer['FeatureTag'], self.__class__.__name__)
+		BaseTable.compile(self, writer, font)
+
+	def toXML(self, xmlWriter, font, attrs=None, name=None):
+		BaseTable.toXML(self, xmlWriter, font, attrs, name=self.__class__.__name__)
+
+class FeatureParamsSize(FeatureParams):
+	pass
+
+class FeatureParamsStylisticSet(FeatureParams):
+	pass
+
+class FeatureParamsCharacterVariants(FeatureParams):
+	pass
 
 class Coverage(FormatSwitchingBaseTable):
-	
+
 	# manual implementation to get rid of glyphID dependencies
-	
+
 	def postRead(self, rawTable, font):
 		if self.Format == 1:
+			# TODO only allow glyphs that are valid?
 			self.glyphs = rawTable["GlyphArray"]
 		elif self.Format == 2:
 			glyphs = self.glyphs = []
 			ranges = rawTable["RangeRecord"]
-			getGlyphName = font.getGlyphName
+			glyphOrder = font.getGlyphOrder()
+			# Some SIL fonts have coverage entries that don't have sorted
+			# StartCoverageIndex.  If it is so, fixup and warn.  We undo
+			# this when writing font out.
+			sorted_ranges = sorted(ranges, key=lambda a: a.StartCoverageIndex)
+			if ranges != sorted_ranges:
+				warnings.warn("GSUB/GPOS Coverage is not sorted by glyph ids.")
+				ranges = sorted_ranges
+			del sorted_ranges
 			for r in ranges:
 				assert r.StartCoverageIndex == len(glyphs), \
 					(r.StartCoverageIndex, len(glyphs))
 				start = r.Start
 				end = r.End
-				startID = font.getGlyphID(start)
-				endID = font.getGlyphID(end)
-				glyphs.append(start)
-				rangeList = [getGlyphName(glyphID) for glyphID in range(startID + 1, endID) ]
-				glyphs += rangeList
-				if start != end:
-					glyphs.append(end)
+				try:
+					startID = font.getGlyphID(start, requireReal=True)
+				except KeyError:
+					warnings.warn("Coverage table has start glyph ID out of range: %s." % start)
+					continue
+				try:
+					endID = font.getGlyphID(end, requireReal=True) + 1
+				except KeyError:
+					# Apparently some tools use 65535 to "match all" the range
+					if end != 'glyph65535':
+						warnings.warn("Coverage table has end glyph ID out of range: %s." % end)
+					# NOTE: We clobber out-of-range things here.  There are legit uses for those,
+					# but none that we have seen in the wild.
+					endID = len(glyphOrder)
+				glyphs.extend(glyphOrder[glyphID] for glyphID in range(startID, endID))
 		else:
 			assert 0, "unknown format: %s" % self.Format
-	
+		del self.Format # Don't need this anymore
+
 	def preWrite(self, font):
 		glyphs = getattr(self, "glyphs", None)
 		if glyphs is None:
@@ -59,7 +83,8 @@ class Coverage(FormatSwitchingBaseTable):
 		if glyphs:
 			# find out whether Format 2 is more compact or not
 			glyphIDs = [getGlyphID(glyphName) for glyphName in glyphs ]
-			
+			brokenOrder = sorted(glyphIDs) != glyphIDs
+
 			last = glyphIDs[0]
 			ranges = [[last]]
 			for glyphID in glyphIDs[1:]:
@@ -68,91 +93,43 @@ class Coverage(FormatSwitchingBaseTable):
 					ranges.append([glyphID])
 				last = glyphID
 			ranges[-1].append(last)
-			
-			if len(ranges) * 3 < len(glyphs):  # 3 words vs. 1 word
+
+			if brokenOrder or len(ranges) * 3 < len(glyphs):  # 3 words vs. 1 word
 				# Format 2 is more compact
 				index = 0
 				for i in range(len(ranges)):
 					start, end = ranges[i]
 					r = RangeRecord()
+					r.StartID = start
 					r.Start = font.getGlyphName(start)
 					r.End = font.getGlyphName(end)
 					r.StartCoverageIndex = index
 					ranges[i] = r
 					index = index + end - start + 1
+				if brokenOrder:
+					warnings.warn("GSUB/GPOS Coverage is not sorted by glyph ids.")
+					ranges.sort(key=lambda a: a.StartID)
+				for r in ranges:
+					del r.StartID
 				format = 2
 				rawTable = {"RangeRecord": ranges}
 			#else:
 			#	fallthrough; Format 1 is more compact
 		self.Format = format
 		return rawTable
-	
+
 	def toXML2(self, xmlWriter, font):
 		for glyphName in getattr(self, "glyphs", []):
 			xmlWriter.simpletag("Glyph", value=glyphName)
 			xmlWriter.newline()
-	
-	def fromXML(self, (name, attrs, content), font):
+
+	def fromXML(self, name, attrs, content, font):
 		glyphs = getattr(self, "glyphs", None)
 		if glyphs is None:
 			glyphs = []
 			self.glyphs = glyphs
 		glyphs.append(attrs["value"])
 
-
-class LookupList(BaseTable):
-	def preCompile(self):
-		""" This function is used to optimize writing out extension subtables. This is useful
-		when a font has been read in, modified, and we are now writing out a new version. If the
-		the extension subtables have not been touched (proof being that they have not been decompiled)
-		then we can write them out using the original data, and do not have to recompile them. This can save
-		20-30% of the compile time for fonts with large extension tables, such as Japanese Pro fonts."""
-
-		if hasattr(self, 'LookupCount'): #not defined if loading from xml
-			lookupCount = self.LookupCount
-		else:
-			return # The optimization of not recompiling extension lookup subtables is not possible
-					# when reading from XML.
- 
-		liRange = range(lookupCount)
-		extTables = []
-		for li in liRange:
-			lookup = self.Lookup[li]
-			if hasattr(lookup, 'SubTableCount'): #not defined if loading from xml
-				subtableCount = lookup.SubTableCount
-			else:
-				subtableCount = len(lookup.SubTable)
-			siRange = range(subtableCount)
-			for si in siRange:
-				subtable = lookup.SubTable[si]
-				if hasattr(subtable, 'ExtSubTable'):
-					extTable = subtable.ExtSubTable
-					extTables.append([extTable.start, extTable] )
-
-		# Since offsets in one subtable can and do point forward into later
-		# subtables, we can afford to simply copy data only for the last subtables 
-		# which were not decompiled. So we start figuring out the
-		# data segments starting with the last subtTable, and work our way towards
-		# the first subtable, and then quit as soon as we see a subtable that was decompiled.
-		if  extTables:
-			extTables.sort()
-			extTables.reverse()
-			lastTable = extTables[0][1]
-			if lastTable.compileStatus == 1:
-				lastTable.end = len(lastTable.reader.data)
-				lastTable.compileStatus = 3
-				for i in range(1, len(extTables)):
-					extTable = extTables[i][1]
-					if extTable.compileStatus != 1:
-						break
-					extTable.end = lastTable.start
-					extTable.compileStatus = 3
-					lastTable = extTable
-
-def doModulo(value):
-	if value < 0:
-		return value + 65536
-	return value
 
 class SingleSubst(FormatSwitchingBaseTable):
 
@@ -163,38 +140,36 @@ class SingleSubst(FormatSwitchingBaseTable):
 		if self.Format == 1:
 			delta = rawTable["DeltaGlyphID"]
 			inputGIDS =  [ font.getGlyphID(name) for name in input ]
-			inputGIDS = map(doModulo, inputGIDS) 
-			outGIDS = [ glyphID + delta for glyphID in inputGIDS ]
-			outGIDS = map(doModulo, outGIDS) 
+			outGIDS = [ (glyphID + delta) % 65536 for glyphID in inputGIDS ]
 			outNames = [ font.getGlyphName(glyphID) for glyphID in outGIDS ]
-			map(operator.setitem, [mapping]*lenMapping, input, outNames)
+			list(map(operator.setitem, [mapping]*lenMapping, input, outNames))
 		elif self.Format == 2:
 			assert len(input) == rawTable["GlyphCount"], \
 					"invalid SingleSubstFormat2 table"
 			subst = rawTable["Substitute"]
-			map(operator.setitem, [mapping]*lenMapping, input, subst)
+			list(map(operator.setitem, [mapping]*lenMapping, input, subst))
 		else:
 			assert 0, "unknown format: %s" % self.Format
 		self.mapping = mapping
-	
+		del self.Format # Don't need this anymore
+
 	def preWrite(self, font):
 		mapping = getattr(self, "mapping", None)
 		if mapping is None:
 			mapping = self.mapping = {}
-		items = mapping.items()
+		items = list(mapping.items())
 		getGlyphID = font.getGlyphID
-		gidItems = [(getGlyphID(item[0]), getGlyphID(item[1])) for item in items]
-		sortableItems = zip(gidItems, items)
-		sortableItems.sort()
+		gidItems = [(getGlyphID(a), getGlyphID(b)) for a,b in items]
+		sortableItems = sorted(zip(gidItems, items))
 
 		# figure out format
 		format = 2
 		delta = None
 		for inID, outID in gidItems:
 			if delta is None:
-				delta = outID - inID
-			else:
-				if delta != outID - inID:
+				delta = (outID - inID) % 65536
+
+			if (inID + delta) % 65536 != outID:
 					break
 		else:
 			format = 1
@@ -212,16 +187,15 @@ class SingleSubst(FormatSwitchingBaseTable):
 		else:
 			rawTable["Substitute"] = subst
 		return rawTable
-	
+
 	def toXML2(self, xmlWriter, font):
-		items = self.mapping.items()
-		items.sort()
+		items = sorted(self.mapping.items())
 		for inGlyph, outGlyph in items:
 			xmlWriter.simpletag("Substitution",
 					[("in", inGlyph), ("out", outGlyph)])
 			xmlWriter.newline()
-	
-	def fromXML(self, (name, attrs, content), font):
+
+	def fromXML(self, name, attrs, content, font):
 		mapping = getattr(self, "mapping", None)
 		if mapping is None:
 			mapping = {}
@@ -230,20 +204,28 @@ class SingleSubst(FormatSwitchingBaseTable):
 
 
 class ClassDef(FormatSwitchingBaseTable):
-	
+
 	def postRead(self, rawTable, font):
 		classDefs = {}
-		getGlyphName = font.getGlyphName
+		glyphOrder = font.getGlyphOrder()
 
 		if self.Format == 1:
 			start = rawTable["StartGlyph"]
 			classList = rawTable["ClassValueArray"]
-			lenList = len(classList)
-			glyphID = font.getGlyphID(start)
-			gidList = range(glyphID, glyphID + len(classList))
-			keyList = [getGlyphName(glyphID) for glyphID in gidList]
+			try:
+				startID = font.getGlyphID(start, requireReal=True)
+			except KeyError:
+				warnings.warn("ClassDef table has start glyph ID out of range: %s." % start)
+				startID = len(glyphOrder)
+			endID = startID + len(classList)
+			if endID > len(glyphOrder):
+				warnings.warn("ClassDef table has entries for out of range glyph IDs: %s,%s." % (start, len(classList)))
+				# NOTE: We clobber out-of-range things here.  There are legit uses for those,
+				# but none that we have seen in the wild.
+				endID = len(glyphOrder)
 
-			map(operator.setitem, [classDefs]*lenList, keyList, classList)
+			for glyphID, cls in zip(range(startID, endID), classList):
+				classDefs[glyphOrder[glyphID]] = cls
 
 		elif self.Format == 2:
 			records = rawTable["ClassRangeRecord"]
@@ -251,21 +233,34 @@ class ClassDef(FormatSwitchingBaseTable):
 				start = rec.Start
 				end = rec.End
 				cls = rec.Class
-				classDefs[start] = cls
-				glyphIDs = range(font.getGlyphID(start) + 1, font.getGlyphID(end))
-				lenList = len(glyphIDs)
-				keyList = [getGlyphName(glyphID) for glyphID in glyphIDs]
-				map(operator.setitem,  [classDefs]*lenList, keyList, [cls]*lenList)
-				classDefs[end] = cls
+				try:
+					startID = font.getGlyphID(start, requireReal=True)
+				except KeyError:
+					warnings.warn("ClassDef table has start glyph ID out of range: %s." % start)
+					continue
+				try:
+					endID = font.getGlyphID(end, requireReal=True) + 1
+				except KeyError:
+					# Apparently some tools use 65535 to "match all" the range
+					if end != 'glyph65535':
+						warnings.warn("ClassDef table has end glyph ID out of range: %s." % end)
+					# NOTE: We clobber out-of-range things here.  There are legit uses for those,
+					# but none that we have seen in the wild.
+					endID = len(glyphOrder)
+				for glyphID in range(startID, endID):
+					classDefs[glyphOrder[glyphID]] = cls
 		else:
 			assert 0, "unknown format: %s" % self.Format
 		self.classDefs = classDefs
-	
+		del self.Format # Don't need this anymore
+
 	def preWrite(self, font):
 		classDefs = getattr(self, "classDefs", None)
 		if classDefs is None:
 			classDefs = self.classDefs = {}
-		items = classDefs.items()
+		items = list(classDefs.items())
+		format = 2
+		rawTable = {"ClassRangeRecord": []}
 		getGlyphID = font.getGlyphID
 		for i in range(len(items)):
 			glyphName, cls = items[i]
@@ -273,34 +268,49 @@ class ClassDef(FormatSwitchingBaseTable):
 		items.sort()
 		if items:
 			last, lastName, lastCls = items[0]
-			rec = ClassRangeRecord()
-			rec.Start = lastName
-			rec.Class = lastCls
-			ranges = [rec]
+			ranges = [[lastCls, last, lastName]]
 			for glyphID, glyphName, cls in items[1:]:
 				if glyphID != last + 1 or cls != lastCls:
-					rec.End = lastName
-					rec = ClassRangeRecord()
-					rec.Start = glyphName
-					rec.Class = cls
-					ranges.append(rec)
+					ranges[-1].extend([last, lastName])
+					ranges.append([cls, glyphID, glyphName])
 				last = glyphID
 				lastName = glyphName
 				lastCls = cls
-			rec.End = lastName
-		else:
-			ranges = []
-		self.Format = 2  # currently no support for Format 1
-		return {"ClassRangeRecord": ranges}
-	
+			ranges[-1].extend([last, lastName])
+
+			startGlyph = ranges[0][1]
+			endGlyph = ranges[-1][3]
+			glyphCount = endGlyph - startGlyph + 1
+			if len(ranges) * 3 < glyphCount + 1:
+				# Format 2 is more compact
+				for i in range(len(ranges)):
+					cls, start, startName, end, endName = ranges[i]
+					rec = ClassRangeRecord()
+					rec.Start = startName
+					rec.End = endName
+					rec.Class = cls
+					ranges[i] = rec
+				format = 2
+				rawTable = {"ClassRangeRecord": ranges}
+			else:
+				# Format 1 is more compact
+				startGlyphName = ranges[0][2]
+				classes = [0] * glyphCount
+				for cls, start, startName, end, endName in ranges:
+					for g in range(start - startGlyph, end - startGlyph + 1):
+						classes[g] = cls
+				format = 1
+				rawTable = {"StartGlyph": startGlyphName, "ClassValueArray": classes}
+		self.Format = format
+		return rawTable
+
 	def toXML2(self, xmlWriter, font):
-		items = self.classDefs.items()
-		items.sort()
+		items = sorted(self.classDefs.items())
 		for glyphName, cls in items:
 			xmlWriter.simpletag("ClassDef", [("glyph", glyphName), ("class", cls)])
 			xmlWriter.newline()
-	
-	def fromXML(self, (name, attrs, content), font):
+
+	def fromXML(self, name, attrs, content, font):
 		classDefs = getattr(self, "classDefs", None)
 		if classDefs is None:
 			classDefs = {}
@@ -309,7 +319,7 @@ class ClassDef(FormatSwitchingBaseTable):
 
 
 class AlternateSubst(FormatSwitchingBaseTable):
-	
+
 	def postRead(self, rawTable, font):
 		alternates = {}
 		if self.Format == 1:
@@ -322,13 +332,14 @@ class AlternateSubst(FormatSwitchingBaseTable):
 		else:
 			assert 0, "unknown format: %s" % self.Format
 		self.alternates = alternates
-	
+		del self.Format # Don't need this anymore
+
 	def preWrite(self, font):
 		self.Format = 1
 		alternates = getattr(self, "alternates", None)
 		if alternates is None:
 			alternates = self.alternates = {}
-		items = alternates.items()
+		items = list(alternates.items())
 		for i in range(len(items)):
 			glyphName, set = items[i]
 			items[i] = font.getGlyphID(glyphName), glyphName, set
@@ -346,12 +357,11 @@ class AlternateSubst(FormatSwitchingBaseTable):
 		# Also useful in that when splitting a sub-table because of an offset overflow
 		# I don't need to calculate the change in the subtable offset due to the change in the coverage table size.
 		# Allows packing more rules in subtable.
-		self.sortCoverageLast = 1 
+		self.sortCoverageLast = 1
 		return {"Coverage": cov, "AlternateSet": alternates}
-	
+
 	def toXML2(self, xmlWriter, font):
-		items = self.alternates.items()
-		items.sort()
+		items = sorted(self.alternates.items())
 		for glyphName, alternates in items:
 			xmlWriter.begintag("AlternateSet", glyph=glyphName)
 			xmlWriter.newline()
@@ -360,8 +370,8 @@ class AlternateSubst(FormatSwitchingBaseTable):
 				xmlWriter.newline()
 			xmlWriter.endtag("AlternateSet")
 			xmlWriter.newline()
-	
-	def fromXML(self, (name, attrs, content), font):
+
+	def fromXML(self, name, attrs, content, font):
 		alternates = getattr(self, "alternates", None)
 		if alternates is None:
 			alternates = {}
@@ -370,18 +380,18 @@ class AlternateSubst(FormatSwitchingBaseTable):
 		set = []
 		alternates[glyphName] = set
 		for element in content:
-			if type(element) != TupleType:
+			if not isinstance(element, tuple):
 				continue
 			name, attrs, content = element
 			set.append(attrs["glyph"])
 
 
 class LigatureSubst(FormatSwitchingBaseTable):
-	
+
 	def postRead(self, rawTable, font):
 		ligatures = {}
 		if self.Format == 1:
-			input = rawTable["Coverage"].glyphs
+			input = _getGlyphsFromCoverageTable(rawTable["Coverage"])
 			ligSets = rawTable["LigatureSet"]
 			assert len(input) == len(ligSets)
 			for i in range(len(input)):
@@ -389,12 +399,14 @@ class LigatureSubst(FormatSwitchingBaseTable):
 		else:
 			assert 0, "unknown format: %s" % self.Format
 		self.ligatures = ligatures
-	
+		del self.Format # Don't need this anymore
+
 	def preWrite(self, font):
+		self.Format = 1
 		ligatures = getattr(self, "ligatures", None)
 		if ligatures is None:
 			ligatures = self.ligatures = {}
-		items = ligatures.items()
+		items = list(ligatures.items())
 		for i in range(len(items)):
 			glyphName, set = items[i]
 			items[i] = font.getGlyphID(glyphName), glyphName, set
@@ -413,12 +425,11 @@ class LigatureSubst(FormatSwitchingBaseTable):
 		# Useful in that when splitting a sub-table because of an offset overflow
 		# I don't need to calculate the change in subtabl offset due to the coverage table size.
 		# Allows packing more rules in subtable.
-		self.sortCoverageLast = 1 
+		self.sortCoverageLast = 1
 		return {"Coverage": cov, "LigatureSet": ligSets}
-	
+
 	def toXML2(self, xmlWriter, font):
-		items = self.ligatures.items()
-		items.sort()
+		items = sorted(self.ligatures.items())
 		for glyphName, ligSets in items:
 			xmlWriter.begintag("LigatureSet", glyph=glyphName)
 			xmlWriter.newline()
@@ -428,8 +439,8 @@ class LigatureSubst(FormatSwitchingBaseTable):
 				xmlWriter.newline()
 			xmlWriter.endtag("LigatureSet")
 			xmlWriter.newline()
-	
-	def fromXML(self, (name, attrs, content), font):
+
+	def fromXML(self, name, attrs, content, font):
 		ligatures = getattr(self, "ligatures", None)
 		if ligatures is None:
 			ligatures = {}
@@ -438,12 +449,13 @@ class LigatureSubst(FormatSwitchingBaseTable):
 		ligs = []
 		ligatures[glyphName] = ligs
 		for element in content:
-			if type(element) != TupleType:
+			if not isinstance(element, tuple):
 				continue
 			name, attrs, content = element
 			lig = Ligature()
 			lig.LigGlyph = attrs["glyph"]
-			lig.Component = attrs["components"].split(",")
+			components = attrs["components"]
+			lig.Component = components.split(",") if components else []
 			ligs.append(lig)
 
 
@@ -459,7 +471,8 @@ _equivalents = {
 	'LangSys': ('DefaultLangSys',),
 	'Coverage': ('MarkCoverage', 'BaseCoverage', 'LigatureCoverage', 'Mark1Coverage',
 			'Mark2Coverage', 'BacktrackCoverage', 'InputCoverage',
-			'LookAheadCoverage'),
+			'LookAheadCoverage', 'VertGlyphCoverage', 'HorizGlyphCoverage',
+			'TopAccentCoverage', 'ExtendedShapeCoverage', 'MathKernCoverage'),
 	'ClassDef': ('ClassDef1', 'ClassDef2', 'BacktrackClassDef', 'InputClassDef',
 			'LookAheadClassDef', 'GlyphClassDef', 'MarkAttachClassDef'),
 	'Anchor': ('EntryAnchor', 'ExitAnchor', 'BaseAnchor', 'LigatureAnchor',
@@ -475,6 +488,9 @@ _equivalents = {
 	'JstfGPOSModList': ('ShrinkageEnableGPOS', 'ShrinkageDisableGPOS', 'ExtensionEnableGPOS',
 			'ExtensionDisableGPOS',),
 	'JstfMax': ('ShrinkageJstfMax', 'ExtensionJstfMax',),
+	'MathKern': ('TopRightMathKern', 'TopLeftMathKern', 'BottomRightMathKern',
+			'BottomLeftMathKern'),
+	'MathGlyphConstruction': ('VertGlyphConstruction', 'HorizGlyphConstruction'),
 }
 
 #
@@ -484,7 +500,7 @@ _equivalents = {
 
 def fixLookupOverFlows(ttf, overflowRecord):
 	""" Either the offset from the LookupList to a lookup overflowed, or
-	an offset from a lookup to a subtable overflowed. 
+	an offset from a lookup to a subtable overflowed.
 	The table layout is:
 	GPSO/GUSB
 		Script List
@@ -501,14 +517,14 @@ def fixLookupOverFlows(ttf, overflowRecord):
 					SubTable[0] and contents
 					...
 					SubTable[n] and contents
-	If the offset to a lookup overflowed (SubTableIndex == None)
+	If the offset to a lookup overflowed (SubTableIndex is None)
 		we must promote the *previous*	lookup to an Extension type.
-	If the offset from a lookup to subtable overflowed, then we must promote it 
+	If the offset from a lookup to subtable overflowed, then we must promote it
 		to an Extension Lookup type.
 	"""
 	ok = 0
 	lookupIndex = overflowRecord.LookupListIndex
-	if (overflowRecord.SubTableIndex == None):
+	if (overflowRecord.SubTableIndex is None):
 		lookupIndex = lookupIndex - 1
 	if lookupIndex < 0:
 		return ok
@@ -520,21 +536,19 @@ def fixLookupOverFlows(ttf, overflowRecord):
 	lookups = ttf[overflowRecord.tableType].table.LookupList.Lookup
 	lookup = lookups[lookupIndex]
 	# If the previous lookup is an extType, look further back. Very unlikely, but possible.
-	while lookup.LookupType == extType:
+	while lookup.SubTable[0].__class__.LookupType == extType:
 		lookupIndex = lookupIndex -1
 		if lookupIndex < 0:
 			return ok
 		lookup = lookups[lookupIndex]
-		
+
 	for si in range(len(lookup.SubTable)):
 		subTable = lookup.SubTable[si]
 		extSubTableClass = lookupTypes[overflowRecord.tableType][extType]
 		extSubTable = extSubTableClass()
 		extSubTable.Format = 1
-		extSubTable.ExtensionLookupType = lookup.LookupType
 		extSubTable.ExtSubTable = subTable
 		lookup.SubTable[si] = extSubTable
-	lookup.LookupType = extType
 	ok = 1
 	return ok
 
@@ -543,21 +557,20 @@ def splitAlternateSubst(oldSubTable, newSubTable, overflowRecord):
 	newSubTable.Format = oldSubTable.Format
 	if hasattr(oldSubTable, 'sortCoverageLast'):
 		newSubTable.sortCoverageLast = oldSubTable.sortCoverageLast
-	
-	oldAlts = oldSubTable.alternates.items()
-	oldAlts.sort()
+
+	oldAlts = sorted(oldSubTable.alternates.items())
 	oldLen = len(oldAlts)
 
 	if overflowRecord.itemName in [ 'Coverage', 'RangeRecord']:
 		# Coverage table is written last. overflow is to or within the
 		# the coverage table. We will just cut the subtable in half.
-		newLen = int(oldLen/2)
+		newLen = oldLen//2
 
 	elif overflowRecord.itemName == 'AlternateSet':
-		# We just need to back up by two items 
+		# We just need to back up by two items
 		# from the overflowed AlternateSet index to make sure the offset
 		# to the Coverage table doesn't overflow.
-		newLen  = overflowRecord.itemIndex - 1
+		newLen = overflowRecord.itemIndex - 1
 
 	newSubTable.alternates = {}
 	for i in range(newLen, oldLen):
@@ -566,27 +579,25 @@ def splitAlternateSubst(oldSubTable, newSubTable, overflowRecord):
 		newSubTable.alternates[key] = item[1]
 		del oldSubTable.alternates[key]
 
-
 	return ok
 
 
 def splitLigatureSubst(oldSubTable, newSubTable, overflowRecord):
 	ok = 1
 	newSubTable.Format = oldSubTable.Format
-	oldLigs = oldSubTable.ligatures.items()
-	oldLigs.sort()
+	oldLigs = sorted(oldSubTable.ligatures.items())
 	oldLen = len(oldLigs)
 
 	if overflowRecord.itemName in [ 'Coverage', 'RangeRecord']:
 		# Coverage table is written last. overflow is to or within the
 		# the coverage table. We will just cut the subtable in half.
-		newLen = int(oldLen/2)
+		newLen = oldLen//2
 
 	elif overflowRecord.itemName == 'LigatureSet':
-		# We just need to back up by two items 
+		# We just need to back up by two items
 		# from the overflowed AlternateSet index to make sure the offset
 		# to the Coverage table doesn't overflow.
-		newLen  = overflowRecord.itemIndex - 1
+		newLen = overflowRecord.itemIndex - 1
 
 	newSubTable.ligatures = {}
 	for i in range(newLen, oldLen):
@@ -623,7 +634,7 @@ splitTable = {	'GSUB': {
 			}
 
 def fixSubTableOverFlows(ttf, overflowRecord):
-	""" 
+	"""
 	An offset has overflowed within a sub-table. We need to divide this subtable into smaller parts.
 	"""
 	ok = 0
@@ -636,20 +647,19 @@ def fixSubTableOverFlows(ttf, overflowRecord):
 		# We split the subtable of the Extension table, and add a new Extension table
 		# to contain the new subtable.
 
-		subTableType = subtable.ExtensionLookupType
+		subTableType = subtable.ExtSubTable.__class__.LookupType
 		extSubTable = subtable
 		subtable = extSubTable.ExtSubTable
-		newExtSubTableClass = lookupTypes[overflowRecord.tableType][lookup.LookupType]
+		newExtSubTableClass = lookupTypes[overflowRecord.tableType][subtable.__class__.LookupType]
 		newExtSubTable = newExtSubTableClass()
 		newExtSubTable.Format = extSubTable.Format
-		newExtSubTable.ExtensionLookupType = extSubTable.ExtensionLookupType
 		lookup.SubTable.insert(subIndex + 1, newExtSubTable)
 
 		newSubTableClass = lookupTypes[overflowRecord.tableType][subTableType]
 		newSubTable = newSubTableClass()
 		newExtSubTable.ExtSubTable = newSubTable
 	else:
-		subTableType = lookup.LookupType
+		subTableType = subtable.__class__.LookupType
 		newSubTableClass = lookupTypes[overflowRecord.tableType][subTableType]
 		newSubTable = newSubTableClass()
 		lookup.SubTable.insert(subIndex + 1, newSubTable)
@@ -669,12 +679,12 @@ def fixSubTableOverFlows(ttf, overflowRecord):
 
 
 def _buildClasses():
-	import new, re
-	from otData import otData
-	
+	import re
+	from .otData import otData
+
 	formatPat = re.compile("([A-Za-z0-9]+)Format(\d+)$")
 	namespace = globals()
-	
+
 	# populate module with classes
 	for name, table in otData:
 		baseClass = BaseTable
@@ -683,16 +693,16 @@ def _buildClasses():
 			# XxxFormatN subtable, we only add the "base" table
 			name = m.group(1)
 			baseClass = FormatSwitchingBaseTable
-		if not namespace.has_key(name):
+		if name not in namespace:
 			# the class doesn't exist yet, so the base implementation is used.
-			cls = new.classobj(name, (baseClass,), {})
+			cls = type(name, (baseClass,), {})
 			namespace[name] = cls
-	
+
 	for base, alts in _equivalents.items():
 		base = namespace[base]
 		for alt in alts:
-			namespace[alt] = new.classobj(alt, (base,), {})
-	
+			namespace[alt] = type(alt, (base,), {})
+
 	global lookupTypes
 	lookupTypes = {
 		'GSUB': {
@@ -721,9 +731,18 @@ def _buildClasses():
 	for lookupEnum in lookupTypes.values():
 		for enum, cls in lookupEnum.items():
 			cls.LookupType = enum
-	
+
+	global featureParamTypes
+	featureParamTypes = {
+		'size': FeatureParamsSize,
+	}
+	for i in range(1, 20+1):
+		featureParamTypes['ss%02d' % i] = FeatureParamsStylisticSet
+	for i in range(1, 99+1):
+		featureParamTypes['cv%02d' % i] = FeatureParamsCharacterVariants
+
 	# add converters to classes
-	from otConverters import buildConverters
+	from .otConverters import buildConverters
 	for name, table in otData:
 		m = formatPat.match(name)
 		if m:
@@ -737,9 +756,11 @@ def _buildClasses():
 			converters, convertersByName = buildConverters(table[1:], namespace)
 			cls.converters[format] = converters
 			cls.convertersByName[format] = convertersByName
+			# XXX Add staticSize?
 		else:
 			cls = namespace[name]
 			cls.converters, cls.convertersByName = buildConverters(table, namespace)
+			# XXX Add staticSize?
 
 
 _buildClasses()

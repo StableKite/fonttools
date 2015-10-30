@@ -2,18 +2,23 @@ This package was debianized by Anthony Fok <foka@debian.org> on
 Mon, 16 Sep 2002 01:26:10 +0800.
 This package was adopted by Paul Wise <pabs@debian.org> on
 Fri, 07 Oct 2005 12:27:52 +0800
+This package was adopted by Luke Faraone <lfaraone@debian.org> on
+Fri, 30 Oct 2015 04:57:37 +0000
 
 Downloaded from:
 
-  http://sourceforge.net/p/fonttools/files/
+  https://github.com/behdad/fonttools/
 
 Author:
 
-  Just van Rossum <just@letterror.com>
+  Just van Rossum <just@letterror.com> et al
 
 Copyright:
 
   Copyright 1996-2004 Just van Rossum
+  Copyright (c) 2000 BeOpen.com. All Rights Reserved.
+  Copyright (c) 1995-2001 Corporation for National Research Initiatives. All Rights Reserved.
+  Copyright (c) 1991-1995 Stichting Mathematisch Centrum, Amsterdam. All Rights Reserved.
 
 Licence:
 

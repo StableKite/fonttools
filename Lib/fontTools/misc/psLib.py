@@ -1,10 +1,10 @@
-import re
-import types
-from string import whitespace
-import StringIO
-
+from __future__ import print_function, division, absolute_import
+from fontTools.misc.py23 import *
 from fontTools.misc import eexec
-from psOperators import *
+from .psOperators import *
+import re
+import collections
+from string import whitespace
 
 
 ps_special = '()<>[]{}%'	# / is one too, but we take care of that one differently
@@ -38,18 +38,18 @@ class PSTokenError(Exception): pass
 class PSError(Exception): pass
 
 
-class PSTokenizer(StringIO.StringIO):
-	
-	def getnexttoken(self, 
+class PSTokenizer(BytesIO):
+
+	def getnexttoken(self,
 			# localize some stuff, for performance
 			len=len,
 			ps_special=ps_special,
 			stringmatch=stringRE.match,
 			hexstringmatch=hexstringRE.match,
 			commentmatch=commentRE.match,
-			endmatch=endofthingRE.match, 
+			endmatch=endofthingRE.match,
 			whitematch=skipwhiteRE.match):
-		
+
 		_, nextpos = whitematch(self.buf, self.pos).span()
 		self.pos = nextpos
 		if self.pos >= self.len:
@@ -69,18 +69,18 @@ class PSTokenizer(StringIO.StringIO):
 				tokentype = 'do_string'
 				m = stringmatch(buf, pos)
 				if m is None:
-					raise PSTokenError, 'bad string at character %d' % pos
+					raise PSTokenError('bad string at character %d' % pos)
 				_, nextpos = m.span()
 				token = buf[pos:nextpos]
 			elif char == '<':
 				tokentype = 'do_hexstring'
 				m = hexstringmatch(buf, pos)
 				if m is None:
-					raise PSTokenError, 'bad hexstring at character %d' % pos
+					raise PSTokenError('bad hexstring at character %d' % pos)
 				_, nextpos = m.span()
 				token = buf[pos:nextpos]
 			else:
-				raise PSTokenError, 'bad token at character %d' % pos
+				raise PSTokenError('bad token at character %d' % pos)
 		else:
 			if char == '/':
 				tokentype = 'do_literal'
@@ -89,16 +89,16 @@ class PSTokenizer(StringIO.StringIO):
 				tokentype = ''
 				m = endmatch(buf, pos)
 			if m is None:
-				raise PSTokenError, 'bad token at character %d' % pos
+				raise PSTokenError('bad token at character %d' % pos)
 			_, nextpos = m.span()
 			token = buf[pos:nextpos]
 		self.pos = pos + len(token)
 		return tokentype, token
-	
+
 	def skipwhite(self, whitematch=skipwhiteRE.match):
 		_, nextpos = whitematch(self.buf, self.pos).span()
 		self.pos = nextpos
-	
+
 	def starteexec(self):
 		self.pos = self.pos + 1
 		#self.skipwhite()
@@ -106,13 +106,13 @@ class PSTokenizer(StringIO.StringIO):
 		self.buf, R = eexec.decrypt(self.dirtybuf, 55665)
 		self.len = len(self.buf)
 		self.pos = 4
-	
+
 	def stopeexec(self):
 		if not hasattr(self, 'dirtybuf'):
 			return
 		self.buf = self.dirtybuf
 		del self.dirtybuf
-	
+
 	def flush(self):
 		if self.buflist:
 			self.buf = self.buf + "".join(self.buflist)
@@ -120,7 +120,7 @@ class PSTokenizer(StringIO.StringIO):
 
 
 class PSInterpreter(PSOperators):
-	
+
 	def __init__(self):
 		systemdict = {}
 		userdict = {}
@@ -129,7 +129,7 @@ class PSInterpreter(PSOperators):
 		self.proclevel = 0
 		self.procmark = ps_procmark()
 		self.fillsystemdict()
-	
+
 	def fillsystemdict(self):
 		systemdict = self.dictstack[0]
 		systemdict['['] = systemdict['mark'] = self.mark = ps_mark()
@@ -139,17 +139,17 @@ class PSInterpreter(PSOperators):
 		systemdict['StandardEncoding'] = ps_array(ps_StandardEncoding)
 		systemdict['FontDirectory'] = ps_dict({})
 		self.suckoperators(systemdict, self.__class__)
-	
+
 	def suckoperators(self, systemdict, klass):
 		for name in dir(klass):
 			attr = getattr(self, name)
-			if callable(attr) and name[:3] == 'ps_':
+			if isinstance(attr, collections.Callable) and name[:3] == 'ps_':
 				name = name[3:]
 				systemdict[name] = ps_operator(name, attr)
 		for baseclass in klass.__bases__:
 			self.suckoperators(systemdict, baseclass)
-	
-	def interpret(self, data, getattr = getattr):
+
+	def interpret(self, data, getattr=getattr):
 		tokenizer = self.tokenizer = PSTokenizer(data)
 		getnexttoken = tokenizer.getnexttoken
 		do_token = self.do_token
@@ -172,15 +172,15 @@ class PSInterpreter(PSOperators):
 		finally:
 			if self.tokenizer is not None:
 				if 0:
-					print 'ps error:\n- - - - - - -'
-					print self.tokenizer.buf[self.tokenizer.pos-50:self.tokenizer.pos]
-					print '>>>'
-					print self.tokenizer.buf[self.tokenizer.pos:self.tokenizer.pos+50]
-					print '- - - - - - -'
-	
+					print('ps error:\n- - - - - - -')
+					print(self.tokenizer.buf[self.tokenizer.pos-50:self.tokenizer.pos])
+					print('>>>')
+					print(self.tokenizer.buf[self.tokenizer.pos:self.tokenizer.pos+50])
+					print('- - - - - - -')
+
 	def handle_object(self, object):
 		if not (self.proclevel or object.literal or object.type == 'proceduretype'):
-			if object.type <> 'operatortype':
+			if object.type != 'operatortype':
 				object = self.resolve_name(object.value)
 			if object.literal:
 				self.push(object)
@@ -191,21 +191,21 @@ class PSInterpreter(PSOperators):
 					object.function()
 		else:
 			self.push(object)
-	
+
 	def call_procedure(self, proc):
 		handle_object = self.handle_object
 		for item in proc.value:
 			handle_object(item)
-	
+
 	def resolve_name(self, name):
 		dictstack = self.dictstack
 		for i in range(len(dictstack)-1, -1, -1):
-			if dictstack[i].has_key(name):
+			if name in dictstack[i]:
 				return dictstack[i][name]
-		raise PSError, 'name error: ' + str(name)
-	
+		raise PSError('name error: ' + str(name))
+
 	def do_token(self, token,
-				int=int, 
+				int=int,
 				float=float,
 				ps_name=ps_name,
 				ps_integer=ps_integer,
@@ -231,16 +231,16 @@ class PSInterpreter(PSOperators):
 				return ps_real(num)
 		else:
 			return ps_integer(num)
-	
+
 	def do_comment(self, token):
 		pass
-	
+
 	def do_literal(self, token):
 		return ps_literal(token[1:])
-	
+
 	def do_string(self, token):
 		return ps_string(token[1:-1])
-	
+
 	def do_hexstring(self, token):
 		hexStr = "".join(token[1:-1].split())
 		if len(hexStr) % 2:
@@ -250,7 +250,7 @@ class PSInterpreter(PSOperators):
 			cleanstr.append(chr(int(hexStr[i:i+2], 16)))
 		cleanstr = "".join(cleanstr)
 		return ps_string(cleanstr)
-	
+
 	def do_special(self, token):
 		if token == '{':
 			self.proclevel = self.proclevel + 1
@@ -270,22 +270,22 @@ class PSInterpreter(PSOperators):
 		elif token == ']':
 			return ps_name(']')
 		else:
-			raise PSTokenError, 'huh?'
-	
+			raise PSTokenError('huh?')
+
 	def push(self, object):
 		self.stack.append(object)
-	
+
 	def pop(self, *types):
 		stack = self.stack
 		if not stack:
-			raise PSError, 'stack underflow'
+			raise PSError('stack underflow')
 		object = stack[-1]
 		if types:
 			if object.type not in types:
-				raise PSError, 'typecheck, expected %s, found %s' % (`types`, object.type)
+				raise PSError('typecheck, expected %s, found %s' % (repr(types), object.type))
 		del stack[-1]
 		return object
-	
+
 	def do_makearray(self):
 		array = []
 		while 1:
@@ -295,7 +295,7 @@ class PSInterpreter(PSOperators):
 			array.append(topobject)
 		array.reverse()
 		self.push(ps_array(array))
-	
+
 	def close(self):
 		"""Remove circular references."""
 		del self.stack
@@ -304,11 +304,11 @@ class PSInterpreter(PSOperators):
 
 def unpack_item(item):
 	tp = type(item.value)
-	if tp == types.DictionaryType:
+	if tp == dict:
 		newitem = {}
 		for key, value in item.value.items():
 			newitem[key] = unpack_item(value)
-	elif tp == types.ListType:
+	elif tp == list:
 		newitem = [None] * len(item.value)
 		for i in range(len(item.value)):
 			newitem[i] = unpack_item(item.value[i])
@@ -319,21 +319,20 @@ def unpack_item(item):
 	return newitem
 
 def suckfont(data):
-	import re
-	m = re.search(r"/FontName\s+/([^ \t\n\r]+)\s+def", data)
+	m = re.search(br"/FontName\s+/([^ \t\n\r]+)\s+def", data)
 	if m:
 		fontName = m.group(1)
 	else:
 		fontName = None
 	interpreter = PSInterpreter()
-	interpreter.interpret("/Helvetica 4 dict dup /Encoding StandardEncoding put definefont pop")
+	interpreter.interpret(b"/Helvetica 4 dict dup /Encoding StandardEncoding put definefont pop")
 	interpreter.interpret(data)
 	fontdir = interpreter.dictstack[0]['FontDirectory'].value
-	if fontdir.has_key(fontName):
+	if fontName in fontdir:
 		rawfont = fontdir[fontName]
 	else:
 		# fall back, in case fontName wasn't found
-		fontNames = fontdir.keys()
+		fontNames = list(fontdir.keys())
 		if len(fontNames) > 1:
 			fontNames.remove("Helvetica")
 		fontNames.sort()
