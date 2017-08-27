@@ -3,12 +3,15 @@ fonttools (3.15.1-1) UNRELEASED; urgency=medium
   * Team upload.
   * New upstream release 
   * debian/control
+    - set debhelper (>= 10)
     - adjust python build dependency
     - add python-sphinx since upstream use rst files.
     - set Debian Fonts Task Force as Maintainer
     - set Standards-Version to 4.1.0
     - update Homepage:
     - add Vcs-*
+  * debian/compat
+    - set 10
   * debian/rules
     - simplify it
     - deal with upstream's change (remove doc files)
