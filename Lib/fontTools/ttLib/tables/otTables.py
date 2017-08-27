@@ -6,9 +6,13 @@ converter objects from otConverters.py.
 """
 from __future__ import print_function, division, absolute_import
 from fontTools.misc.py23 import *
+from fontTools.misc.textTools import safeEval
 from .otBase import BaseTable, FormatSwitchingBaseTable
 import operator
-import warnings
+import logging
+
+
+log = logging.getLogger(__name__)
 
 
 class FeatureParams(BaseTable):
@@ -33,6 +37,10 @@ class Coverage(FormatSwitchingBaseTable):
 
 	# manual implementation to get rid of glyphID dependencies
 
+	def populateDefaults(self, propagator=None):
+		if not hasattr(self, 'glyphs'):
+			self.glyphs = []
+
 	def postRead(self, rawTable, font):
 		if self.Format == 1:
 			# TODO only allow glyphs that are valid?
@@ -46,7 +54,7 @@ class Coverage(FormatSwitchingBaseTable):
 			# this when writing font out.
 			sorted_ranges = sorted(ranges, key=lambda a: a.StartCoverageIndex)
 			if ranges != sorted_ranges:
-				warnings.warn("GSUB/GPOS Coverage is not sorted by glyph ids.")
+				log.warning("GSUB/GPOS Coverage is not sorted by glyph ids.")
 				ranges = sorted_ranges
 			del sorted_ranges
 			for r in ranges:
@@ -57,21 +65,20 @@ class Coverage(FormatSwitchingBaseTable):
 				try:
 					startID = font.getGlyphID(start, requireReal=True)
 				except KeyError:
-					warnings.warn("Coverage table has start glyph ID out of range: %s." % start)
+					log.warning("Coverage table has start glyph ID out of range: %s.", start)
 					continue
 				try:
 					endID = font.getGlyphID(end, requireReal=True) + 1
 				except KeyError:
 					# Apparently some tools use 65535 to "match all" the range
 					if end != 'glyph65535':
-						warnings.warn("Coverage table has end glyph ID out of range: %s." % end)
+						log.warning("Coverage table has end glyph ID out of range: %s.", end)
 					# NOTE: We clobber out-of-range things here.  There are legit uses for those,
 					# but none that we have seen in the wild.
 					endID = len(glyphOrder)
 				glyphs.extend(glyphOrder[glyphID] for glyphID in range(startID, endID))
 		else:
 			assert 0, "unknown format: %s" % self.Format
-		del self.Format # Don't need this anymore
 
 	def preWrite(self, font):
 		glyphs = getattr(self, "glyphs", None)
@@ -107,7 +114,7 @@ class Coverage(FormatSwitchingBaseTable):
 					ranges[i] = r
 					index = index + end - start + 1
 				if brokenOrder:
-					warnings.warn("GSUB/GPOS Coverage is not sorted by glyph ids.")
+					log.warning("GSUB/GPOS Coverage is not sorted by glyph ids.")
 					ranges.sort(key=lambda a: a.StartID)
 				for r in ranges:
 					del r.StartID
@@ -131,7 +138,78 @@ class Coverage(FormatSwitchingBaseTable):
 		glyphs.append(attrs["value"])
 
 
+class VarIdxMap(BaseTable):
+
+	def populateDefaults(self, propagator=None):
+		if not hasattr(self, 'mapping'):
+			self.mapping = []
+
+	def postRead(self, rawTable, font):
+		assert (rawTable['EntryFormat'] & 0xFFC0) == 0
+		self.mapping = rawTable['mapping']
+
+	def preWrite(self, font):
+		mapping = getattr(self, "mapping", None)
+		if mapping is None:
+			mapping = self.mapping = []
+		rawTable = { 'mapping': mapping }
+		rawTable['MappingCount'] = len(mapping)
+
+		# TODO Remove this abstraction/optimization and move it varLib.builder?
+
+		ored = 0
+		for idx in mapping:
+			ored |= idx
+
+		inner = ored & 0xFFFF
+		innerBits = 0
+		while inner:
+			innerBits += 1
+			inner >>= 1
+		innerBits = max(innerBits, 1)
+		assert innerBits <= 16
+
+		ored = (ored >> (16-innerBits)) | (ored & ((1<<innerBits)-1))
+		if   ored <= 0x000000FF:
+			entrySize = 1
+		elif ored <= 0x0000FFFF:
+			entrySize = 2
+		elif ored <= 0x00FFFFFF:
+			entrySize = 3
+		else:
+			entrySize = 4
+
+		entryFormat = ((entrySize - 1) << 4) | (innerBits - 1)
+
+		rawTable['EntryFormat'] = entryFormat
+		return rawTable
+
+	def toXML2(self, xmlWriter, font):
+		for i, value in enumerate(getattr(self, "mapping", [])):
+			attrs = (
+				('index', i),
+				('outer', value >> 16),
+				('inner', value & 0xFFFF),
+			)
+			xmlWriter.simpletag("Map", attrs)
+			xmlWriter.newline()
+
+	def fromXML(self, name, attrs, content, font):
+		mapping = getattr(self, "mapping", None)
+		if mapping is None:
+			mapping = []
+			self.mapping = mapping
+		outer = safeEval(attrs['outer'])
+		inner = safeEval(attrs['inner'])
+		assert inner <= 0xFFFF
+		mapping.append((outer << 16) | inner)
+
+
 class SingleSubst(FormatSwitchingBaseTable):
+
+	def populateDefaults(self, propagator=None):
+		if not hasattr(self, 'mapping'):
+			self.mapping = {}
 
 	def postRead(self, rawTable, font):
 		mapping = {}
@@ -151,7 +229,6 @@ class SingleSubst(FormatSwitchingBaseTable):
 		else:
 			assert 0, "unknown format: %s" % self.Format
 		self.mapping = mapping
-		del self.Format # Don't need this anymore
 
 	def preWrite(self, font):
 		mapping = getattr(self, "mapping", None)
@@ -172,7 +249,11 @@ class SingleSubst(FormatSwitchingBaseTable):
 			if (inID + delta) % 65536 != outID:
 					break
 		else:
-			format = 1
+			if delta is None:
+				# the mapping is empty, better use format 2
+				format = 2
+			else:
+				format = 1
 
 		rawTable = {}
 		self.Format = format
@@ -203,7 +284,88 @@ class SingleSubst(FormatSwitchingBaseTable):
 		mapping[attrs["in"]] = attrs["out"]
 
 
+class MultipleSubst(FormatSwitchingBaseTable):
+
+	def populateDefaults(self, propagator=None):
+		if not hasattr(self, 'mapping'):
+			self.mapping = {}
+
+	def postRead(self, rawTable, font):
+		mapping = {}
+		if self.Format == 1:
+			glyphs = _getGlyphsFromCoverageTable(rawTable["Coverage"])
+			subst = [s.Substitute for s in rawTable["Sequence"]]
+			mapping = dict(zip(glyphs, subst))
+		else:
+			assert 0, "unknown format: %s" % self.Format
+		self.mapping = mapping
+
+	def preWrite(self, font):
+		mapping = getattr(self, "mapping", None)
+		if mapping is None:
+			mapping = self.mapping = {}
+		cov = Coverage()
+		cov.glyphs = sorted(list(mapping.keys()), key=font.getGlyphID)
+		self.Format = 1
+		rawTable = {
+                        "Coverage": cov,
+                        "Sequence": [self.makeSequence_(mapping[glyph])
+                                     for glyph in cov.glyphs],
+                }
+		return rawTable
+
+	def toXML2(self, xmlWriter, font):
+		items = sorted(self.mapping.items())
+		for inGlyph, outGlyphs in items:
+			out = ",".join(outGlyphs)
+			xmlWriter.simpletag("Substitution",
+					[("in", inGlyph), ("out", out)])
+			xmlWriter.newline()
+
+	def fromXML(self, name, attrs, content, font):
+		mapping = getattr(self, "mapping", None)
+		if mapping is None:
+			mapping = {}
+			self.mapping = mapping
+
+		# TTX v3.0 and earlier.
+		if name == "Coverage":
+			self.old_coverage_ = []
+			for element in content:
+				if not isinstance(element, tuple):
+					continue
+				element_name, element_attrs, _ = element
+				if element_name == "Glyph":
+					self.old_coverage_.append(element_attrs["value"])
+			return
+		if name == "Sequence":
+			index = int(attrs.get("index", len(mapping)))
+			glyph = self.old_coverage_[index]
+			glyph_mapping = mapping[glyph] = []
+			for element in content:
+				if not isinstance(element, tuple):
+					continue
+				element_name, element_attrs, _ = element
+				if element_name == "Substitute":
+					glyph_mapping.append(element_attrs["value"])
+			return
+
+                # TTX v3.1 and later.
+		outGlyphs = attrs["out"].split(",") if attrs["out"] else []
+		mapping[attrs["in"]] = [g.strip() for g in outGlyphs]
+
+	@staticmethod
+	def makeSequence_(g):
+		seq = Sequence()
+		seq.Substitute = g
+		return seq
+
+
 class ClassDef(FormatSwitchingBaseTable):
+
+	def populateDefaults(self, propagator=None):
+		if not hasattr(self, 'classDefs'):
+			self.classDefs = {}
 
 	def postRead(self, rawTable, font):
 		classDefs = {}
@@ -215,17 +377,19 @@ class ClassDef(FormatSwitchingBaseTable):
 			try:
 				startID = font.getGlyphID(start, requireReal=True)
 			except KeyError:
-				warnings.warn("ClassDef table has start glyph ID out of range: %s." % start)
+				log.warning("ClassDef table has start glyph ID out of range: %s.", start)
 				startID = len(glyphOrder)
 			endID = startID + len(classList)
 			if endID > len(glyphOrder):
-				warnings.warn("ClassDef table has entries for out of range glyph IDs: %s,%s." % (start, len(classList)))
+				log.warning("ClassDef table has entries for out of range glyph IDs: %s,%s.",
+					start, len(classList))
 				# NOTE: We clobber out-of-range things here.  There are legit uses for those,
 				# but none that we have seen in the wild.
 				endID = len(glyphOrder)
 
 			for glyphID, cls in zip(range(startID, endID), classList):
-				classDefs[glyphOrder[glyphID]] = cls
+				if cls:
+					classDefs[glyphOrder[glyphID]] = cls
 
 		elif self.Format == 2:
 			records = rawTable["ClassRangeRecord"]
@@ -236,37 +400,37 @@ class ClassDef(FormatSwitchingBaseTable):
 				try:
 					startID = font.getGlyphID(start, requireReal=True)
 				except KeyError:
-					warnings.warn("ClassDef table has start glyph ID out of range: %s." % start)
+					log.warning("ClassDef table has start glyph ID out of range: %s.", start)
 					continue
 				try:
 					endID = font.getGlyphID(end, requireReal=True) + 1
 				except KeyError:
 					# Apparently some tools use 65535 to "match all" the range
 					if end != 'glyph65535':
-						warnings.warn("ClassDef table has end glyph ID out of range: %s." % end)
+						log.warning("ClassDef table has end glyph ID out of range: %s.", end)
 					# NOTE: We clobber out-of-range things here.  There are legit uses for those,
 					# but none that we have seen in the wild.
 					endID = len(glyphOrder)
 				for glyphID in range(startID, endID):
-					classDefs[glyphOrder[glyphID]] = cls
+					if cls:
+						classDefs[glyphOrder[glyphID]] = cls
 		else:
 			assert 0, "unknown format: %s" % self.Format
 		self.classDefs = classDefs
-		del self.Format # Don't need this anymore
 
-	def preWrite(self, font):
+	def _getClassRanges(self, font):
 		classDefs = getattr(self, "classDefs", None)
 		if classDefs is None:
-			classDefs = self.classDefs = {}
-		items = list(classDefs.items())
-		format = 2
-		rawTable = {"ClassRangeRecord": []}
+			self.classDefs = {}
+			return
 		getGlyphID = font.getGlyphID
-		for i in range(len(items)):
-			glyphName, cls = items[i]
-			items[i] = getGlyphID(glyphName), glyphName, cls
-		items.sort()
+		items = []
+		for glyphName, cls in classDefs.items():
+			if not cls:
+				continue
+			items.append((getGlyphID(glyphName), glyphName, cls))
 		if items:
+			items.sort()
 			last, lastName, lastCls = items[0]
 			ranges = [[lastCls, last, lastName]]
 			for glyphID, glyphName, cls in items[1:]:
@@ -277,7 +441,13 @@ class ClassDef(FormatSwitchingBaseTable):
 				lastName = glyphName
 				lastCls = cls
 			ranges[-1].extend([last, lastName])
+			return ranges
 
+	def preWrite(self, font):
+		format = 2
+		rawTable = {"ClassRangeRecord": []}
+		ranges = self._getClassRanges(font)
+		if ranges:
 			startGlyph = ranges[0][1]
 			endGlyph = ranges[-1][3]
 			glyphCount = endGlyph - startGlyph + 1
@@ -320,19 +490,21 @@ class ClassDef(FormatSwitchingBaseTable):
 
 class AlternateSubst(FormatSwitchingBaseTable):
 
+	def populateDefaults(self, propagator=None):
+		if not hasattr(self, 'alternates'):
+			self.alternates = {}
+
 	def postRead(self, rawTable, font):
 		alternates = {}
 		if self.Format == 1:
 			input = _getGlyphsFromCoverageTable(rawTable["Coverage"])
 			alts = rawTable["AlternateSet"]
-			if len(input) != len(alts):
-				assert len(input) == len(alts)
-			for i in range(len(input)):
-				alternates[input[i]] = alts[i].Alternate
+			assert len(input) == len(alts)
+			for inp,alt in zip(input,alts):
+				alternates[inp] = alt.Alternate
 		else:
 			assert 0, "unknown format: %s" % self.Format
 		self.alternates = alternates
-		del self.Format # Don't need this anymore
 
 	def preWrite(self, font):
 		self.Format = 1
@@ -348,7 +520,7 @@ class AlternateSubst(FormatSwitchingBaseTable):
 		cov.glyphs = [ item[1] for item in items]
 		alternates = []
 		setList = [ item[-1] for item in items]
-		for  set in setList:
+		for set in setList:
 			alts = AlternateSet()
 			alts.Alternate = set
 			alternates.append(alts)
@@ -388,6 +560,10 @@ class AlternateSubst(FormatSwitchingBaseTable):
 
 class LigatureSubst(FormatSwitchingBaseTable):
 
+	def populateDefaults(self, propagator=None):
+		if not hasattr(self, 'ligatures'):
+			self.ligatures = {}
+
 	def postRead(self, rawTable, font):
 		ligatures = {}
 		if self.Format == 1:
@@ -399,13 +575,27 @@ class LigatureSubst(FormatSwitchingBaseTable):
 		else:
 			assert 0, "unknown format: %s" % self.Format
 		self.ligatures = ligatures
-		del self.Format # Don't need this anymore
 
 	def preWrite(self, font):
 		self.Format = 1
 		ligatures = getattr(self, "ligatures", None)
 		if ligatures is None:
 			ligatures = self.ligatures = {}
+
+		if ligatures and isinstance(next(iter(ligatures)), tuple):
+			# New high-level API in v3.1 and later.  Note that we just support compiling this
+			# for now.  We don't load to this API, and don't do XML with it.
+
+			# ligatures is map from components-sequence to lig-glyph
+			newLigatures = dict()
+			for comps,lig in sorted(ligatures.items(), key=lambda item: (-len(item[0]), item[0])):
+				ligature = Ligature()
+				ligature.Component = comps[1:]
+				ligature.CompCount = len(comps)
+				ligature.LigGlyph = lig
+				newLigatures.setdefault(comps[0], []).append(ligature)
+			ligatures = newLigatures
+
 		items = list(ligatures.items())
 		for i in range(len(items)):
 			glyphName, set = items[i]
@@ -542,6 +732,7 @@ def fixLookupOverFlows(ttf, overflowRecord):
 			return ok
 		lookup = lookups[lookupIndex]
 
+	lookup.LookupType = extType
 	for si in range(len(lookup.SubTable)):
 		subTable = lookup.SubTable[si]
 		extSubTableClass = lookupTypes[overflowRecord.tableType][extType]
@@ -609,6 +800,73 @@ def splitLigatureSubst(oldSubTable, newSubTable, overflowRecord):
 	return ok
 
 
+def splitPairPos(oldSubTable, newSubTable, overflowRecord):
+	st = oldSubTable
+	ok = False
+	newSubTable.Format = oldSubTable.Format
+	if oldSubTable.Format == 1 and len(oldSubTable.PairSet) > 1:
+		for name in 'ValueFormat1', 'ValueFormat2':
+			setattr(newSubTable, name, getattr(oldSubTable, name))
+
+		# Move top half of coverage to new subtable
+
+		newSubTable.Coverage = oldSubTable.Coverage.__class__()
+
+		coverage = oldSubTable.Coverage.glyphs
+		records = oldSubTable.PairSet
+
+		oldCount = len(oldSubTable.PairSet) // 2
+
+		oldSubTable.Coverage.glyphs = coverage[:oldCount]
+		oldSubTable.PairSet = records[:oldCount]
+
+		newSubTable.Coverage.glyphs = coverage[oldCount:]
+		newSubTable.PairSet = records[oldCount:]
+
+		oldSubTable.PairSetCount = len(oldSubTable.PairSet)
+		newSubTable.PairSetCount = len(newSubTable.PairSet)
+
+		ok = True
+
+	elif oldSubTable.Format == 2 and len(oldSubTable.Class1Record) > 1:
+		if not hasattr(oldSubTable, 'Class2Count'):
+			oldSubTable.Class2Count = len(oldSubTable.Class1Record[0].Class2Record)
+		for name in 'Class2Count', 'ClassDef2', 'ValueFormat1', 'ValueFormat2':
+			setattr(newSubTable, name, getattr(oldSubTable, name))
+
+		# The two subtables will still have the same ClassDef2 and the table
+		# sharing will still cause the sharing to overflow.  As such, disable
+		# sharing on the one that is serialized second (that's oldSubTable).
+		oldSubTable.DontShare = True
+
+		# Move top half of class numbers to new subtable
+
+		newSubTable.Coverage = oldSubTable.Coverage.__class__()
+		newSubTable.ClassDef1 = oldSubTable.ClassDef1.__class__()
+
+		coverage = oldSubTable.Coverage.glyphs
+		classDefs = oldSubTable.ClassDef1.classDefs
+		records = oldSubTable.Class1Record
+
+		oldCount = len(oldSubTable.Class1Record) // 2
+		newGlyphs = set(k for k,v in classDefs.items() if v >= oldCount)
+
+		oldSubTable.Coverage.glyphs = [g for g in coverage if g not in newGlyphs]
+		oldSubTable.ClassDef1.classDefs = {k:v for k,v in classDefs.items() if v < oldCount}
+		oldSubTable.Class1Record = records[:oldCount]
+
+		newSubTable.Coverage.glyphs = [g for g in coverage if g in newGlyphs]
+		newSubTable.ClassDef1.classDefs = {k:(v-oldCount) for k,v in classDefs.items() if v > oldCount}
+		newSubTable.Class1Record = records[oldCount:]
+
+		oldSubTable.Class1Count = len(oldSubTable.Class1Record)
+		newSubTable.Class1Count = len(newSubTable.Class1Record)
+
+		ok = True
+
+	return ok
+
+
 splitTable = {	'GSUB': {
 #					1: splitSingleSubst,
 #					2: splitMultipleSubst,
@@ -621,7 +879,7 @@ splitTable = {	'GSUB': {
 					},
 				'GPOS': {
 #					1: splitSinglePos,
-#					2: splitPairPos,
+					2: splitPairPos,
 #					3: splitCursivePos,
 #					4: splitMarkBasePos,
 #					5: splitMarkLigPos,
@@ -643,6 +901,11 @@ def fixSubTableOverFlows(ttf, overflowRecord):
 	subIndex = overflowRecord.SubTableIndex
 	subtable = lookup.SubTable[subIndex]
 
+	# First, try not sharing anything for this subtable...
+	if not hasattr(subtable, "DontShare"):
+		subtable.DontShare = True
+		return True
+
 	if hasattr(subtable, 'ExtSubTable'):
 		# We split the subtable of the Extension table, and add a new Extension table
 		# to contain the new subtable.
@@ -650,7 +913,7 @@ def fixSubTableOverFlows(ttf, overflowRecord):
 		subTableType = subtable.ExtSubTable.__class__.LookupType
 		extSubTable = subtable
 		subtable = extSubTable.ExtSubTable
-		newExtSubTableClass = lookupTypes[overflowRecord.tableType][subtable.__class__.LookupType]
+		newExtSubTableClass = lookupTypes[overflowRecord.tableType][extSubTable.__class__.LookupType]
 		newExtSubTable = newExtSubTableClass()
 		newExtSubTable.Format = extSubTable.Format
 		lookup.SubTable.insert(subIndex + 1, newExtSubTable)
@@ -696,12 +959,14 @@ def _buildClasses():
 		if name not in namespace:
 			# the class doesn't exist yet, so the base implementation is used.
 			cls = type(name, (baseClass,), {})
+			if name in ('GSUB', 'GPOS'):
+				cls.DontShare = True
 			namespace[name] = cls
 
 	for base, alts in _equivalents.items():
 		base = namespace[base]
 		for alt in alts:
-			namespace[alt] = type(alt, (base,), {})
+			namespace[alt] = base
 
 	global lookupTypes
 	lookupTypes = {
@@ -725,6 +990,14 @@ def _buildClasses():
 			7: ContextPos,
 			8: ChainContextPos,
 			9: ExtensionPos,
+		},
+		'morx': {
+			0: RearrangementMorph,
+			1: ContextualMorph,
+			2: LigatureMorph,
+			# 3: Reserved,
+			4: NoncontextualMorph,
+			5: InsertionMorph,
 		},
 	}
 	lookupTypes['JSTF'] = lookupTypes['GPOS']  # JSTF contains GPOS

@@ -1,25 +1,14 @@
 from __future__ import print_function, division, absolute_import
 from __future__ import unicode_literals
-import codecs
+from fontTools.misc.py23 import *
+from fontTools.feaLib.error import FeatureLibError
+import re
 import os
-
-
-class LexerError(Exception):
-    def __init__(self, message, location):
-        Exception.__init__(self, message)
-        self.location = location
-
-    def __str__(self):
-        message = Exception.__str__(self)
-        if self.location:
-            path, line, column = self.location
-            return "%s:%d:%d: %s" % (path, line, column, message)
-        else:
-            return message
 
 
 class Lexer(object):
     NUMBER = "NUMBER"
+    FLOAT = "FLOAT"
     STRING = "STRING"
     NAME = "NAME"
     FILENAME = "FILENAME"
@@ -28,15 +17,18 @@ class Lexer(object):
     SYMBOL = "SYMBOL"
     COMMENT = "COMMENT"
     NEWLINE = "NEWLINE"
+    ANONYMOUS_BLOCK = "ANONYMOUS_BLOCK"
 
     CHAR_WHITESPACE_ = " \t"
     CHAR_NEWLINE_ = "\r\n"
-    CHAR_SYMBOL_ = ";:-+'{}[]<>()="
+    CHAR_SYMBOL_ = ",;:-+'{}[]<>()="
     CHAR_DIGIT_ = "0123456789"
     CHAR_HEXDIGIT_ = "0123456789ABCDEFabcdef"
     CHAR_LETTER_ = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-    CHAR_NAME_START_ = CHAR_LETTER_ + "_.\\"
-    CHAR_NAME_CONTINUATION_ = CHAR_LETTER_ + CHAR_DIGIT_ + "_."
+    CHAR_NAME_START_ = CHAR_LETTER_ + "_+*:.^~!\\"
+    CHAR_NAME_CONTINUATION_ = CHAR_LETTER_ + CHAR_DIGIT_ + "_.+*:^~!/-"
+
+    RE_GLYPHCLASS = re.compile(r"^[A-Za-z_0-9.]+$")
 
     MODE_NORMAL_ = "NORMAL"
     MODE_FILENAME_ = "FILENAME"
@@ -59,13 +51,16 @@ class Lexer(object):
     def __next__(self):  # Python 3
         while True:
             token_type, token, location = self.next_()
-            if token_type not in {Lexer.COMMENT, Lexer.NEWLINE}:
+            if token_type != Lexer.NEWLINE:
                 return (token_type, token, location)
+
+    def location_(self):
+        column = self.pos_ - self.line_start_ + 1
+        return (self.filename_, self.line_, column)
 
     def next_(self):
         self.scan_over_(Lexer.CHAR_WHITESPACE_)
-        column = self.pos_ - self.line_start_ + 1
-        location = (self.filename_, self.line_, column)
+        location = self.location_()
         start = self.pos_
         text = self.text_
         limit = len(text)
@@ -90,11 +85,13 @@ class Lexer(object):
 
         if self.mode_ is Lexer.MODE_FILENAME_:
             if cur_char != "(":
-                raise LexerError("Expected '(' before file name", location)
+                raise FeatureLibError("Expected '(' before file name",
+                                      location)
             self.scan_until_(")")
             cur_char = text[self.pos_] if self.pos_ < limit else None
             if cur_char != ")":
-                raise LexerError("Expected ')' after file name", location)
+                raise FeatureLibError("Expected ')' after file name",
+                                      location)
             self.pos_ += 1
             self.mode_ = Lexer.MODE_NORMAL_
             return (Lexer.FILENAME, text[start + 1:self.pos_ - 1], location)
@@ -108,11 +105,15 @@ class Lexer(object):
             self.scan_over_(Lexer.CHAR_NAME_CONTINUATION_)
             glyphclass = text[start + 1:self.pos_]
             if len(glyphclass) < 1:
-                raise LexerError("Expected glyph class name", location)
-            if len(glyphclass) > 30:
-                raise LexerError(
-                    "Glyph class names must not be longer than 30 characters",
+                raise FeatureLibError("Expected glyph class name", location)
+            if len(glyphclass) > 63:
+                raise FeatureLibError(
+                    "Glyph class names must not be longer than 63 characters",
                     location)
+            if not Lexer.RE_GLYPHCLASS.match(glyphclass):
+                raise FeatureLibError(
+                    "Glyph class names must consist of letters, digits, "
+                    "underscore, or period", location)
             return (Lexer.GLYPHCLASS, glyphclass, location)
         if cur_char in Lexer.CHAR_NAME_START_:
             self.pos_ += 1
@@ -127,23 +128,35 @@ class Lexer(object):
             return (Lexer.NUMBER, int(text[start:self.pos_], 16), location)
         if cur_char in Lexer.CHAR_DIGIT_:
             self.scan_over_(Lexer.CHAR_DIGIT_)
-            return (Lexer.NUMBER, int(text[start:self.pos_], 10), location)
+            if self.pos_ >= limit or text[self.pos_] != ".":
+                return (Lexer.NUMBER, int(text[start:self.pos_], 10), location)
+            self.scan_over_(".")
+            self.scan_over_(Lexer.CHAR_DIGIT_)
+            return (Lexer.FLOAT, float(text[start:self.pos_]), location)
         if cur_char == "-" and next_char in Lexer.CHAR_DIGIT_:
             self.pos_ += 1
             self.scan_over_(Lexer.CHAR_DIGIT_)
-            return (Lexer.NUMBER, int(text[start:self.pos_], 10), location)
+            if self.pos_ >= limit or text[self.pos_] != ".":
+                return (Lexer.NUMBER, int(text[start:self.pos_], 10), location)
+            self.scan_over_(".")
+            self.scan_over_(Lexer.CHAR_DIGIT_)
+            return (Lexer.FLOAT, float(text[start:self.pos_]), location)
         if cur_char in Lexer.CHAR_SYMBOL_:
             self.pos_ += 1
             return (Lexer.SYMBOL, cur_char, location)
         if cur_char == '"':
             self.pos_ += 1
-            self.scan_until_('"\r\n')
+            self.scan_until_('"')
             if self.pos_ < self.text_length_ and self.text_[self.pos_] == '"':
                 self.pos_ += 1
-                return (Lexer.STRING, text[start + 1:self.pos_ - 1], location)
+                # strip newlines embedded within a string
+                string = re.sub("[\r\n]", "", text[start + 1:self.pos_ - 1])
+                return (Lexer.STRING, string, location)
             else:
-                raise LexerError("Expected '\"' to terminate string", location)
-        raise LexerError("Unexpected character: '%s'" % cur_char, location)
+                raise FeatureLibError("Expected '\"' to terminate string",
+                                      location)
+        raise FeatureLibError("Unexpected character: %r" % cur_char,
+                              location)
 
     def scan_over_(self, valid):
         p = self.pos_
@@ -157,10 +170,25 @@ class Lexer(object):
             p += 1
         self.pos_ = p
 
+    def scan_anonymous_block(self, tag):
+        location = self.location_()
+        tag = tag.strip()
+        self.scan_until_(Lexer.CHAR_NEWLINE_)
+        self.scan_over_(Lexer.CHAR_NEWLINE_)
+        regexp = r'}\s*' + tag + r'\s*;'
+        split = re.split(regexp, self.text_[self.pos_:], maxsplit=1)
+        if len(split) != 2:
+            raise FeatureLibError(
+                "Expected '} %s;' to terminate anonymous block" % tag,
+                location)
+        self.pos_ += len(split[0])
+        return (Lexer.ANONYMOUS_BLOCK, split[0], location)
+
 
 class IncludingLexer(object):
-    def __init__(self, filename):
-        self.lexers_ = [self.make_lexer_(filename, (filename, 0, 0))]
+    def __init__(self, featurefile):
+        self.lexers_ = [self.make_lexer_(featurefile)]
+        self.featurefilepath = self.lexers_[0].filename_
 
     def __iter__(self):
         return self
@@ -172,22 +200,22 @@ class IncludingLexer(object):
         while self.lexers_:
             lexer = self.lexers_[-1]
             try:
-                token_type, token, location = lexer.next()
+                token_type, token, location = next(lexer)
             except StopIteration:
                 self.lexers_.pop()
                 continue
             if token_type is Lexer.NAME and token == "include":
                 fname_type, fname_token, fname_location = lexer.next()
                 if fname_type is not Lexer.FILENAME:
-                    raise LexerError("Expected file name", fname_location)
-                semi_type, semi_token, semi_location = lexer.next()
-                if semi_type is not Lexer.SYMBOL or semi_token != ";":
-                    raise LexerError("Expected ';'", semi_location)
-                curpath, _ = os.path.split(lexer.filename_)
+                    raise FeatureLibError("Expected file name", fname_location)
+                #semi_type, semi_token, semi_location = lexer.next()
+                #if semi_type is not Lexer.SYMBOL or semi_token != ";":
+                #    raise FeatureLibError("Expected ';'", semi_location)
+                curpath = os.path.dirname(self.featurefilepath)
                 path = os.path.join(curpath, fname_token)
                 if len(self.lexers_) >= 5:
-                    raise LexerError("Too many recursive includes",
-                                     fname_location)
+                    raise FeatureLibError("Too many recursive includes",
+                                          fname_location)
                 self.lexers_.append(self.make_lexer_(path, fname_location))
                 continue
             else:
@@ -195,9 +223,20 @@ class IncludingLexer(object):
         raise StopIteration()
 
     @staticmethod
-    def make_lexer_(filename, location):
-        try:
-            with codecs.open(filename, "rb", "utf-8") as f:
-                return Lexer(f.read(), filename)
-        except IOError as err:
-            raise LexerError(str(err), location)
+    def make_lexer_(file_or_path, location=None):
+        if hasattr(file_or_path, "read"):
+            fileobj, closing = file_or_path, False
+        else:
+            filename, closing = file_or_path, True
+            try:
+                fileobj = open(filename, "r", encoding="utf-8")
+            except IOError as err:
+                raise FeatureLibError(str(err), location)
+        data = fileobj.read()
+        filename = fileobj.name if hasattr(fileobj, "name") else "<features>"
+        if closing:
+            fileobj.close()
+        return Lexer(data, filename)
+
+    def scan_anonymous_block(self, tag):
+        return self.lexers_[-1].scan_anonymous_block(tag)

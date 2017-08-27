@@ -16,15 +16,6 @@ META_HEADER_FORMAT = """
     numDataMaps: L
 """
 
-# According to Apple's spec, the dataMaps entries contain a dataOffset
-# that is documented as "Offset from the beginning of the data section
-# to the data for this tag". However, this is *not* the case with
-# the fonts that Apple ships pre-installed on MacOS X Yosemite 10.10.4,
-# and it also does not reflect how Apple's ftxdumperfuser tool is parsing
-# the 'meta' table (tested ftxdumperfuser build 330, FontToolbox.framework
-# build 187). Instead of what is claimed in the spec, the data maps contain
-# a dataOffset relative to the very beginning of the 'meta' table.
-# The dataOffset field of the 'meta' header apparently gets ignored.
 
 DATA_MAP_FORMAT = """
     > # big endian
@@ -35,7 +26,7 @@ DATA_MAP_FORMAT = """
 
 
 class table__m_e_t_a(DefaultTable.DefaultTable):
-    def __init__(self, tag="meta"):
+    def __init__(self, tag=None):
         DefaultTable.DefaultTable.__init__(self, tag)
         self.data = {}
 
@@ -54,6 +45,8 @@ class table__m_e_t_a(DefaultTable.DefaultTable):
             tag = dataMap["tag"]
             offset = dataMap["dataOffset"]
             self.data[tag] = data[offset : offset + dataMap["dataLength"]]
+            if tag in ["dlng", "slng"]:
+                self.data[tag] = self.data[tag].decode("utf-8")
 
     def compile(self, ttFont):
         keys = sorted(self.data.keys())
@@ -68,7 +61,10 @@ class table__m_e_t_a(DefaultTable.DefaultTable):
         dataMaps = []
         dataBlocks = []
         for tag in keys:
-            data = self.data[tag]
+            if tag in ["dlng", "slng"]:
+                data = self.data[tag].encode("utf-8")
+            else:
+                data = self.data[tag]
             dataMaps.append(sstruct.pack(DATA_MAP_FORMAT, {
                 "tag": tag,
                 "dataOffset": dataOffset,
@@ -80,14 +76,24 @@ class table__m_e_t_a(DefaultTable.DefaultTable):
 
     def toXML(self, writer, ttFont, progress=None):
         for tag in sorted(self.data.keys()):
-            writer.begintag("hexdata", tag=tag)
-            writer.newline()
-            writer.dumphex(self.data[tag])
-            writer.endtag("hexdata")
-            writer.newline()
+            if tag in ["dlng", "slng"]:
+                writer.begintag("text", tag=tag)
+                writer.newline()
+                writer.write(self.data[tag])
+                writer.newline()
+                writer.endtag("text")
+                writer.newline()
+            else:
+                writer.begintag("hexdata", tag=tag)
+                writer.newline()
+                writer.dumphex(self.data[tag])
+                writer.endtag("hexdata")
+                writer.newline()
 
     def fromXML(self, name, attrs, content, ttFont):
         if name == "hexdata":
             self.data[attrs["tag"]] = readHex(content)
+        elif name == "text" and attrs["tag"] in ["dlng", "slng"]:
+            self.data[attrs["tag"]] = strjoin(content).strip()
         else:
             raise TTLibError("can't handle '%s' element" % name)

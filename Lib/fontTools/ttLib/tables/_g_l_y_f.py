@@ -1,6 +1,7 @@
 """_g_l_y_f.py -- Converter classes for the 'glyf' table."""
 
 from __future__ import print_function, division, absolute_import
+from collections import namedtuple
 from fontTools.misc.py23 import *
 from fontTools.misc import sstruct
 from fontTools import ttLib
@@ -8,12 +9,16 @@ from fontTools.misc.textTools import safeEval, pad
 from fontTools.misc.arrayTools import calcBounds, calcIntBounds, pointInRect
 from fontTools.misc.bezierTools import calcQuadraticBounds
 from fontTools.misc.fixedTools import fixedToFloat as fi2fl, floatToFixed as fl2fi
+from numbers import Number
 from . import DefaultTable
 from . import ttProgram
 import sys
 import struct
 import array
-import warnings
+import logging
+
+
+log = logging.getLogger(__name__)
 
 #
 # The Apple and MS rasterizers behave differently for
@@ -29,6 +34,12 @@ SCALE_COMPONENT_OFFSET_DEFAULT = 0   # 0 == MS, 1 == Apple
 
 
 class table__g_l_y_f(DefaultTable.DefaultTable):
+
+	# this attribute controls the amount of padding applied to glyph data upon compile.
+	# Glyph lenghts are aligned to multiples of the specified value. 
+	# Allowed values are (0, 1, 2, 4). '0' means no padding; '1' (default) also means
+	# no padding, except for when padding would allow to use short loca offsets.
+	padding = 1
 
 	def decompile(self, data, ttFont):
 		loca = ttFont['loca']
@@ -50,10 +61,11 @@ class table__g_l_y_f(DefaultTable.DefaultTable):
 			self.glyphs[glyphName] = glyph
 			last = next
 		if len(data) - next >= 4:
-			warnings.warn("too much 'glyf' table data: expected %d, received %d bytes" %
-					(next, len(data)))
+			log.warning(
+				"too much 'glyf' table data: expected %d, received %d bytes",
+				next, len(data))
 		if noname:
-			warnings.warn('%s glyphs have no name' % noname)
+			log.warning('%s glyphs have no name', noname)
 		if ttFont.lazy is False: # Be lazy for None and True
 			for glyph in self.glyphs.values():
 				glyph.expand(self)
@@ -61,7 +73,8 @@ class table__g_l_y_f(DefaultTable.DefaultTable):
 	def compile(self, ttFont):
 		if not hasattr(self, "glyphOrder"):
 			self.glyphOrder = ttFont.getGlyphOrder()
-		padding = self.padding if hasattr(self, 'padding') else None
+		padding = self.padding
+		assert padding in (0, 1, 2, 4)
 		locations = []
 		currentLocation = 0
 		dataList = []
@@ -69,14 +82,14 @@ class table__g_l_y_f(DefaultTable.DefaultTable):
 		for glyphName in self.glyphOrder:
 			glyph = self.glyphs[glyphName]
 			glyphData = glyph.compile(self, recalcBBoxes)
-			if padding:
+			if padding > 1:
 				glyphData = pad(glyphData, size=padding)
 			locations.append(currentLocation)
 			currentLocation = currentLocation + len(glyphData)
 			dataList.append(glyphData)
 		locations.append(currentLocation)
 
-		if padding is None and currentLocation < 0x20000:
+		if padding == 1 and currentLocation < 0x20000:
 			# See if we can pad any odd-lengthed glyphs to allow loca
 			# table to use the short offsets.
 			indices = [i for i,glyphData in enumerate(dataList) if len(glyphData) % 2 == 1]
@@ -138,8 +151,7 @@ class table__g_l_y_f(DefaultTable.DefaultTable):
 		if not hasattr(self, "glyphOrder"):
 			self.glyphOrder = ttFont.getGlyphOrder()
 		glyphName = attrs["name"]
-		if ttFont.verbose:
-			ttLib.debugmsg("unpacking glyph '%s'" % glyphName)
+		log.debug("unpacking glyph '%s'", glyphName)
 		glyph = Glyph()
 		for attr in ['xMin', 'yMin', 'xMax', 'yMax']:
 			setattr(glyph, attr, safeEval(attrs.get(attr, '0')))
@@ -286,6 +298,9 @@ SCALED_COMPONENT_OFFSET		= 0x0800  # composite designed to have the component of
 UNSCALED_COMPONENT_OFFSET	= 0x1000  # composite designed not to have the component offset scaled (designed for MS)
 
 
+CompositeMaxpValues = namedtuple('CompositeMaxpValues', ['nPoints', 'nContours', 'maxComponentDepth'])
+
+
 class Glyph(object):
 
 	def __init__(self, data=""):
@@ -306,10 +321,16 @@ class Glyph(object):
 			return
 		if not self.data:
 			# empty char
+			del self.data
 			self.numberOfContours = 0
 			return
 		dummy, data = sstruct.unpack2(glyphHeaderFormat, self.data, self)
 		del self.data
+		# Some fonts (eg. Neirizi.ttf) have a 0 for numberOfContours in
+		# some glyphs; decompileCoordinates assumes that there's at least
+		# one, so short-circuit here.
+		if self.numberOfContours == 0:
+			return
 		if self.isComposite():
 			self.decompileComponents(data, glyfTable)
 		else:
@@ -317,7 +338,11 @@ class Glyph(object):
 
 	def compile(self, glyfTable, recalcBBoxes=True):
 		if hasattr(self, "data"):
-			return self.data
+			if recalcBBoxes:
+				# must unpack glyph in order to recalculate bounding box
+				self.expand(glyfTable)
+			else:
+				return self.data
 		if self.numberOfContours == 0:
 			return ""
 		if recalcBBoxes:
@@ -333,11 +358,7 @@ class Glyph(object):
 		if self.isComposite():
 			for compo in self.components:
 				compo.toXML(writer, ttFont)
-			if hasattr(self, "program"):
-				writer.begintag("instructions")
-				self.program.toXML(writer, ttFont)
-				writer.endtag("instructions")
-				writer.newline()
+			haveInstructions = hasattr(self, "program")
 		else:
 			last = 0
 			for i in range(self.numberOfContours):
@@ -352,11 +373,16 @@ class Glyph(object):
 				last = self.endPtsOfContours[i] + 1
 				writer.endtag("contour")
 				writer.newline()
-			if self.numberOfContours:
+			haveInstructions = self.numberOfContours > 0
+		if haveInstructions:
+			if self.program:
 				writer.begintag("instructions")
+				writer.newline()
 				self.program.toXML(writer, ttFont)
 				writer.endtag("instructions")
-				writer.newline()
+			else:
+				writer.simpletag("instructions")
+			writer.newline()
 
 	def fromXML(self, name, attrs, content, ttFont):
 		if name == "contour":
@@ -414,7 +440,7 @@ class Glyph(object):
 						glyfTable, maxComponentDepth + 1)
 			nPoints = nPoints + nP
 			nContours = nContours + nC
-		return nPoints, nContours, maxComponentDepth
+		return CompositeMaxpValues(nPoints, nContours, maxComponentDepth)
 
 	def getMaxpValues(self):
 		assert self.numberOfContours > 0
@@ -436,7 +462,9 @@ class Glyph(object):
 			self.program.fromBytecode(data[:numInstructions])
 			data = data[numInstructions:]
 			if len(data) >= 4:
-				warnings.warn("too much glyph data at the end of composite glyph: %d excess bytes" % len(data))
+				log.warning(
+					"too much glyph data at the end of composite glyph: %d excess bytes",
+					len(data))
 
 	def decompileCoordinates(self, data):
 		endPtsOfContours = array.array("h")
@@ -528,7 +556,8 @@ class Glyph(object):
 		xDataLen = struct.calcsize(xFormat)
 		yDataLen = struct.calcsize(yFormat)
 		if len(data) - (xDataLen + yDataLen) >= 4:
-			warnings.warn("too much glyph data: %d excess bytes" % (len(data) - (xDataLen + yDataLen)))
+			log.warning(
+				"too much glyph data: %d excess bytes", len(data) - (xDataLen + yDataLen))
 		xCoordinates = struct.unpack(xFormat, data[:xDataLen])
 		yCoordinates = struct.unpack(yFormat, data[xDataLen:xDataLen+yDataLen])
 		return flags, xCoordinates, yCoordinates
@@ -563,8 +592,7 @@ class Glyph(object):
 		deltas = self.coordinates.copy()
 		if deltas.isFloat():
 			# Warn?
-			xPoints = [int(round(x)) for x in xPoints]
-			yPoints = [int(round(y)) for y in xPoints]
+			deltas.toInt()
 		deltas.absoluteToRelative()
 
 		# TODO(behdad): Add a configuration option for this?
@@ -718,7 +746,7 @@ class Glyph(object):
 							bbox = calcBounds([coords[last], coords[next]])
 							if not pointInRect(coords[j], bbox):
 								# Ouch!
-								warnings.warn("Outline has curve with implicit extrema.")
+								log.warning("Outline has curve with implicit extrema.")
 								# Ouch!  Find analytical curve bounds.
 								pthis = coords[j]
 								plast = coords[last]
@@ -957,13 +985,14 @@ class Glyph(object):
 					cFlags = cFlags[nextOnCurve:]
 			pen.closePath()
 
-	def __ne__(self, other):
-		return not self.__eq__(other)
 	def __eq__(self, other):
 		if type(self) != type(other):
 			return NotImplemented
 		return self.__dict__ == other.__dict__
 
+	def __ne__(self, other):
+		result = self.__eq__(other)
+		return result if result is NotImplemented else not result
 
 class GlyphComponent(object):
 
@@ -989,7 +1018,6 @@ class GlyphComponent(object):
 		self.flags = int(flags)
 		glyphID = int(glyphID)
 		self.glyphName = glyfTable.getGlyphName(int(glyphID))
-		#print ">>", reprflag(self.flags)
 		data = data[4:]
 
 		if self.flags & ARG_1_AND_2_ARE_WORDS:
@@ -1047,11 +1075,13 @@ class GlyphComponent(object):
 				data = data + struct.pack(">HH", self.firstPt, self.secondPt)
 				flags = flags | ARG_1_AND_2_ARE_WORDS
 		else:
+			x = int(round(self.x))
+			y = int(round(self.y))
 			flags = flags | ARGS_ARE_XY_VALUES
-			if (-128 <= self.x <= 127) and (-128 <= self.y <= 127):
-				data = data + struct.pack(">bb", self.x, self.y)
+			if (-128 <= x <= 127) and (-128 <= y <= 127):
+				data = data + struct.pack(">bb", x, y)
 			else:
-				data = data + struct.pack(">hh", self.x, self.y)
+				data = data + struct.pack(">hh", x, y)
 				flags = flags | ARG_1_AND_2_ARE_WORDS
 
 		if hasattr(self, "transform"):
@@ -1120,29 +1150,37 @@ class GlyphComponent(object):
 			self.transform = [[scale, 0], [0, scale]]
 		self.flags = safeEval(attrs["flags"])
 
-	def __ne__(self, other):
-		return not self.__eq__(other)
 	def __eq__(self, other):
 		if type(self) != type(other):
 			return NotImplemented
 		return self.__dict__ == other.__dict__
 
+	def __ne__(self, other):
+		result = self.__eq__(other)
+		return result if result is NotImplemented else not result
+
 class GlyphCoordinates(object):
 
-	def __init__(self, iterable=[]):
-		self._a = array.array("h")
+	def __init__(self, iterable=[], typecode="h"):
+		self._a = array.array(typecode)
 		self.extend(iterable)
 
+	@property
+	def array(self):
+		return self._a
+
 	def isFloat(self):
-		return self._a.typecode == 'f'
+		return self._a.typecode == 'd'
 
 	def _ensureFloat(self):
 		if self.isFloat():
 			return
 		# The conversion to list() is to work around Jython bug
-		self._a = array.array("f", list(self._a))
+		self._a = array.array("d", list(self._a))
 
 	def _checkFloat(self, p):
+		if self.isFloat():
+			return p
 		if any(isinstance(v, float) for v in p):
 			p = [int(v) if int(v) == v else v for v in p]
 			if any(isinstance(v, float) for v in p):
@@ -1154,7 +1192,7 @@ class GlyphCoordinates(object):
 		return GlyphCoordinates([(0,0)] * count)
 
 	def copy(self):
-		c = GlyphCoordinates()
+		c = GlyphCoordinates(typecode=self._a.typecode)
 		c._a.extend(self._a)
 		return c
 
@@ -1171,12 +1209,17 @@ class GlyphCoordinates(object):
 		if isinstance(k, slice):
 			indices = range(*k.indices(len(self)))
 			# XXX This only works if len(v) == len(indices)
-			# TODO Implement __delitem__
 			for j,i in enumerate(indices):
 				self[i] = v[j]
 			return
 		v = self._checkFloat(v)
 		self._a[2*k],self._a[2*k+1] = v
+
+	def __delitem__(self, i):
+		i = (2*i) % len(self._a)
+		del self._a[i]
+		del self._a[i]
+
 
 	def __repr__(self):
 		return 'GlyphCoordinates(['+','.join(str(c) for c in self)+'])'
@@ -1189,6 +1232,14 @@ class GlyphCoordinates(object):
 		for p in iterable:
 			p = self._checkFloat(p)
 			self._a.extend(p)
+
+	def toInt(self):
+		if not self.isFloat():
+			return
+		a = array.array("h")
+		for n in self._a:
+			a.append(int(round(n)))
+		self._a = a
 
 	def relativeToAbsolute(self):
 		a = self._a
@@ -1209,13 +1260,29 @@ class GlyphCoordinates(object):
 			a[2*i+1] = dy
 
 	def translate(self, p):
-		(x,y) = p
+		"""
+		>>> GlyphCoordinates([(1,2)]).translate((.5,0))
+		"""
+		(x,y) = self._checkFloat(p)
 		a = self._a
 		for i in range(len(a) // 2):
 			a[2*i  ] += x
 			a[2*i+1] += y
 
+	def scale(self, p):
+		"""
+		>>> GlyphCoordinates([(1,2)]).scale((.5,0))
+		"""
+		(x,y) = self._checkFloat(p)
+		a = self._a
+		for i in range(len(a) // 2):
+			a[2*i  ] *= x
+			a[2*i+1] *= y
+
 	def transform(self, t):
+		"""
+		>>> GlyphCoordinates([(1,2)]).transform(((.5,0),(.2,.5)))
+		"""
 		a = self._a
 		for i in range(len(a) // 2):
 			x = a[2*i  ]
@@ -1224,12 +1291,196 @@ class GlyphCoordinates(object):
 			py = x * t[0][1] + y * t[1][1]
 			self[i] = (px, py)
 
-	def __ne__(self, other):
-		return not self.__eq__(other)
 	def __eq__(self, other):
+		"""
+		>>> g = GlyphCoordinates([(1,2)])
+		>>> g2 = GlyphCoordinates([(1.0,2)])
+		>>> g3 = GlyphCoordinates([(1.5,2)])
+		>>> g == g2
+		True
+		>>> g == g3
+		False
+		>>> g2 == g3
+		False
+		"""
 		if type(self) != type(other):
 			return NotImplemented
 		return self._a == other._a
+
+	def __ne__(self, other):
+		"""
+		>>> g = GlyphCoordinates([(1,2)])
+		>>> g2 = GlyphCoordinates([(1.0,2)])
+		>>> g3 = GlyphCoordinates([(1.5,2)])
+		>>> g != g2
+		False
+		>>> g != g3
+		True
+		>>> g2 != g3
+		True
+		"""
+		result = self.__eq__(other)
+		return result if result is NotImplemented else not result
+
+	# Math operations
+
+	def __pos__(self):
+		"""
+		>>> g = GlyphCoordinates([(1,2)])
+		>>> g
+		GlyphCoordinates([(1, 2)])
+		>>> g2 = +g
+		>>> g2
+		GlyphCoordinates([(1, 2)])
+		>>> g2.translate((1,0))
+		>>> g2
+		GlyphCoordinates([(2, 2)])
+		>>> g
+		GlyphCoordinates([(1, 2)])
+		"""
+		return self.copy()
+	def __neg__(self):
+		"""
+		>>> g = GlyphCoordinates([(1,2)])
+		>>> g
+		GlyphCoordinates([(1, 2)])
+		>>> g2 = -g
+		>>> g2
+		GlyphCoordinates([(-1, -2)])
+		>>> g
+		GlyphCoordinates([(1, 2)])
+		"""
+		r = self.copy()
+		a = r._a
+		for i in range(len(a)):
+			a[i] = -a[i]
+		return r
+	def __round__(self):
+		"""
+		Note: This is Python 3 only.  Python 2 does not call __round__.
+		As such, we cannot test this method either. :(
+		"""
+		r = self.copy()
+		r.toInt()
+		return r
+
+	def __add__(self, other): return self.copy().__iadd__(other)
+	def __sub__(self, other): return self.copy().__isub__(other)
+	def __mul__(self, other): return self.copy().__imul__(other)
+	def __truediv__(self, other): return self.copy().__itruediv__(other)
+
+	__radd__ = __add__
+	__rmul__ = __mul__
+	def __rsub__(self, other): return other + (-self)
+
+	def __iadd__(self, other):
+		"""
+		>>> g = GlyphCoordinates([(1,2)])
+		>>> g += (.5,0)
+		>>> g
+		GlyphCoordinates([(1.5, 2.0)])
+		>>> g2 = GlyphCoordinates([(3,4)])
+		>>> g += g2
+		>>> g
+		GlyphCoordinates([(4.5, 6.0)])
+		"""
+		if isinstance(other, tuple):
+			assert len(other) ==  2
+			self.translate(other)
+			return self
+		if isinstance(other, GlyphCoordinates):
+			if other.isFloat(): self._ensureFloat()
+			other = other._a
+			a = self._a
+			assert len(a) == len(other)
+			for i in range(len(a)):
+				a[i] += other[i]
+			return self
+		return NotImplemented
+
+	def __isub__(self, other):
+		"""
+		>>> g = GlyphCoordinates([(1,2)])
+		>>> g -= (.5,0)
+		>>> g
+		GlyphCoordinates([(0.5, 2.0)])
+		>>> g2 = GlyphCoordinates([(3,4)])
+		>>> g -= g2
+		>>> g
+		GlyphCoordinates([(-2.5, -2.0)])
+		"""
+		if isinstance(other, tuple):
+			assert len(other) ==  2
+			self.translate((-other[0],-other[1]))
+			return self
+		if isinstance(other, GlyphCoordinates):
+			if other.isFloat(): self._ensureFloat()
+			other = other._a
+			a = self._a
+			assert len(a) == len(other)
+			for i in range(len(a)):
+				a[i] -= other[i]
+			return self
+		return NotImplemented
+
+	def __imul__(self, other):
+		"""
+		>>> g = GlyphCoordinates([(1,2)])
+		>>> g *= (2,.5)
+		>>> g *= 2
+		>>> g
+		GlyphCoordinates([(4.0, 2.0)])
+		>>> g = GlyphCoordinates([(1,2)])
+		>>> g *= 2
+		>>> g
+		GlyphCoordinates([(2, 4)])
+		"""
+		if isinstance(other, Number):
+			other = (other, other)
+		if isinstance(other, tuple):
+			if other == (1,1):
+				return self
+			assert len(other) ==  2
+			self.scale(other)
+			return self
+		return NotImplemented
+
+	def __itruediv__(self, other):
+		"""
+		>>> g = GlyphCoordinates([(1,3)])
+		>>> g /= (.5,1.5)
+		>>> g /= 2
+		>>> g
+		GlyphCoordinates([(1.0, 1.0)])
+		"""
+		if isinstance(other, Number):
+			other = (other, other)
+		if isinstance(other, tuple):
+			if other == (1,1):
+				return self
+			assert len(other) ==  2
+			self.scale((1./other[0],1./other[1]))
+			return self
+		return NotImplemented
+
+	def __bool__(self):
+		"""
+		>>> g = GlyphCoordinates([])
+		>>> bool(g)
+		False
+		>>> g = GlyphCoordinates([(0,0), (0.,0)])
+		>>> bool(g)
+		True
+		>>> g = GlyphCoordinates([(0,0), (1,0)])
+		>>> bool(g)
+		True
+		>>> g = GlyphCoordinates([(0,.5), (0,0)])
+		>>> bool(g)
+		True
+		"""
+		return bool(self._a)
+
+	__nonzero__ = __bool__
 
 
 def reprflag(flag):
@@ -1244,3 +1495,8 @@ def reprflag(flag):
 		flag = flag >> 1
 	bin = (14 - len(bin)) * "0" + bin
 	return bin
+
+
+if __name__ == "__main__":
+	import doctest, sys
+	sys.exit(doctest.testmod().failed)

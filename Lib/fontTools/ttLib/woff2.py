@@ -13,6 +13,10 @@ from fontTools.ttLib.sfnt import (SFNTReader, SFNTWriter, DirectoryEntry,
 	WOFFFlavorData, sfntDirectoryFormat, sfntDirectorySize, SFNTDirectoryEntry,
 	sfntDirectoryEntrySize, calcChecksum)
 from fontTools.ttLib.tables import ttProgram
+import logging
+
+
+log = logging.getLogger(__name__)
 
 haveBrotli = False
 try:
@@ -28,8 +32,9 @@ class WOFF2Reader(SFNTReader):
 
 	def __init__(self, file, checkChecksums=1, fontNumber=-1):
 		if not haveBrotli:
-			print('The WOFF2 decoder requires the Brotli Python extension, available at:\n'
-				  'https://github.com/google/brotli', file=sys.stderr)
+			log.error(
+				'The WOFF2 decoder requires the Brotli Python extension, available at: '
+				'https://github.com/google/brotli')
 			raise ImportError("No module named brotli")
 
 		self.file = file
@@ -106,7 +111,8 @@ class WOFF2Reader(SFNTReader):
 		self.ttFont['loca'] = WOFF2LocaTable()
 		glyfTable = self.ttFont['glyf'] = WOFF2GlyfTable()
 		glyfTable.reconstruct(data, self.ttFont)
-		glyfTable.padding = padding
+		if padding:
+			glyfTable.padding = padding
 		data = glyfTable.compile(self.ttFont)
 		return data
 
@@ -132,8 +138,9 @@ class WOFF2Writer(SFNTWriter):
 	def __init__(self, file, numTables, sfntVersion="\000\001\000\000",
 		         flavor=None, flavorData=None):
 		if not haveBrotli:
-			print('The WOFF2 encoder requires the Brotli Python extension, available at:\n'
-				  'https://github.com/google/brotli', file=sys.stderr)
+			log.error(
+				'The WOFF2 encoder requires the Brotli Python extension, available at: '
+				'https://github.com/google/brotli')
 			raise ImportError("No module named brotli")
 
 		self.file = file
@@ -226,7 +233,14 @@ class WOFF2Writer(SFNTWriter):
 		"""
 		if self.sfntVersion == "OTTO":
 			return
-		for tag in ('maxp', 'head', 'loca', 'glyf'):
+
+		# make up glyph names required to decompile glyf table
+		self._decompileTable('maxp')
+		numGlyphs = self.ttFont['maxp'].numGlyphs
+		glyphOrder = ['.notdef'] + ["glyph%.5d" % i for i in range(1, numGlyphs)]
+		self.ttFont.setGlyphOrder(glyphOrder)
+
+		for tag in ('head', 'loca', 'glyf'):
 			self._decompileTable(tag)
 		self.ttFont['glyf'].padding = padding
 		for tag in ('glyf', 'loca'):
