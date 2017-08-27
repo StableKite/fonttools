@@ -1,7 +1,0 @@
-/^Installation$/{
-    :1
-    N
-    /^\n$/d
-    s/.*\n//
-    b1
-}
