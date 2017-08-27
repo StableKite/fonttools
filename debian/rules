@@ -4,11 +4,6 @@
 
 override_dh_auto_build:
 	dh_auto_build --buildsystem=pybuild
-	cp Doc/changes.txt build/NEWS
-	sed -f debian/stripinstall < Doc/install.txt > build/README
 
 override_dh_install:
 	dh_install --package=fonttools
-
-override_dh_installchangelogs:
-	dh_installchangelogs Doc/changes.txt
