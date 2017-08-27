@@ -1,7 +1,8 @@
+import sys
 import DefaultTable
 import struct
 import array
-import Numeric
+import numpy
 import operator
 from fontTools import ttLib
 from fontTools.misc.textTools import safeEval, readHex
@@ -27,10 +28,14 @@ class table__c_m_a_p(DefaultTable.DefaultTable):
 					">HHl", data[4+i*8:4+(i+1)*8])
 			platformID, platEncID = int(platformID), int(platEncID)
 			format, length = struct.unpack(">HH", data[offset:offset+4])
-			if (format < 8) and not length:
-				continue  # bogus cmap subtable?
 			if format in [8,10,12]:
 				format, reserved, length = struct.unpack(">HHL", data[offset:offset+8])
+			elif format in [14]:
+				format, length = struct.unpack(">HL", data[offset:offset+6])
+				
+			if not length:
+				print "Error: cmap subtable is reported as having zero length: platformID %s, platEncID %s,  format %s offset %s. Skipping table." % (platformID, platEncID,format, offset)
+				continue
 			if not cmap_classes.has_key(format):
 				table = cmap_format_unknown(format)
 			else:
@@ -192,7 +197,7 @@ class cmap_format_0(CmapSubtable):
 		assert charCodes == range(256)
 		valueList = map(ttFont.getGlyphID, valueList)
 
-		glyphIdArray = Numeric.array(valueList, Numeric.Int8)
+		glyphIdArray = numpy.array(valueList, numpy.int8)
 		data = struct.pack(">HHH", 0, 262, self.language) + glyphIdArray.tostring()
 		assert len(data) == 262
 		return data
@@ -266,7 +271,7 @@ class cmap_format_2(CmapSubtable):
 		allKeys = array.array("H")
 		allKeys.fromstring(data[:512])
 		data = data[512:]
-		if ttLib.endian <> "big":
+		if sys.byteorder <> "big":
 			allKeys.byteswap()
 		subHeaderKeys = [ key/8 for key in allKeys]
 		maxSubHeaderindex = max(subHeaderKeys)
@@ -282,7 +287,7 @@ class cmap_format_2(CmapSubtable):
 			giDataPos = pos + subHeader.idRangeOffset-2
 			giList = array.array("H")
 			giList.fromstring(data[giDataPos:giDataPos + subHeader.entryCount*2])
-			if ttLib.endian <> "big":
+			if sys.byteorder <> "big":
 				giList.byteswap()
 			subHeader.glyphIndexArray = giList
 			subHeaderList.append(subHeader)
@@ -639,7 +644,7 @@ class cmap_format_4(CmapSubtable):
 		allCodes.fromstring(data)
 		self.data = data = None
 
-		if ttLib.endian <> "big":
+		if sys.byteorder <> "big":
 			allCodes.byteswap()
 		
 		# divide the data
@@ -713,14 +718,13 @@ class cmap_format_4(CmapSubtable):
 		from fontTools.ttLib.sfnt import maxPowerOfTwo
 		
 		charCodes = self.cmap.keys()
-			
-		charCodes.sort()
 		lenCharCodes = len(charCodes)
 		if lenCharCodes == 0:
 			startCode = [0xffff]
 			endCode = [0xffff]
 		else:
-			names = self.cmap.values()
+			charCodes.sort()
+			names = map(operator.getitem, [self.cmap]*lenCharCodes, charCodes)
 			nameMap = ttFont.getReverseGlyphMap()
 			try:
 				gids = map(operator.getitem, [nameMap]*lenCharCodes, names)
@@ -795,13 +799,13 @@ class cmap_format_4(CmapSubtable):
 		entrySelector = maxExponent
 		rangeShift = 2 * segCount - searchRange
 		
-		charCodeArray = Numeric.array( endCode + [0] + startCode, Numeric.UInt16)
-		idDeltaeArray = Numeric.array(idDelta, Numeric.Int16)
-		restArray = Numeric.array(idRangeOffset + glyphIndexArray, Numeric.UInt16)
-		if ttLib.endian <> "big":
-			charCodeArray = charCodeArray.byteswapped()
-			idDeltaeArray = idDeltaeArray.byteswapped()
-			restArray = restArray.byteswapped()
+		charCodeArray = numpy.array( endCode + [0] + startCode, numpy.uint16)
+		idDeltaeArray = numpy.array(idDelta, numpy.int16)
+		restArray = numpy.array(idRangeOffset + glyphIndexArray, numpy.uint16)
+		if sys.byteorder <> "big":
+			charCodeArray = charCodeArray.byteswap()
+			idDeltaeArray = idDeltaeArray.byteswap()
+			restArray = restArray.byteswap()
 		data = charCodeArray.tostring() + idDeltaeArray.tostring() + restArray.tostring()
 
 		length = struct.calcsize(cmap_format_4_format) + len(data)
@@ -841,7 +845,7 @@ class cmap_format_6(CmapSubtable):
 		#assert len(data) == 2 * entryCount  # XXX not true in Apple's Helvetica!!!
 		glyphIndexArray = array.array("H")
 		glyphIndexArray.fromstring(data[:2 * int(entryCount)])
-		if ttLib.endian <> "big":
+		if sys.byteorder <> "big":
 			glyphIndexArray.byteswap()
 		self.data = data = None
 
@@ -869,9 +873,9 @@ class cmap_format_6(CmapSubtable):
 			firstCode = codes[0]
 			valueList = map(operator.getitem, [cmap]*lenCodes, codes)
 			valueList = map(ttFont.getGlyphID, valueList)
-			glyphIndexArray = Numeric.array(valueList, Numeric.UInt16)
-			if ttLib.endian <> "big":
-				glyphIndexArray = glyphIndexArray.byteswapped()
+			glyphIndexArray = numpy.array(valueList, numpy.uint16)
+			if sys.byteorder <> "big":
+				glyphIndexArray = glyphIndexArray.byteswap()
 			data = glyphIndexArray.tostring()
 		else:
 			data = ""
@@ -1038,6 +1042,214 @@ class cmap_format_12(CmapSubtable):
 			cmap[safeEval(attrs["code"])] = attrs["name"]
 
 
+def  cvtToUVS(threeByteString):
+	if sys.byteorder <> "big":
+		data = "\0" +threeByteString
+	else:
+		data = threeByteString + "\0"
+	val, = struct.unpack(">L", data)
+	return val
+
+def  cvtFromUVS(val):
+	if sys.byteorder <> "big":
+		threeByteString = struct.pack(">L", val)[1:]
+	else:
+		threeByteString = struct.pack(">L", val)[:3]
+	return threeByteString
+
+def cmpUVSListEntry(first, second):
+	uv1, glyphName1 = first
+	uv2, glyphName2 = second
+	
+	if (glyphName1 == None) and (glyphName2 != None):
+		return -1
+	elif (glyphName2 == None) and (glyphName1 != None):
+		return 1
+		
+	ret = cmp(uv1, uv2)
+	if ret:
+		return ret
+	return cmp(glyphName1, glyphName2)
+		
+		
+class cmap_format_14(CmapSubtable):
+
+	def decompileHeader(self, data, ttFont):
+		format, length, numVarSelectorRecords = struct.unpack(">HLL", data[:10])
+		self.data = data[10:]
+		self.length = length
+		self.numVarSelectorRecords = numVarSelectorRecords
+		self.ttFont = ttFont
+		self.language = 0xFF # has no language.
+
+	def decompile(self, data, ttFont):
+		if data != None and ttFont != None:
+			self.decompileHeader(data, ttFont)
+		else:
+			assert(	(data == None and (ttFont == None), "Need both data and ttFont arguments"))
+		data = self.data
+		
+		self.cmap = {} # so that clients that expect this to exist in a cmap table won't fail.
+		uvsDict = {}
+		recOffset = 0
+		for n in range(self.numVarSelectorRecords):
+			uvs, defOVSOffset, nonDefUVSOffset =  struct.unpack(">3sLL", data[recOffset:recOffset +11])		
+			recOffset += 11
+			varUVS = cvtToUVS(uvs)
+			if defOVSOffset:
+				startOffset = defOVSOffset  - 10
+				numValues, = struct.unpack(">L", data[startOffset:startOffset+4])
+				startOffset +=4
+				for r in range(numValues):
+					uv, addtlCnt = struct.unpack(">3sB", data[startOffset:startOffset+4])
+					startOffset += 4
+					firstBaseUV = cvtToUVS(uv)
+					cnt = addtlCnt+1
+					baseUVList = range(firstBaseUV, firstBaseUV+cnt)
+					glyphList = [None]*cnt
+					localUVList = zip(baseUVList, glyphList)
+					try:
+						uvsDict[varUVS].extend(localUVList)
+					except KeyError:
+						uvsDict[varUVS] = localUVList
+				
+			if nonDefUVSOffset:
+				startOffset = nonDefUVSOffset  - 10
+				numRecs, = struct.unpack(">L", data[startOffset:startOffset+4])
+				startOffset +=4
+				localUVList = []
+				for r in range(numRecs):
+					uv, gid = struct.unpack(">3sH", data[startOffset:startOffset+5])
+					startOffset += 5
+					uv = cvtToUVS(uv)
+					glyphName = self.ttFont.getGlyphName(gid)
+					localUVList.append( [uv, glyphName] )
+				try:
+					uvsDict[varUVS].extend(localUVList)
+				except KeyError:
+					uvsDict[varUVS] = localUVList
+					
+		self.uvsDict = uvsDict
+							
+	def toXML(self, writer, ttFont):
+		writer.begintag(self.__class__.__name__, [
+				("platformID", self.platformID),
+				("platEncID", self.platEncID),
+				("format", self.format),
+				("length", self.length),
+				("numVarSelectorRecords", self.numVarSelectorRecords),
+				])
+		writer.newline()
+		uvsDict = self.uvsDict
+		uvsList = uvsDict.keys()
+		uvsList.sort()
+		for uvs in uvsList:
+			uvList = uvsDict[uvs]
+			uvList.sort(cmpUVSListEntry)
+			for uv, gname in uvList:
+				if gname == None:
+					gname = "None"
+				# I use the arg rather than th keyword syntax in order to preserve the attribute order.
+				writer.simpletag("map", [ ("uvs",hex(uvs)), ("uv",hex(uv)), ("name", gname)]  )
+				writer.newline()
+		writer.endtag(self.__class__.__name__)
+		writer.newline()
+
+	def fromXML(self, (name, attrs, content), ttFont):
+		self.format = safeEval(attrs["format"])
+		self.length = safeEval(attrs["length"])
+		self.numVarSelectorRecords = safeEval(attrs["numVarSelectorRecords"])
+		self.language = 0xFF # provide a value so that  CmapSubtable.__cmp__() won't fail
+		if not hasattr(self, "cmap"):
+			self.cmap = {} # so that clients that expect this to exist in a cmap table won't fail.
+		if not hasattr(self, "uvsDict"):
+			self.uvsDict  = {}
+			uvsDict = self.uvsDict 
+
+		for element in content:
+			if type(element) <> TupleType:
+				continue
+			name, attrs, content = element
+			if name <> "map":
+				continue
+			uvs = safeEval(attrs["uvs"])
+			uv = safeEval(attrs["uv"])
+			gname = attrs["name"]
+			if gname == "None":
+				gname = None
+			try:
+				uvsDict[uvs].append( [uv, gname])
+			except KeyError:
+				uvsDict[uvs] = [ [uv, gname] ]
+			
+
+	def compile(self, ttFont):
+		if self.data:
+			return struct.pack(">HLL", self.format, self.length , self.numVarSelectorRecords) + self.data
+
+		uvsDict = self.uvsDict
+		uvsList = uvsDict.keys()
+		uvsList.sort()
+		self.numVarSelectorRecords = len(uvsList)
+		offset = 10 + self.numVarSelectorRecords*11 # current value is end of VarSelectorRecords block.
+		data = []
+		varSelectorRecords =[]
+		for uvs in uvsList:
+			entryList = uvsDict[uvs]
+
+			defList = filter(lambda entry: entry[1] == None, entryList)
+			if defList:
+				defList = map(lambda entry: entry[0], defList)
+				defOVSOffset = offset
+				defList.sort()
+
+				lastUV = defList[0]
+				cnt = -1
+				defRecs = []
+				for defEntry in defList:
+					cnt +=1
+					if (lastUV+cnt) != defEntry:
+						rec = struct.pack(">3sB", cvtFromUVS(lastUV), cnt-1)
+						lastUV = defEntry
+						defRecs.append(rec)
+						cnt = 0
+					
+				rec = struct.pack(">3sB", cvtFromUVS(lastUV), cnt)
+				defRecs.append(rec)
+
+				numDefRecs = len(defRecs)
+				data.append(struct.pack(">L", numDefRecs))
+				data.extend(defRecs)
+				offset += 4 + numDefRecs*4
+			else:
+				defOVSOffset = 0
+
+			ndefList = filter(lambda entry: entry[1] != None, entryList)
+			if ndefList:
+				nonDefUVSOffset = offset
+				ndefList.sort()
+				numNonDefRecs = len(ndefList)
+				data.append(struct.pack(">L", numNonDefRecs))
+				offset += 4 + numNonDefRecs*5
+
+				for uv, gname in ndefList:
+					gid = ttFont.getGlyphID(gname)
+					ndrec = struct.pack(">3sH", cvtFromUVS(uv), gid)
+					data.append(ndrec)
+			else:
+				nonDefUVSOffset = 0
+				
+			vrec = struct.pack(">3sLL", cvtFromUVS(uvs), defOVSOffset, nonDefUVSOffset)
+			varSelectorRecords.append(vrec)
+				
+		data = "".join(varSelectorRecords) + "".join(data)
+		self.length = 10 + len(data)
+		headerdata = struct.pack(">HLL", self.format, self.length , self.numVarSelectorRecords)
+		self.data = headerdata + data
+	
+		return self.data
+		
+		
 class cmap_format_unknown(CmapSubtable):
 	
 	def toXML(self, writer, ttFont):
@@ -1079,4 +1291,5 @@ cmap_classes = {
 		4: cmap_format_4,
 		6: cmap_format_6,
 		12: cmap_format_12,
+		14: cmap_format_14,
 		}

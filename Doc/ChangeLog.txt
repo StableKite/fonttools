@@ -1,4 +1,158 @@
 ----------------------------
+2008/05/18 06:28:37 pabs3 setup.py 1.17
+2008/05/18 06:28:37 pabs3 Lib/fontTools/__init__.py 1.9
+Get ready to release version 2.2
+----------------------------
+2008/05/17 09:21:49 jvr Lib/fontTools/unicode.py 1.4
+updated unicode module to unicode 5.1.0
+----------------------------
+2008/05/17 08:52:33 jvr Lib/fontTools/ttLib/tables/_h_e_a_d.py 1.20
+a different fix for [1296026]: just comment out the offending assert
+----------------------------
+2008/05/17 08:44:06 jvr Lib/fontTools/ttLib/tables/_h_e_a_d.py 1.19
+back out 'fix', as this solution isn't portable
+----------------------------
+2008/05/16 17:33:56 jvr Lib/fontTools/agl.py 1.6
+updated to aglfn 1.6
+----------------------------
+2008/05/16 15:07:09 jvr Lib/fontTools/ttLib/tables/_c_m_a_p.py 1.20
+cmap format 1 support, contributed by rroberts
+----------------------------
+2008/05/16 14:28:58 pabs3 MetaTools/makeTarball.py 1.2
+2008/05/16 14:28:58 pabs3 MANIFEST.in 1.1
+2008/05/16 14:28:58 pabs3 MANIFEST 1.3
+Use setup.py sdist to create the tarball for distribution
+----------------------------
+2008/05/16 08:45:43 pabs3 setup.py 1.16
+2008/05/16 08:45:43 pabs3 Doc/ttx.1 1.1
+Add cleaned-up and updated manual page from the Debian package.
+----------------------------
+2008/05/16 07:17:26 pabs3 Lib/fontTools/ttLib/tables/_h_e_a_d.py 1.18
+Apply 1296026: fix tracebacks in some timezones
+----------------------------
+2008/03/11 07:25:29 jvr Lib/fontTools/misc/psLib.py 1.5
+- turned ps exceptions into classes and renamed them
+----------------------------
+2008/03/10 21:58:00 jvr Lib/fontTools/t1Lib.py 1.21
+2008/03/10 21:58:00 jvr Lib/fontTools/misc/psCharStrings.py 1.24
+- t1Lib.py can now properly read PFA fonts
+- fixed "flex" bug in T1 charstring reader
+----------------------------
+2008/03/09 21:43:19 jvr Lib/fontTools/ttLib/tables/otTables.py 1.17
+added refactoring note
+----------------------------
+2008/03/09 20:48:45 jvr Lib/fontTools/ttLib/tables/otBase.py 1.14
+minor fix: one zero too many in assert
+----------------------------
+2008/03/09 20:39:38 jvr Lib/fontTools/ttx.py 1.12
+added comment, the OTL Extension mechanism should not be here
+----------------------------
+2008/03/09 20:13:16 jvr Lib/fontTools/ttLib/tables/otBase.py 1.13
+fixed some comment typos
+----------------------------
+2008/03/09 08:58:36 jvr Lib/fontTools/ttLib/tables/V_O_R_G_.py 1.3
+don't crash on empty VORG table (reported by Werner Lemberg)
+----------------------------
+2008/03/08 20:29:30 jvr Lib/fontTools/ttLib/tables/_g_l_y_f.py 1.24
+2008/03/08 20:29:30 jvr Lib/fontTools/ttLib/sfnt.py 1.15
+squash 2 bugs related to the numpy conversion
+----------------------------
+2008/03/07 19:56:17 jvr Lib/fontTools/cffLib.py 1.34
+- use the builtin symbols instead of the types module
+----------------------------
+2008/03/07 19:49:25 jvr Lib/fontTools/cffLib.py 1.33
+better float testing, so numpy.floats also work.
+----------------------------
+2008/03/04 15:42:38 jvr Doc/install.txt 1.3
+updated for numpy (this file needs a thorough review)
+----------------------------
+2008/03/04 15:34:54 jvr Lib/fontTools/ttLib/tables/_g_a_s_p.py 1.3
+initialize data to empty string instead of list
+----------------------------
+2008/03/04 15:34:22 jvr Lib/fontTools/ttLib/tables/_g_l_y_f.py 1.23
+ar.typecode() doesn't exist in numpy, but then again, this was overkill
+----------------------------
+2008/03/04 15:25:27 jvr setup.py 1.15
+2008/03/04 15:25:27 jvr Lib/fontTools/ttLib/test/ttBrowser.py 1.7
+2008/03/04 15:25:27 jvr Lib/fontTools/ttLib/tables/_l_o_c_a.py 1.6
+2008/03/04 15:25:27 jvr Lib/fontTools/ttLib/tables/_h_m_t_x.py 1.7
+2008/03/04 15:25:27 jvr Lib/fontTools/ttLib/tables/_g_l_y_f.py 1.22
+2008/03/04 15:25:27 jvr Lib/fontTools/ttLib/tables/_c_m_a_p.py 1.19
+2008/03/04 15:25:27 jvr Lib/fontTools/ttLib/tables/G_P_K_G_.py 1.3
+2008/03/04 15:25:27 jvr Lib/fontTools/ttLib/sfnt.py 1.14
+2008/03/04 15:25:27 jvr Lib/fontTools/nfntLib.py 1.6
+2008/03/04 15:25:27 jvr Lib/fontTools/misc/bezierTools.py 1.14
+2008/03/04 15:25:27 jvr Lib/fontTools/misc/arrayTools.py 1.9
+converted usage of Numeric to numpy
+----------------------------
+2008/03/04 15:04:09 jvr Lib/fontTools/ttLib/test/ttBrowser.py 1.6
+note this file is deprecated
+----------------------------
+2008/03/04 15:02:45 jvr Lib/fontTools/ttLib/tables/_v_m_t_x.py 1.2
+removed some redundant imports
+----------------------------
+2008/03/04 14:47:11 jvr Lib/fontTools/misc/arrayTools.py 1.8
+- moved Numeric import to top
+- converted tests to doctest
+----------------------------
+2008/03/01 17:26:14 jvr Doc/ChangeLog.txt 1.11
+updated change log
+----------------------------
+2008/03/01 17:22:24 jvr MANIFEST 1.2
+updated file list
+----------------------------
+2008/03/01 17:20:26 jvr setup.py 1.14
+2008/03/01 17:20:26 jvr Lib/fontTools/__init__.py 1.8
+post 2.1 version numbering
+----------------------------
+2008/03/01 17:03:35 jvr Doc/bugs.txt 1.4
+see sf tracker
+----------------------------
+2008/03/01 16:43:24 jvr Lib/fontTools/ttLib/tables/_g_a_s_p.py 1.2
+the gasp portion of patch 1675210: support for ClearType
+----------------------------
+2008/03/01 15:31:01 jvr Lib/fontTools/ttLib/tables/_h_m_t_x.py 1.6
+fixed oversight in sys.byteorder transition
+----------------------------
+2008/03/01 11:43:01 jvr Lib/fontTools/ttLib/tables/_p_o_s_t.py 1.8
+2008/03/01 11:43:01 jvr Lib/fontTools/ttLib/tables/_l_o_c_a.py 1.5
+2008/03/01 11:43:01 jvr Lib/fontTools/ttLib/tables/_h_m_t_x.py 1.5
+2008/03/01 11:43:00 jvr Lib/fontTools/ttLib/tables/_g_l_y_f.py 1.21
+2008/03/01 11:43:00 jvr Lib/fontTools/ttLib/tables/_c_v_t.py 1.2
+2008/03/01 11:43:00 jvr Lib/fontTools/ttLib/tables/_c_m_a_p.py 1.18
+2008/03/01 11:43:00 jvr Lib/fontTools/ttLib/tables/T_S_I__5.py 1.2
+2008/03/01 11:43:00 jvr Lib/fontTools/ttLib/tables/G_P_K_G_.py 1.2
+2008/03/01 11:43:00 jvr Lib/fontTools/ttLib/sfnt.py 1.13
+2008/03/01 11:43:00 jvr Lib/fontTools/ttLib/__init__.py 1.50
+Use sys.byteorder, getting rid of ttLib.endian
+----------------------------
+2008/03/01 11:34:54 jvr Lib/fontTools/misc/macCreatorType.py 1.1
+2008/03/01 11:34:53 jvr Lib/fontTools/ttx.py 1.11
+2008/03/01 11:34:52 jvr Lib/fontTools/t1Lib.py 1.20
+- removed support for Python 2.2 on MacOS 10.2
+- worked around a bug in GetCreatorType() on intel Macs
+----------------------------
+2008/03/01 09:42:58 jvr Lib/fontTools/ttx.py 1.10
+Expose ignoreDecompileErrors as a command line option (-e, to set
+ignoreDecompileErrors to to false)
+----------------------------
+2008/03/01 09:30:17 jvr Lib/fontTools/ttLib/__init__.py 1.49
+Make a hidden feature accessible: optionally ignore decompilation errors,
+falling back to DefaultTable, retaining the binary data. It's a bit
+dangerous to enable this by default, since it can lead to hiding other
+errors or bugs (in the font or fonttools itself).
+----------------------------
+2008/02/29 14:43:49 jvr Lib/fontTools/ttLib/tables/_c_m_a_p.py 1.17
+- skip subtables of length zero
+- minor tweak in cmap 4 logic
+contributed by rroberts
+----------------------------
+2008/02/19 18:49:14 jvr Lib/fontTools/ttLib/tables/T_S_I__1.py 1.3
+fixed problem with private VTT table, found by Peter Bilak
+----------------------------
+2008/01/28 07:11:06 pabs3 Doc/ChangeLog.txt 1.10
+Update changelog
+----------------------------
 2008/01/28 07:09:27 pabs3 Lib/fontTools/__init__.py 1.7
 Woops, missed a version number
 ----------------------------
@@ -1822,7 +1976,7 @@ moved Mac subdirectory
 dummy checkin -- testing
 ----------------------------
 1999/12/20 21:59:49 Just Lib/fontTools/cffLib.py 1.2
-added $Id: ChangeLog.txt,v 1.10 2008/01/28 07:11:06 pabs3 Exp $ tag.
+added $Id: ChangeLog.txt,v 1.12 2008/05/18 06:30:47 pabs3 Exp $ tag.
 ----------------------------
 1999/12/18 23:56:14 just mktarball.py 1.6
 fixed dir dependency
@@ -1878,7 +2032,7 @@ added recalcBBoxes argument to TTFont.__init__()
 minor cleanup of some doc strings
 ----------------------------
 1999/12/17 12:51:21 Just Lib/fontTools/ttLib/__init__.py 1.2
-added __release__ symbol, changed __version__ to $Id: ChangeLog.txt,v 1.10 2008/01/28 07:11:06 pabs3 Exp $.
+added __release__ symbol, changed __version__ to $Id: ChangeLog.txt,v 1.12 2008/05/18 06:30:47 pabs3 Exp $.
 ----------------------------
 1999/12/17 12:42:24 Just install.py 1.2
 changed the name of the .pth file to FontTools.pth

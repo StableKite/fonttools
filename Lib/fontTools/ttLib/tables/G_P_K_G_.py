@@ -1,7 +1,8 @@
+import sys
 import DefaultTable
 import sstruct
 import array
-import Numeric
+import numpy
 from types import StringType
 from fontTools.misc.textTools import safeEval, readHex
 from fontTools import ttLib
@@ -25,7 +26,7 @@ class table_G_P_K_G_(DefaultTable.DefaultTable):
 		GMAPoffsets = array.array("L")
 		endPos = (self.numGMAPs+1) * 4
 		GMAPoffsets.fromstring(newData[:endPos])
-		if ttLib.endian <> "big":
+		if sys.byteorder <> "big":
 			GMAPoffsets.byteswap()
 		self.GMAPs = []
 		for i in range(self.numGMAPs):
@@ -36,7 +37,7 @@ class table_G_P_K_G_(DefaultTable.DefaultTable):
 		endPos = pos + (self.numGlyplets + 1)*4
 		glyphletOffsets = array.array("L")
 		glyphletOffsets.fromstring(newData[pos:endPos])
-		if ttLib.endian <> "big":
+		if sys.byteorder <> "big":
 			glyphletOffsets.byteswap()
 		self.glyphlets = []
 		for i in range(self.numGlyplets):
@@ -58,18 +59,18 @@ class table_G_P_K_G_(DefaultTable.DefaultTable):
 		for i in range(1, self.numGMAPs +1):
 			pos += len(self.GMAPs[i-1])
 			GMAPoffsets[i] = pos
-		gmapArray = Numeric.array(GMAPoffsets, Numeric.UInt32)
-		if ttLib.endian <> "big":
-			gmapArray = gmapArray.byteswapped()
+		gmapArray = numpy.array(GMAPoffsets, numpy.uint32)
+		if sys.byteorder <> "big":
+			gmapArray = gmapArray.byteswap()
 		dataList.append(gmapArray.tostring())
 
 		glyphletOffsets[0] = pos
 		for i in range(1, self.numGlyplets +1):
 			pos += len(self.glyphlets[i-1])
 			glyphletOffsets[i] = pos
-		glyphletArray = Numeric.array(glyphletOffsets, Numeric.UInt32)
-		if ttLib.endian <> "big":
-			glyphletArray = glyphletArray.byteswapped()
+		glyphletArray = numpy.array(glyphletOffsets, numpy.uint32)
+		if sys.byteorder <> "big":
+			glyphletArray = glyphletArray.byteswap()
 		dataList.append(glyphletArray.tostring())
 		dataList += self.GMAPs
 		dataList += self.glyphlets

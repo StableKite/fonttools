@@ -21,6 +21,7 @@ __version__ = "1.0b2"
 DEBUG = 0
 
 from fontTools.misc import eexec
+from fontTools.misc.macCreatorType import getMacCreatorAndType
 import string
 import re
 import os
@@ -102,10 +103,9 @@ class T1Font:
 def read(path, onlyHeader=0):
 	"""reads any Type 1 font file, returns raw data"""
 	normpath = string.lower(path)
-	if haveMacSupport:
-		creator, type = MacOS.GetCreatorAndType(path)
-		if type == 'LWFN':
-			return readLWFN(path, onlyHeader), 'LWFN'
+	creator, type = getMacCreatorAndType(path)
+	if type == 'LWFN':
+		return readLWFN(path, onlyHeader), 'LWFN'
 	if normpath[-4:] == '.pfb':
 		return readPFB(path, onlyHeader), 'PFB'
 	else:
@@ -252,8 +252,6 @@ def writePFB(path, data):
 		f.write(chr(128) + chr(3))
 	finally:
 		f.close()
-	if haveMacSupport:
-		MacOS.SetCreatorAndType(path, 'mdos', 'BINA')
 
 def writeOther(path, data, dohex = 0):
 	chunks = findEncryptedChunks(data)
@@ -274,8 +272,6 @@ def writeOther(path, data, dohex = 0):
 				f.write(chunk)
 	finally:
 		f.close()
-	if haveMacSupport:
-		MacOS.SetCreatorAndType(path, 'R*ch', 'TEXT') # BBEdit text file
 
 
 # decryption tools
@@ -324,13 +320,14 @@ def findEncryptedChunks(data):
 		if eEnd < 0:
 			raise T1Error, "can't find end of eexec part"
 		cypherText = data[eBegin:eEnd + 2]
+		if isHex(cypherText[:4]):
+			cypherText = deHexString(cypherText)
 		plainText, R = eexec.decrypt(cypherText, 55665)
 		eEndLocal = string.find(plainText, EEXECINTERNALEND)
 		if eEndLocal < 0:
 			raise T1Error, "can't find end of eexec part"
-		eEnd = eBegin + eEndLocal + len(EEXECINTERNALEND) + 1
 		chunks.append((0, data[:eBegin]))
-		chunks.append((1, data[eBegin:eEnd]))
+		chunks.append((1, cypherText[:eEndLocal + len(EEXECINTERNALEND) + 1]))
 		data = data[eEnd:]
 	chunks.append((0, data))
 	return chunks
@@ -344,7 +341,7 @@ def deHexString(hexstring):
 _fontType1RE = re.compile(r"/FontType\s+1\s+def")
 
 def assertType1(data):
-	for head in ['%!PS-AdobeFont', '%!FontType1-1.0']:
+	for head in ['%!PS-AdobeFont', '%!FontType1']:
 		if data[:len(head)] == head:
 			break
 	else:
