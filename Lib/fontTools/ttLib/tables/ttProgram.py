@@ -173,7 +173,11 @@ def _makeDict(instructionList):
 streamOpcodeDict, streamMnemonicDict = _makeDict(streamInstructions)
 opcodeDict, mnemonicDict = _makeDict(instructions)
 
-tt_instructions_error = "TT instructions error"
+class tt_instructions_error(Exception):
+	def __init__(self, error):
+		self.error = error
+	def __str__(self):
+		return "TT instructions error: %s" % repr(self.error)
 
 
 _comment = r"/\*.*?\*/"
@@ -394,7 +398,7 @@ if __name__ == "__main__":
 	
 	p = Program()
 	p.fromBytecode(bc)
-	as = p.getAssembly()
-	p.fromAssembly(as)
+	asm = p.getAssembly()
+	p.fromAssembly(asm)
 	print bc == p.getBytecode()
 

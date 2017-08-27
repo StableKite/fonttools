@@ -20,7 +20,7 @@ import os
 
 class SFNTReader:
 	
-	def __init__(self, file, checkChecksums=1):
+	def __init__(self, file, checkChecksums=1, fontNumber=-1):
 		self.file = file
 		self.checkChecksums = checkChecksums
 		data = self.file.read(sfntDirectorySize)
@@ -28,6 +28,19 @@ class SFNTReader:
 			from fontTools import ttLib
 			raise ttLib.TTLibError, "Not a TrueType or OpenType font (not enough data)"
 		sstruct.unpack(sfntDirectoryFormat, data, self)
+		if self.sfntVersion == "ttcf":
+			assert ttcHeaderSize == sfntDirectorySize
+			sstruct.unpack(ttcHeaderFormat, data, self)
+			assert self.Version == 0x00010000 or self.Version == 0x00020000, "unrecognized TTC version 0x%08x" % self.Version
+			if not 0 <= fontNumber < self.numFonts:
+				from fontTools import ttLib
+				raise ttLib.TTLibError, "specify a font number between 0 and %d (inclusive)" % (self.numFonts - 1)
+			offsetTable = struct.unpack(">%dL" % self.numFonts, self.file.read(self.numFonts * 4))
+			if self.Version == 0x00020000:
+				pass # ignoring version 2.0 signatures
+			self.file.seek(offsetTable[fontNumber])
+			data = self.file.read(sfntDirectorySize)
+			sstruct.unpack(sfntDirectoryFormat, data, self)
 		if self.sfntVersion not in ("\000\001\000\000", "OTTO", "true"):
 			from fontTools import ttLib
 			raise ttLib.TTLibError, "Not a TrueType or OpenType font (bad sfntVersion)"
@@ -107,9 +120,12 @@ class SFNTWriter:
 			self.nextTableOffset = self.nextTableOffset + ((len(data) + 3) & ~3)
 		self.file.seek(entry.offset)
 		self.file.write(data)
-		self.file.seek(self.nextTableOffset)
-		# make sure we're actually where we want to be. (XXX old cStringIO bug)
+		# Add NUL bytes to pad the table data to a 4-byte boundary.
+		# Don't depend on f.seek() as we need to add the padding even if no
+		# subsequent write follows (seek is lazy), ie. after the final table
+		# in the font.
 		self.file.write('\0' * (self.nextTableOffset - self.file.tell()))
+		assert self.nextTableOffset == self.file.tell()
 		
 		if tag == 'head':
 			entry.checkSum = calcChecksum(data[:8] + '\0\0\0\0' + data[12:])
@@ -143,7 +159,7 @@ class SFNTWriter:
 	def calcMasterChecksum(self, directory):
 		# calculate checkSumAdjustment
 		tags = self.tables.keys()
-		checksums = numpy.zeros(len(tags)+1, numpy.int32)
+		checksums = numpy.zeros(len(tags)+1, numpy.uint32)
 		for i in range(len(tags)):
 			checksums[i] = self.tables[tags[i]].checkSum
 		
@@ -151,16 +167,28 @@ class SFNTWriter:
 		assert directory_end == len(directory)
 		
 		checksums[-1] = calcChecksum(directory)
-		checksum = numpy.add.reduce(checksums)
+		checksum = numpy.add.reduce(checksums,dtype=numpy.uint32)
 		# BiboAfba!
-		checksumadjustment = numpy.array(0xb1b0afbaL - 0x100000000L,
-				numpy.int32) - checksum
+		checksumadjustment = int(numpy.subtract.reduce(numpy.array([0xB1B0AFBA, checksum], numpy.uint32)))
 		# write the checksum to the file
 		self.file.seek(self.tables['head'].offset + 8)
-		self.file.write(struct.pack(">l", checksumadjustment))
+		self.file.write(struct.pack(">L", checksumadjustment))
 
 
 # -- sfnt directory helpers and cruft
+
+ttcHeaderFormat = """
+		> # big endian
+		TTCTag:                  4s # "ttcf"
+		Version:                 L  # 0x00010000 or 0x00020000
+		numFonts:                L  # number of fonts
+		# OffsetTable[numFonts]: L  # array with offsets from beginning of file
+		# ulDsigTag:             L  # version 2.0 only
+		# ulDsigLength:          L  # version 2.0 only
+		# ulDsigOffset:          L  # version 2.0 only
+"""
+
+ttcHeaderSize = sstruct.calcsize(ttcHeaderFormat)
 
 sfntDirectoryFormat = """
 		> # big endian
@@ -176,9 +204,9 @@ sfntDirectorySize = sstruct.calcsize(sfntDirectoryFormat)
 sfntDirectoryEntryFormat = """
 		> # big endian
 		tag:            4s
-		checkSum:       l
-		offset:         l
-		length:         l
+		checkSum:       L
+		offset:         L
+		length:         L
 """
 
 sfntDirectoryEntrySize = sstruct.calcsize(sfntDirectoryEntryFormat)
@@ -215,10 +243,9 @@ def calcChecksum(data, start=0):
 	remainder = len(data) % 4
 	if remainder:
 		data = data + '\0' * (4-remainder)
-	a = numpy.fromstring(struct.pack(">l", start) + data, numpy.int32)
-	if sys.byteorder <> "big":
-		a = a.byteswap()
-	return numpy.add.reduce(a)
+	data = struct.unpack(">%dL"%(len(data)/4), data)
+	a = numpy.array((start,)+data, numpy.uint32)
+	return int(numpy.sum(a,dtype=numpy.uint32))
 
 
 def maxPowerOfTwo(x):
