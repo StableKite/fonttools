@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-
 """\
 usage: ttx [options] inputfile1 [... inputfileN]
 
@@ -11,12 +9,13 @@ usage: ttx [options] inputfile1 [... inputfileN]
        or OpenType font file.
 
     Output files are created so they are unique: an existing file is
-       never overwrritten.
+       never overwritten.
 
     General options:
     -h Help: print this message
     -d <outputfolder> Specify a directory where the output files are
        to be created.
+    -o <outputfile> Specify a file to write the output to.
     -v Verbose: more messages will be written to stdout about what
        is being done.
     -a allow virtual glyphs ID's on compile or decompile.
@@ -48,7 +47,7 @@ usage: ttx [options] inputfile1 [... inputfileN]
     -m Merge with TrueType-input-file: specify a TrueType or OpenType
        font file to be merged with the TTX file. This option is only
        valid when at most one TTX file is specified.
-    -b Don't recalc glyph boundig boxes: use the values in the TTX
+    -b Don't recalc glyph bounding boxes: use the values in the TTX
        file as-is.
 """
 
@@ -69,6 +68,7 @@ def usage():
 
 	
 numberAddedRE = re.compile("(.*)#\d+$")
+opentypeheaderRE = re.compile('''sfntVersion=['"]OTTO["']''')
 
 def makeOutputFileName(input, outputDir, extension):
 	dir, file = os.path.split(input)
@@ -90,6 +90,7 @@ class Options:
 
 	listTables = 0
 	outputDir = None
+	outputFile = None
 	verbose = 0
 	splitTables = 0
 	disassembleInstructions = 1
@@ -112,6 +113,8 @@ class Options:
 					print "The -d option value must be an existing directory"
 					sys.exit(2)
 				self.outputDir = value
+			elif option == "-o":
+				self.outputFile = value
 			elif option == "-v":
 				self.verbose = 1
 			# dump options
@@ -235,7 +238,7 @@ def guessFileType(fileName):
 	elif head in ("\0\1\0\0", "true"):
 		return "TTF"
 	elif head.lower() == "<?xm":
-		if header.find('sfntVersion="OTTO"') > 0:
+		if opentypeheaderRE.match(header):
 			return "OTX"
 		else:
 			return "TTX"
@@ -244,7 +247,7 @@ def guessFileType(fileName):
 
 def parseOptions(args):
 	try:
-		rawOptions, files = getopt.getopt(args, "ld:vht:x:sim:baey:")
+		rawOptions, files = getopt.getopt(args, "ld:o:vht:x:sim:baey:")
 	except getopt.GetoptError:
 		usage()
 	
@@ -272,7 +275,10 @@ def parseOptions(args):
 			print 'Unknown file type: "%s"' % input
 			continue
 		
-		output = makeOutputFileName(input, options.outputDir, extension)
+		if options.outputFile:
+			output = options.outputFile
+		else:
+			output = makeOutputFileName(input, options.outputDir, extension)
 		jobs.append((action, input, output))
 	return jobs, options
 

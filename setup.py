@@ -64,7 +64,7 @@ TrueType/OpenType fonts to and from an XML-based format.
 
 setup(
 		name = "fonttools",
-		version = "2.3",
+		version = "2.4",
 		description = "Tools to manipulate font files",
 		author = "Just van Rossum",
 		author_email = "just@letterror.com",
@@ -98,6 +98,7 @@ setup(
 			)
 		],
 		scripts = ["Tools/ttx"],
+		console = ["Tools/ttx"],
 		cmdclass = {"build_ext": build_ext_optional},
 		data_files = [('share/man/man1', ["Doc/ttx.1"])],
 		**classifiers
