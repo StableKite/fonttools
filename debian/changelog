@@ -3,6 +3,7 @@ fonttools (3.15.1-1) UNRELEASED; urgency=medium
   * New upstream release 
   * debian/control
     - adjust python build dependency
+    - add python-sphinx since upstream use rst files.
   * debian/rules
     - deal with upstream's change (remove doc files)
   * debian/docs
