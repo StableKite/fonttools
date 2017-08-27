@@ -10,6 +10,7 @@ fonttools (3.15.1-1) UNRELEASED; urgency=medium
     - set Standards-Version to 4.1.0
     - update Homepage:
     - add Vcs-*
+    - add X-Python3-Version: >= 3.4
   * debian/compat
     - set 10
   * debian/rules
