@@ -12,6 +12,8 @@ Build-Depends:
  dh-python
 Standards-Version: 4.1.0
 Homepage: https://github.com/fonttools/fonttools
+Vcs-Git: https://anonscm.debian.org/git/pkg-fonts/fonttools.git
+Vcs-Browser: https://anonscm.debian.org/cgit/pkg-fonts/fonttools.git
 
 Package: fonttools
 Architecture: all
