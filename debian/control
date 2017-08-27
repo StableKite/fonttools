@@ -5,9 +5,9 @@ Maintainer: Debian Fonts Task Force <pkg-fonts-devel@lists.alioth.debian.org>
 Uploaders: Luke Faraone <lfaraone@debian.org>
 Build-Depends:
  debhelper (>= 9),
- python-dev (>= 2.6.6-3~),
- python-setuptools,
- python-numpy,
+ python3-all,
+ python3-setuptools,
+ python3-numpy,
  python-sphinx,
  dh-python
 Standards-Version: 4.1.0
@@ -18,7 +18,7 @@ Vcs-Browser: https://anonscm.debian.org/cgit/pkg-fonts/fonttools.git
 Package: fonttools
 Architecture: all
 Depends:
- python-numpy,
+ python3-numpy,
  ${misc:Depends},
  ${python:Depends}
 Description: Converts OpenType and TrueType fonts to and from XML
