@@ -8,15 +8,15 @@ Example interactive session:
 
 Python 1.5.2c1 (#43, Mar  9 1999, 13:06:43)  [CW PPC w/GUSI w/MSL]
 Copyright 1991-1995 Stichting Mathematisch Centrum, Amsterdam
->>> from fontTools import ttLib
->>> tt = ttLib.TTFont("afont.ttf")
->>> tt['maxp'].numGlyphs
+>> from fontTools import ttLib
+>> tt = ttLib.TTFont("afont.ttf")
+>> tt['maxp'].numGlyphs
 242
->>> tt['OS/2'].achVendID
+>> tt['OS/2'].achVendID
 'B&H\000'
->>> tt['head'].unitsPerEm
+>> tt['head'].unitsPerEm
 2048
->>> tt.saveXML("afont.ttx")
+>> tt.saveXML("afont.ttx")
 Dumping 'LTSH' table...
 Dumping 'OS/2' table...
 Dumping 'VDMX' table...
@@ -33,28 +33,23 @@ Dumping 'maxp' table...
 Dumping 'name' table...
 Dumping 'post' table...
 Dumping 'prep' table...
->>> tt2 = ttLib.TTFont()
->>> tt2.importXML("afont.ttx")
->>> tt2['maxp'].numGlyphs
+>> tt2 = ttLib.TTFont()
+>> tt2.importXML("afont.ttx")
+>> tt2['maxp'].numGlyphs
 242
->>>
+>>
 
 """
 
 from __future__ import print_function, division, absolute_import
 from fontTools.misc.py23 import *
+from fontTools.misc.loggingTools import deprecateArgument, deprecateFunction
 import os
 import sys
+import logging
 
-haveMacSupport = 0
-if sys.platform == "mac":
-	haveMacSupport = 1
-elif sys.platform == "darwin":
-	if sys.version_info[:3] != (2, 2, 0) and sys.version_info[:1] < (3,):
-		# Python 2.2's Mac support is broken, so don't enable it there.
-		# Python 3 does not have Res used by macUtils
-		haveMacSupport = 1
 
+log = logging.getLogger(__name__)
 
 class TTLibError(Exception): pass
 
@@ -69,8 +64,8 @@ class TTFont(object):
 
 	def __init__(self, file=None, res_name_or_index=None,
 			sfntVersion="\000\001\000\000", flavor=None, checkChecksums=False,
-			verbose=False, recalcBBoxes=True, allowVID=False, ignoreDecompileErrors=False,
-			recalcTimestamp=True, fontNumber=-1, lazy=None, quiet=False):
+			verbose=None, recalcBBoxes=True, allowVID=False, ignoreDecompileErrors=False,
+			recalcTimestamp=True, fontNumber=-1, lazy=None, quiet=None):
 
 		"""The constructor can be called with a few different arguments.
 		When reading a font from disk, 'file' should be either a pathname
@@ -91,13 +86,15 @@ class TTFont(object):
 		The TTFont constructor can also be called without a 'file'
 		argument: this is the way to create a new empty font.
 		In this case you can optionally supply the 'sfntVersion' argument,
-		and a 'flavor' which can be None, or 'woff'.
+		and a 'flavor' which can be None, 'woff', or 'woff2'.
 
 		If the recalcBBoxes argument is false, a number of things will *not*
 		be recalculated upon save/compile:
-			1) glyph bounding boxes
-			2) maxp font bounding box
-			3) hhea min/max values
+			1) 'glyf' glyph bounding boxes
+			2) 'CFF ' font bounding box
+			3) 'head' font bounding box
+			4) 'hhea' min/max values
+			5) 'vhea' min/max values
 		(1) is needed for certain kinds of CJK fonts (ask Werner Lemberg ;-).
 		Additionally, upon importing an TTX file, this option cause glyphs
 		to be compiled right away. This should reduce memory consumption
@@ -128,8 +125,13 @@ class TTFont(object):
 		"""
 
 		from fontTools.ttLib import sfnt
-		self.verbose = verbose
-		self.quiet = quiet
+
+		for name in ("verbose", "quiet"):
+			val = locals().get(name)
+			if val is not None:
+				deprecateArgument(name, "configure logging instead")
+			setattr(self, name, val)
+
 		self.lazy = lazy
 		self.recalcBBoxes = recalcBBoxes
 		self.recalcTimestamp = recalcTimestamp
@@ -151,8 +153,8 @@ class TTFont(object):
 		if not hasattr(file, "read"):
 			closeStream = True
 			# assume file is a string
-			if haveMacSupport and res_name_or_index is not None:
-				# on the mac, we deal with sfnt resources as well as flat files
+			if res_name_or_index is not None:
+				# see if it contains 'sfnt' resources in the resource or data fork
 				from . import macUtils
 				if res_name_or_index == 0:
 					if macUtils.getSFNTResIndices(file):
@@ -168,14 +170,16 @@ class TTFont(object):
 		else:
 			# assume "file" is a readable file object
 			closeStream = False
-		# read input file in memory and wrap a stream around it to allow overwriting
-		tmp = BytesIO(file.read())
-		if hasattr(file, 'name'):
-			# save reference to input file name
-			tmp.name = file.name
-		if closeStream:
-			file.close()
-		self.reader = sfnt.SFNTReader(tmp, checkChecksums, fontNumber=fontNumber)
+		if not self.lazy:
+			# read input file in memory and wrap a stream around it to allow overwriting
+			tmp = BytesIO(file.read())
+			if hasattr(file, 'name'):
+				# save reference to input file name
+				tmp.name = file.name
+			if closeStream:
+				file.close()
+			file = tmp
+		self.reader = sfnt.SFNTReader(file, checkChecksums, fontNumber=fontNumber)
 		self.sfntVersion = self.reader.sfntVersion
 		self.flavor = self.reader.flavor
 		self.flavorData = self.reader.flavorData
@@ -185,28 +189,24 @@ class TTFont(object):
 		if self.reader is not None:
 			self.reader.close()
 
-	def save(self, file, makeSuitcase=False, reorderTables=True):
+	def save(self, file, reorderTables=True):
 		"""Save the font to disk. Similarly to the constructor,
 		the 'file' argument can be either a pathname or a writable
 		file object.
-
-		On the Mac, if makeSuitcase is true, a suitcase (resource fork)
-		file will we made instead of a flat .ttf file.
 		"""
 		from fontTools.ttLib import sfnt
 		if not hasattr(file, "write"):
-			closeStream = 1
-			if os.name == "mac" and makeSuitcase:
-				from . import macUtils
-				file = macUtils.SFNTResourceWriter(file, self)
-			else:
-				file = open(file, "wb")
-				if os.name == "mac":
-					from fontTools.misc.macCreator import setMacCreatorAndType
-					setMacCreatorAndType(file.name, 'mdos', 'BINA')
+			if self.lazy and self.reader.file.name == file:
+				raise TTLibError(
+					"Can't overwrite TTFont when 'lazy' attribute is True")
+			closeStream = True
+			file = open(file, "wb")
 		else:
 			# assume "file" is a writable file object
-			closeStream = 0
+			closeStream = False
+
+		if self.recalcTimestamp and 'head' in self:
+			self['head']  # make sure 'head' is loaded so the recalculation is actually done
 
 		tags = list(self.keys())
 		if "GlyphOrder" in tags:
@@ -245,9 +245,9 @@ class TTFont(object):
 		if closeStream:
 			file.close()
 
-	def saveXML(self, fileOrPath, progress=None, quiet=False,
+	def saveXML(self, fileOrPath, progress=None, quiet=None,
 			tables=None, skipTables=None, splitTables=False, disassembleInstructions=True,
-			bitmapGlyphDataFormat='raw'):
+			bitmapGlyphDataFormat='raw', newlinestr=None):
 		"""Export the font as TTX (an XML-based text file), or as a series of text
 		files when splitTables is true. In the latter case, the 'fileOrPath'
 		argument should be a path to a directory.
@@ -257,6 +257,13 @@ class TTFont(object):
 		"""
 		from fontTools import version
 		from fontTools.misc import xmlWriter
+
+		# only write the MAJOR.MINOR version in the 'ttLibVersion' attribute of
+		# TTX files' root element (without PATCH or .dev suffixes)
+		version = ".".join(version.split('.')[:2])
+
+		if quiet is not None:
+			deprecateArgument("quiet", "configure logging instead")
 
 		self.disassembleInstructions = disassembleInstructions
 		self.bitmapGlyphDataFormat = bitmapGlyphDataFormat
@@ -275,8 +282,9 @@ class TTFont(object):
 		else:
 			idlefunc = None
 
-		writer = xmlWriter.XMLWriter(fileOrPath, idlefunc=idlefunc)
-		writer.begintag("ttFont", sfntVersion=repr(self.sfntVersion)[1:-1],
+		writer = xmlWriter.XMLWriter(fileOrPath, idlefunc=idlefunc,
+				newlinestr=newlinestr)
+		writer.begintag("ttFont", sfntVersion=repr(tostr(self.sfntVersion))[1:-1],
 				ttLibVersion=version)
 		writer.newline()
 
@@ -293,7 +301,8 @@ class TTFont(object):
 			tag = tables[i]
 			if splitTables:
 				tablePath = fileNameTemplate % tagToIdentifier(tag)
-				tableWriter = xmlWriter.XMLWriter(tablePath, idlefunc=idlefunc)
+				tableWriter = xmlWriter.XMLWriter(tablePath, idlefunc=idlefunc,
+						newlinestr=newlinestr)
 				tableWriter.begintag("ttFont", ttLibVersion=version)
 				tableWriter.newline()
 				tableWriter.newline()
@@ -301,7 +310,7 @@ class TTFont(object):
 				writer.newline()
 			else:
 				tableWriter = writer
-			self._tableToXML(tableWriter, tag, progress, quiet)
+			self._tableToXML(tableWriter, tag, progress)
 			if splitTables:
 				tableWriter.endtag("ttFont")
 				tableWriter.newline()
@@ -310,11 +319,14 @@ class TTFont(object):
 			progress.set((i + 1))
 		writer.endtag("ttFont")
 		writer.newline()
-		writer.close()
-		if self.verbose:
-			debugmsg("Done dumping TTX")
+		# close if 'fileOrPath' is a path; leave it open if it's a file.
+		# The special string "-" means standard output so leave that open too
+		if not hasattr(fileOrPath, "write") and fileOrPath != "-":
+			writer.close()
 
-	def _tableToXML(self, writer, tag, progress, quiet):
+	def _tableToXML(self, writer, tag, progress, quiet=None):
+		if quiet is not None:
+			deprecateArgument("quiet", "configure logging instead")
 		if tag in self:
 			table = self[tag]
 			report = "Dumping '%s' table..." % tag
@@ -322,11 +334,7 @@ class TTFont(object):
 			report = "No '%s' table found." % tag
 		if progress:
 			progress.setLabel(report)
-		elif self.verbose:
-			debugmsg(report)
-		else:
-			if not quiet:
-				print(report)
+		log.info(report)
 		if tag not in self:
 			return
 		xmlTag = tagToXML(tag)
@@ -346,10 +354,13 @@ class TTFont(object):
 		writer.newline()
 		writer.newline()
 
-	def importXML(self, file, progress=None, quiet=False):
+	def importXML(self, fileOrPath, progress=None, quiet=None):
 		"""Import a TTX file (an XML-based text format), so as to recreate
 		a font object.
 		"""
+		if quiet is not None:
+			deprecateArgument("quiet", "configure logging instead")
+
 		if "maxp" in self and "post" in self:
 			# Make sure the glyph order is loaded, as it otherwise gets
 			# lost if the XML doesn't contain the glyph order, yet does
@@ -359,7 +370,7 @@ class TTFont(object):
 
 		from fontTools.misc import xmlReader
 
-		reader = xmlReader.XMLReader(file, self, progress, quiet)
+		reader = xmlReader.XMLReader(fileOrPath, self, progress)
 		reader.read()
 
 	def isLoaded(self, tag):
@@ -405,21 +416,20 @@ class TTFont(object):
 				return table
 			if self.reader is not None:
 				import traceback
-				if self.verbose:
-					debugmsg("Reading '%s' table from disk" % tag)
+				log.debug("Reading '%s' table from disk", tag)
 				data = self.reader[tag]
 				tableClass = getTableClass(tag)
 				table = tableClass(tag)
 				self.tables[tag] = table
-				if self.verbose:
-					debugmsg("Decompiling '%s' table" % tag)
+				log.debug("Decompiling '%s' table", tag)
 				try:
 					table.decompile(data, self)
 				except:
 					if not self.ignoreDecompileErrors:
 						raise
 					# fall back to DefaultTable, retaining the binary table data
-					print("An exception occurred during the decompilation of the '%s' table" % tag)
+					log.exception(
+						"An exception occurred during the decompilation of the '%s' table", tag)
 					from .tables.DefaultTable import DefaultTable
 					file = StringIO()
 					traceback.print_exc(file=file)
@@ -511,50 +521,47 @@ class TTFont(object):
 		# Set the glyph order, so the cmap parser has something
 		# to work with (so we don't get called recursively).
 		self.glyphOrder = glyphOrder
-		# Get a (new) temporary cmap (based on the just invented names)
-		try:
-			tempcmap = self['cmap'].getcmap(3, 1)
-		except KeyError:
-			tempcmap = None
-		if tempcmap is not None:
-			# we have a unicode cmap
-			from fontTools import agl
-			cmap = tempcmap.cmap
-			# create a reverse cmap dict
-			reversecmap = {}
-			for unicode, name in list(cmap.items()):
-				reversecmap[name] = unicode
-			allNames = {}
-			for i in range(numGlyphs):
-				tempName = glyphOrder[i]
-				if tempName in reversecmap:
-					unicode = reversecmap[tempName]
-					if unicode in agl.UV2AGL:
-						# get name from the Adobe Glyph List
-						glyphName = agl.UV2AGL[unicode]
-					else:
-						# create uni<CODE> name
-						glyphName = "uni%04X" % unicode
-					tempName = glyphName
-					n = allNames.get(tempName, 0)
-					if n:
-						tempName = glyphName + "#" + str(n)
-					glyphOrder[i] = tempName
-					allNames[tempName] = n + 1
-			# Delete the temporary cmap table from the cache, so it can
-			# be parsed again with the right names.
-			del self.tables['cmap']
-		else:
-			pass # no unicode cmap available, stick with the invented names
+
+		# Make up glyph names based on the reversed cmap table. Because some
+		# glyphs (eg. ligatures or alternates) may not be reachable via cmap,
+		# this naming table will usually not cover all glyphs in the font.
+		# If the font has no Unicode cmap table, reversecmap will be empty.
+		reversecmap = self['cmap'].buildReversed()
+		useCount = {}
+		for i in range(numGlyphs):
+			tempName = glyphOrder[i]
+			if tempName in reversecmap:
+				# If a font maps both U+0041 LATIN CAPITAL LETTER A and
+				# U+0391 GREEK CAPITAL LETTER ALPHA to the same glyph,
+				# we prefer naming the glyph as "A".
+				glyphName = self._makeGlyphName(min(reversecmap[tempName]))
+				numUses = useCount[glyphName] = useCount.get(glyphName, 0) + 1
+				if numUses > 1:
+					glyphName = "%s.alt%d" % (glyphName, numUses - 1)
+				glyphOrder[i] = glyphName
+
+		# Delete the temporary cmap table from the cache, so it can
+		# be parsed again with the right names.
+		del self.tables['cmap']
 		self.glyphOrder = glyphOrder
 		if cmapLoading:
 			# restore partially loaded cmap, so it can continue loading
 			# using the proper names.
 			self.tables['cmap'] = cmapLoading
 
+	@staticmethod
+	def _makeGlyphName(codepoint):
+		from fontTools import agl  # Adobe Glyph List
+		if codepoint in agl.UV2AGL:
+			return agl.UV2AGL[codepoint]
+		elif codepoint <= 0xFFFF:
+			return "uni%04X" % codepoint
+		else:
+			return "u%X" % codepoint
+
 	def getGlyphNames(self):
 		"""Get a list of glyph names, sorted alphabetically."""
-		glyphNames = sorted(self.getGlyphOrder()[:])
+		glyphNames = sorted(self.getGlyphOrder())
 		return glyphNames
 
 	def getGlyphNames2(self):
@@ -651,8 +658,7 @@ class TTFont(object):
 				else:
 					done.append(masterTable)
 		tabledata = self.getTableData(tag)
-		if self.verbose:
-			debugmsg("writing '%s' table to disk" % tag)
+		log.debug("writing '%s' table to disk", tag)
 		writer[tag] = tabledata
 		done.append(tag)
 
@@ -661,12 +667,10 @@ class TTFont(object):
 		"""
 		tag = Tag(tag)
 		if self.isLoaded(tag):
-			if self.verbose:
-				debugmsg("compiling '%s' table" % tag)
+			log.debug("compiling '%s' table", tag)
 			return self.tables[tag].compile(self)
 		elif self.reader and tag in self.reader:
-			if self.verbose:
-				debugmsg("Reading '%s' table from disk" % tag)
+			log.debug("Reading '%s' table from disk", tag)
 			return self.reader[tag]
 		else:
 			raise KeyError(tag)
@@ -677,14 +681,18 @@ class TTFont(object):
 		have a .draw() method that supports the Pen protocol, and will
 		have an attribute named 'width'.
 
-		If the font is CFF-based, the outlines will be taken from the 'CFF '
-		table. Otherwise the outlines will be taken from the 'glyf' table.
-		If the font contains both a 'CFF ' and a 'glyf' table, you can use
-		the 'preferCFF' argument to specify which one should be taken.
+		If the font is CFF-based, the outlines will be taken from the 'CFF ' or
+		'CFF2' tables. Otherwise the outlines will be taken from the 'glyf' table.
+		If the font contains both a 'CFF '/'CFF2' and a 'glyf' table, you can use
+		the 'preferCFF' argument to specify which one should be taken. If the
+		font contains both a 'CFF ' and a 'CFF2' table, the latter is taken.
 		"""
 		glyphs = None
-		if (preferCFF and "CFF " in self) or "glyf" not in self:
-			glyphs = _TTGlyphSet(self, list(self["CFF "].cff.values())[0].CharStrings, _TTGlyphCFF)
+		if (preferCFF and any(tb in self for tb in ["CFF ", "CFF2"]) or
+		   ("glyf" not in self and any(tb in self for tb in ["CFF ", "CFF2"]))):
+			table_tag = "CFF2" if "CFF2" in self else "CFF "
+			glyphs = _TTGlyphSet(self,
+			    list(self[table_tag].cff.values())[0].CharStrings, _TTGlyphCFF)
 
 		if glyphs is None and "glyf" in self:
 			glyphs = _TTGlyphSet(self, self["glyf"], _TTGlyphGlyf)
@@ -704,6 +712,7 @@ class _TTGlyphSet(object):
 	def __init__(self, ttFont, glyphs, glyphType):
 		self._glyphs = glyphs
 		self._hmtx = ttFont['hmtx']
+		self._vmtx = ttFont['vmtx'] if 'vmtx' in ttFont else None
 		self._glyphType = glyphType
 
 	def keys(self):
@@ -715,7 +724,10 @@ class _TTGlyphSet(object):
 	__contains__ = has_key
 
 	def __getitem__(self, glyphName):
-		return self._glyphType(self, self._glyphs[glyphName], self._hmtx[glyphName])
+		horizontalMetrics = self._hmtx[glyphName]
+		verticalMetrics = self._vmtx[glyphName] if self._vmtx else None
+		return self._glyphType(
+			self, self._glyphs[glyphName], horizontalMetrics, verticalMetrics)
 
 	def get(self, glyphName, default=None):
 		try:
@@ -727,13 +739,21 @@ class _TTGlyph(object):
 
 	"""Wrapper for a TrueType glyph that supports the Pen protocol, meaning
 	that it has a .draw() method that takes a pen object as its only
-	argument. Additionally there is a 'width' attribute.
+	argument. Additionally there are 'width' and 'lsb' attributes, read from
+	the 'hmtx' table.
+
+	If the font contains a 'vmtx' table, there will also be 'height' and 'tsb'
+	attributes.
 	"""
 
-	def __init__(self, glyphset, glyph, metrics):
+	def __init__(self, glyphset, glyph, horizontalMetrics, verticalMetrics=None):
 		self._glyphset = glyphset
 		self._glyph = glyph
-		self.width, self.lsb = metrics
+		self.width, self.lsb = horizontalMetrics
+		if verticalMetrics:
+			self.height, self.tsb = verticalMetrics
+		else:
+			self.height, self.tsb = None, None
 
 	def draw(self, pen):
 		"""Draw the glyph onto Pen. See fontTools.pens.basePen for details
@@ -918,6 +938,7 @@ def xmlToTag(tag):
 		return Tag(tag + " " * (4 - len(tag)))
 
 
+@deprecateFunction("use logging instead", category=DeprecationWarning)
 def debugmsg(msg):
 	import time
 	print(msg + time.strftime("  (%H:%M:%S)", time.localtime(time.time())))

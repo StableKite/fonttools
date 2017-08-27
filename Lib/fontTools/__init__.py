@@ -1,4 +1,10 @@
 from __future__ import print_function, division, absolute_import
 from fontTools.misc.py23 import *
+import logging
+from fontTools.misc.loggingTools import configLogger
 
-version = "3.0"
+log = logging.getLogger(__name__)
+
+version = __version__ = "3.15.1"
+
+__all__ = ["version", "log", "configLogger"]

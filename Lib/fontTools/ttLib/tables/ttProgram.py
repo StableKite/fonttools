@@ -5,6 +5,10 @@ from fontTools.misc.py23 import *
 from fontTools.misc.textTools import num2binary, binary2num, readHex
 import array
 import re
+import logging
+
+
+log = logging.getLogger(__name__)
 
 # first, the list of instructions that eat bytes or words from the instruction stream
 
@@ -190,6 +194,8 @@ _whiteRE = re.compile(r"\s*")
 
 _pushCountPat = re.compile(r"[A-Z][A-Z0-9]*\s*\[.*?\]\s*/\* ([0-9]+).*?\*/")
 
+_indentRE = re.compile("^FDEF|IF|ELSE\[ \]\t.+")
+_unindentRE = re.compile("^ELSE|ENDF|EIF\[ \]\t.+")
 
 def _skipWhite(data, pos):
 	m = _whiteRE.match(data, pos)
@@ -218,43 +224,74 @@ class Program(object):
 			self._assemble()
 		return self.bytecode.tostring()
 
-	def getAssembly(self, preserve=False):
+	def getAssembly(self, preserve=True):
 		if not hasattr(self, "assembly"):
 			self._disassemble(preserve=preserve)
 		return self.assembly
 
 	def toXML(self, writer, ttFont):
 		if not hasattr (ttFont, "disassembleInstructions") or ttFont.disassembleInstructions:
-			assembly = self.getAssembly()
-			writer.begintag("assembly")
-			writer.newline()
-			i = 0
-			nInstr = len(assembly)
-			while i < nInstr:
-				instr = assembly[i]
-				writer.write(instr)
+			try:
+				assembly = self.getAssembly()
+			except:
+				import traceback
+				tmp = StringIO()
+				traceback.print_exc(file=tmp)
+				msg = "An exception occurred during the decompilation of glyph program:\n\n"
+				msg += tmp.getvalue()
+				log.error(msg)
+				writer.begintag("bytecode")
 				writer.newline()
-				m = _pushCountPat.match(instr)
-				i = i + 1
-				if m:
-					nValues = int(m.group(1))
-					line = []
-					j = 0
-					for j in range(nValues):
-						if j and not (j % 25):
-							writer.write(' '.join(line))
-							writer.newline()
-							line = []
-						line.append(assembly[i+j])
-					writer.write(' '.join(line))
+				writer.comment(msg.strip())
+				writer.newline()
+				writer.dumphex(self.getBytecode())
+				writer.endtag("bytecode")
+				writer.newline()
+			else:
+				if not assembly:
+					return
+				writer.begintag("assembly")
+				writer.newline()
+				i = 0
+				indent = 0
+				nInstr = len(assembly)
+				while i < nInstr:
+					instr = assembly[i]
+					if _unindentRE.match(instr):
+						indent -= 1
+					writer.write(writer.indentwhite * indent)
+					writer.write(instr)
 					writer.newline()
-					i = i + j + 1
-			writer.endtag("assembly")
+					m = _pushCountPat.match(instr)
+					i = i + 1
+					if m:
+						nValues = int(m.group(1))
+						line = []
+						j = 0
+						for j in range(nValues):
+							if j and not (j % 25):
+								writer.write(writer.indentwhite * indent)
+								writer.write(' '.join(line))
+								writer.newline()
+								line = []
+							line.append(assembly[i+j])
+						writer.write(writer.indentwhite * indent)
+						writer.write(' '.join(line))
+						writer.newline()
+						i = i + j + 1
+					if _indentRE.match(instr):
+						indent += 1
+				writer.endtag("assembly")
+				writer.newline()
 		else:
+			bytecode = self.getBytecode()
+			if not bytecode:
+				return
 			writer.begintag("bytecode")
 			writer.newline()
-			writer.dumphex(self.getBytecode())
+			writer.dumphex(bytecode)
 			writer.endtag("bytecode")
+			writer.newline()
 
 	def fromXML(self, name, attrs, content, ttFont):
 		if name == "assembly":
@@ -266,7 +303,7 @@ class Program(object):
 			self.fromBytecode(readHex(content))
 
 	def _assemble(self):
-		assembly = self.assembly
+		assembly = getattr(self, 'assembly', [])
 		if isinstance(assembly, type([])):
 			assembly = ' '.join(assembly)
 		bytecode = []
@@ -391,7 +428,7 @@ class Program(object):
 	def _disassemble(self, preserve=False):
 		assembly = []
 		i = 0
-		bytecode = self.bytecode
+		bytecode = getattr(self, 'bytecode', [])
 		numBytecode = len(bytecode)
 		while i < numBytecode:
 			op = bytecode[i]
@@ -476,6 +513,15 @@ class Program(object):
 				(hasattr(self, 'bytecode') and len(self.bytecode) > 0))
 
 	__nonzero__ = __bool__
+
+	def __eq__(self, other):
+		if type(self) != type(other):
+			return NotImplemented
+		return self.__dict__ == other.__dict__
+
+	def __ne__(self, other):
+		result = self.__eq__(other)
+		return result if result is NotImplemented else not result
 
 
 def _test():

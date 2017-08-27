@@ -1,3 +1,8 @@
+""" TSI{0,1,2,3,5} are private tables used by Microsoft Visual TrueType (VTT)
+tool to store its hinting source data.
+
+TSI5 contains the VTT character groups.
+"""
 from __future__ import print_function, division, absolute_import
 from fontTools.misc.py23 import *
 from fontTools.misc.textTools import safeEval
@@ -23,7 +28,7 @@ class table_T_S_I__5(DefaultTable.DefaultTable):
 		glyphNames = ttFont.getGlyphOrder()
 		a = array.array("H")
 		for i in range(len(glyphNames)):
-			a.append(self.glyphGrouping[glyphNames[i]])
+			a.append(self.glyphGrouping.get(glyphNames[i], 0))
 		if sys.byteorder != "big":
 			a.byteswap()
 		return a.tostring()

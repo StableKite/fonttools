@@ -8,8 +8,14 @@
 from __future__ import print_function, division, absolute_import
 from fontTools.misc.py23 import *
 from fontTools import misc, ttLib, cffLib
-import pygtk
-pygtk.require('2.0')
+try:
+    from gi import pygtkcompat
+except ImportError:
+    pygtkcompat = None
+
+if pygtkcompat is not None:
+    pygtkcompat.enable()
+    pygtkcompat.enable_gtk(version='3.0')
 import gtk
 import sys
 
@@ -73,7 +79,7 @@ class Row(object):
 	def _add_object(self, key, value):
 		# Make sure item is decompiled
 		try:
-			value["asdf"]
+			value.asdf # Any better way?!
 		except (AttributeError, KeyError, TypeError, ttLib.TTLibError):
 			pass
 		if isinstance(value, ttLib.getTableModule('glyf').Glyph):
@@ -256,10 +262,10 @@ def main(args=None):
 		args = sys.argv[1:]
 	if len(args) < 1:
 		print("usage: pyftinspect font...", file=sys.stderr)
-		sys.exit(1)
+		return 1
 	for arg in args:
 		Inspect(arg)
 	gtk.main()
 
 if __name__ == "__main__":
-	main()
+	sys.exit(main())
