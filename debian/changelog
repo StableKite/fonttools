@@ -1,6 +1,8 @@
 fonttools (3.15.1-1) UNRELEASED; urgency=medium
 
   * New upstream release 
+  * debian/control
+    - adjust python build dependency
 
  -- Hideki Yamane <henrich@debian.org>  Sun, 27 Aug 2017 20:52:44 +0900
 
