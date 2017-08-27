@@ -10,7 +10,7 @@ Build-Depends:
  python-numpy,
  python-sphinx,
  dh-python
-Standards-Version: 3.9.6
+Standards-Version: 4.1.0
 Homepage: http://sourceforge.net/projects/fonttools/
 
 Package: fonttools
