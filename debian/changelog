@@ -10,6 +10,7 @@ fonttools (3.15.1-1) UNRELEASED; urgency=medium
     - update Homepage:
     - add Vcs-*
   * debian/rules
+    - simplify it
     - deal with upstream's change (remove doc files)
   * debian/docs
     - drop it since upstream removes doc files
