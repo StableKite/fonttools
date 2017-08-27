@@ -11,7 +11,7 @@ Build-Depends:
  python-sphinx,
  dh-python
 Standards-Version: 4.1.0
-Homepage: http://sourceforge.net/projects/fonttools/
+Homepage: https://github.com/fonttools/fonttools
 
 Package: fonttools
 Architecture: all
