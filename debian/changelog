@@ -17,6 +17,8 @@ fonttools (3.15.1-1) UNRELEASED; urgency=medium
     - deal with upstream's change (remove doc files)
   * debian/docs
     - drop it since upstream removes doc files
+  * debian/watch
+    - update to version4
 
  -- Hideki Yamane <henrich@debian.org>  Sun, 27 Aug 2017 20:52:44 +0900
 

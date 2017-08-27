@@ -1,3 +1,2 @@
-version=3
-opts=filenamemangle=s/.+\/v?(\d\S*)\.tar\.gz/fonttools-$1\.tar\.gz/ \
-  https://github.com/behdad/fonttools/tags .*/v?(\d\S*)\.tar\.gz
+version=4
+https://github.com/fonttools/@PACKAGE@/tags .*/v*@ANY_VERSION@@ARCHIVE_EXT@
