@@ -1,8 +1,13 @@
+from __future__ import print_function, division, absolute_import
+from fontTools.misc.py23 import *
+
 otData = [
 
 	#
-	# common (generated from chapter2.htm)
+	# common
 	#
+
+	('LookupOrder', []),
 
 	('ScriptList', [
 		('uint16', 'ScriptCount', None, None, 'Number of ScriptRecords'),
@@ -48,6 +53,33 @@ otData = [
 		('uint16', 'LookupListIndex', 'LookupCount', 0, 'Array of LookupList indices for this feature -zero-based (first lookup is LookupListIndex = 0)'),
 	]),
 
+	('FeatureParams', [
+	]),
+
+	('FeatureParamsSize', [
+		('DeciPoints', 'DesignSize', None, None, 'The design size in 720/inch units (decipoints).'),
+		('uint16', 'SubfamilyID', None, None, 'Serves as an identifier that associates fonts in a subfamily.'),
+		('uint16', 'SubfamilyNameID', None, None, 'Subfamily NameID.'),
+		('DeciPoints', 'RangeStart', None, None, 'Small end of recommended usage range (exclusive) in 720/inch units.'),
+		('DeciPoints', 'RangeEnd', None, None, 'Large end of recommended usage range (inclusive) in 720/inch units.'),
+	]),
+
+	('FeatureParamsStylisticSet', [
+		('uint16', 'Version', None, None, 'Set to 0.'),
+		('uint16', 'UINameID', None, None, 'UI NameID.'),
+	]),
+
+	('FeatureParamsCharacterVariants', [
+		('uint16', 'Format', None, None, 'Set to 0.'),
+		('uint16', 'FeatUILabelNameID', None, None, 'Feature UI label NameID.'),
+		('uint16', 'FeatUITooltipTextNameID', None, None, 'Feature UI tooltip text NameID.'),
+		('uint16', 'SampleTextNameID', None, None, 'Sample text NameID.'),
+		('uint16', 'NumNamedParameters', None, None, 'Number of named parameters.'),
+		('uint16', 'FirstParamUILabelNameID', None, None, 'First NameID of UI feature parameters.'),
+		('uint16', 'CharCount', None, None, 'Count of characters this feature provides glyph variants for.'),
+		('uint24', 'Character', 'CharCount', 0, 'Unicode characters for which this feature provides glyph variants.'),
+	]),
+
 	('LookupList', [
 		('uint16', 'LookupCount', None, None, 'Number of lookups in this table'),
 		('Offset', 'Lookup', 'LookupCount', 0, 'Array of offsets to Lookup tables-from beginning of LookupList -zero based (first lookup is Lookup index = 0)'),
@@ -58,6 +90,7 @@ otData = [
 		('uint16', 'LookupFlag', None, None, 'Lookup qualifiers'),
 		('uint16', 'SubTableCount', None, None, 'Number of SubTables for this lookup'),
 		('Offset', 'SubTable', 'SubTableCount', 0, 'Array of offsets to SubTables-from beginning of Lookup table'),
+		('uint16', 'MarkFilteringSet', None, 'LookupFlag & 0x0010', 'If set, indicates that the lookup table structure is followed by a MarkFilteringSet field. The layout engine skips over all mark glyphs not in the mark filtering set indicated.'),
 	]),
 
 	('CoverageFormat1', [
@@ -101,16 +134,16 @@ otData = [
 		('uint16', 'StartSize', None, None, 'Smallest size to correct-in ppem'),
 		('uint16', 'EndSize', None, None, 'Largest size to correct-in ppem'),
 		('uint16', 'DeltaFormat', None, None, 'Format of DeltaValue array data: 1, 2, or 3'),
-		('uint16', 'DeltaValue', '', 0, 'Array of compressed data'),
+		('DeltaValue', 'DeltaValue', '', 0, 'Array of compressed data'),
 	]),
 
 
 	#
-	# gpos (generated from gpos.htm)
+	# gpos
 	#
 
 	('GPOS', [
-		('Fixed', 'Version', None, None, 'Version of the GPOS table-initially = 0x00010000'),
+		('Version', 'Version', None, None, 'Version of the GPOS table-initially = 0x00010000'),
 		('Offset', 'ScriptList', None, None, 'Offset to ScriptList table-from beginning of GPOS table'),
 		('Offset', 'FeatureList', None, None, 'Offset to FeatureList table-from beginning of GPOS table'),
 		('Offset', 'LookupList', None, None, 'Offset to LookupList table-from beginning of GPOS table'),
@@ -357,9 +390,9 @@ otData = [
 	]),
 
 	('ExtensionPosFormat1', [
-		('USHORT', 'ExtFormat', None, None, 'Format identifier. Set to 1.'),
-		('USHORT', 'ExtensionLookupType', None, None, 'Lookup type of subtable referenced by ExtensionOffset (i.e. the extension subtable).'),
-		('LOffset', 'ExtSubTable', None, None, 'Array of offsets to Lookup tables-from beginning of LookupList -zero based (first lookup is Lookup index = 0)'),
+		('uint16', 'ExtFormat', None, None, 'Format identifier. Set to 1.'),
+		('uint16', 'ExtensionLookupType', None, None, 'Lookup type of subtable referenced by ExtensionOffset (i.e. the extension subtable).'),
+		('LOffset', 'ExtSubTable', None, None, 'Offset to SubTable'),
 	]),
 
 	('ValueRecord', [
@@ -406,11 +439,11 @@ otData = [
 
 
 	#
-	# gsub (generated from gsub.htm)
+	# gsub
 	#
 
 	('GSUB', [
-		('Fixed', 'Version', None, None, 'Version of the GSUB table-initially set to 0x00010000'),
+		('Version', 'Version', None, None, 'Version of the GSUB table-initially set to 0x00010000'),
 		('Offset', 'ScriptList', None, None, 'Offset to ScriptList table-from beginning of GSUB table'),
 		('Offset', 'FeatureList', None, None, 'Offset to FeatureList table-from beginning of GSUB table'),
 		('Offset', 'LookupList', None, None, 'Offset to LookupList table-from beginning of GSUB table'),
@@ -419,7 +452,7 @@ otData = [
 	('SingleSubstFormat1', [
 		('uint16', 'SubstFormat', None, None, 'Format identifier-format = 1'),
 		('Offset', 'Coverage', None, None, 'Offset to Coverage table-from beginning of Substitution table'),
-		('int16', 'DeltaGlyphID', None, None, 'Add to original GlyphID to get substitute GlyphID'),
+		('uint16', 'DeltaGlyphID', None, None, 'Add to original GlyphID modulo 65536 to get substitute GlyphID'),
 	]),
 
 	('SingleSubstFormat2', [
@@ -585,8 +618,8 @@ otData = [
 	]),
 
 	('ExtensionSubstFormat1', [
-		('USHORT', 'ExtFormat', None, None, 'Format identifier. Set to 1.'),
-		('USHORT', 'ExtensionLookupType', None, None, 'Lookup type of subtable referenced by ExtensionOffset (i.e. the extension subtable).'),
+		('uint16', 'ExtFormat', None, None, 'Format identifier. Set to 1.'),
+		('uint16', 'ExtensionLookupType', None, None, 'Lookup type of subtable referenced by ExtensionOffset (i.e. the extension subtable).'),
 		('LOffset', 'ExtSubTable', None, None, 'Array of offsets to Lookup tables-from beginning of LookupList -zero based (first lookup is Lookup index = 0)'),
 	]),
 
@@ -602,15 +635,16 @@ otData = [
 	]),
 
 	#
-	# gdef (generated from gdef.htm)
+	# gdef
 	#
 
 	('GDEF', [
-		('Fixed', 'Version', None, None, 'Version of the GDEF table-initially 0x00010000'),
+		('Version', 'Version', None, None, 'Version of the GDEF table-initially 0x00010000'),
 		('Offset', 'GlyphClassDef', None, None, 'Offset to class definition table for glyph type-from beginning of GDEF header (may be NULL)'),
 		('Offset', 'AttachList', None, None, 'Offset to list of glyphs with attachment points-from beginning of GDEF header (may be NULL)'),
 		('Offset', 'LigCaretList', None, None, 'Offset to list of positioning points for ligature carets-from beginning of GDEF header (may be NULL)'),
 		('Offset', 'MarkAttachClassDef', None, None, 'Offset to class definition table for mark attachment type-from beginning of GDEF header (may be NULL)'),
+		('Offset', 'MarkGlyphSetsDef', None, 'int(round(Version*0x10000)) >= 0x00010002', 'Offset to the table of mark set definitions-from beginning of GDEF header (may be NULL)'),
 	]),
 
 	('AttachList', [
@@ -651,13 +685,18 @@ otData = [
 		('Offset', 'DeviceTable', None, None, 'Offset to Device table for X or Y value-from beginning of CaretValue table'),
 	]),
 
+	('MarkGlyphSetsDef', [
+		('uint16', 'MarkSetTableFormat', None, None, 'Format identifier == 1'),
+		('uint16', 'MarkSetCount', None, None, 'Number of mark sets defined'),
+		('LOffset', 'Coverage', 'MarkSetCount', 0, 'Array of offsets to mark set coverage tables.'),
+	]),
 
 	#
-	# base (generated from base.htm)
+	# base
 	#
 
 	('BASE', [
-		('fixed32', 'Version', None, None, 'Version of the BASE table-initially 0x00010000'),
+		('Version', 'Version', None, None, 'Version of the BASE table-initially 0x00010000'),
 		('Offset', 'HorizAxis', None, None, 'Offset to horizontal Axis table-from beginning of BASE table-may be NULL'),
 		('Offset', 'VertAxis', None, None, 'Offset to vertical Axis table-from beginning of BASE table-may be NULL'),
 	]),
@@ -733,11 +772,11 @@ otData = [
 
 
 	#
-	# jstf (generated from jstf.htm)
+	# jstf
 	#
 
 	('JSTF', [
-		('fixed32', 'Version', None, None, 'Version of the JSTF table-initially set to 0x00010000'),
+		('Version', 'Version', None, None, 'Version of the JSTF table-initially set to 0x00010000'),
 		('uint16', 'JstfScriptCount', None, None, 'Number of JstfScriptRecords in this table'),
 		('struct', 'JstfScriptRecord', 'JstfScriptCount', 0, 'Array of JstfScriptRecords-in alphabetical order, by JstfScriptTag'),
 	]),
@@ -797,5 +836,190 @@ otData = [
 		('Offset', 'Lookup', 'LookupCount', 0, 'Array of offsets to GPOS-type lookup tables-from beginning of JstfMax table-in design order'),
 	]),
 
-]
+	#
+	# math
+	#
 
+	('MATH', [
+		('Version', 'Version', None, None, 'Version of the MATH table-initially set to 0x00010000.'),
+		('Offset', 'MathConstants', None, None, 'Offset to MathConstants table - from the beginning of MATH table.'),
+		('Offset', 'MathGlyphInfo', None, None, 'Offset to MathGlyphInfo table - from the beginning of MATH table.'),
+		('Offset', 'MathVariants', None, None, 'Offset to MathVariants table - from the beginning of MATH table.'),
+	]),
+
+	('MathValueRecord', [
+		('int16', 'Value', None, None, 'The X or Y value in design units.'),
+		('Offset', 'DeviceTable', None, None, 'Offset to the device table - from the beginning of parent table. May be NULL. Suggested format for device table is 1.'),
+	]),
+
+	('MathConstants', [
+		('int16', 'ScriptPercentScaleDown', None, None, 'Percentage of scaling down for script level 1. Suggested value: 80%.'),
+		('int16', 'ScriptScriptPercentScaleDown', None, None, 'Percentage of scaling down for script level 2 (ScriptScript). Suggested value: 60%.'),
+		('uint16', 'DelimitedSubFormulaMinHeight', None, None, 'Minimum height required for a delimited expression to be treated as a subformula. Suggested value: normal line height x1.5.'),
+		('uint16', 'DisplayOperatorMinHeight', None, None, 'Minimum height of n-ary operators (such as integral and summation) for formulas in display mode.'),
+		('MathValueRecord', 'MathLeading', None, None, 'White space to be left between math formulas to ensure proper line spacing. For example, for applications that treat line gap as a part of line ascender, formulas with ink  going above (os2.sTypoAscender + os2.sTypoLineGap - MathLeading) or with ink going below os2.sTypoDescender will result in increasing line height.'),
+		('MathValueRecord', 'AxisHeight', None, None, 'Axis height of the font.'),
+		('MathValueRecord', 'AccentBaseHeight', None, None, 'Maximum (ink) height of accent base that does not require raising the accents. Suggested: x-height of the font (os2.sxHeight) plus any possible overshots.'),
+		('MathValueRecord', 'FlattenedAccentBaseHeight', None, None, 'Maximum (ink) height of accent base that does not require flattening the accents. Suggested: cap height of the font (os2.sCapHeight).'),
+		('MathValueRecord', 'SubscriptShiftDown', None, None, 'The standard shift down applied to subscript elements. Positive for moving in the downward direction. Suggested: os2.ySubscriptYOffset.'),
+		('MathValueRecord', 'SubscriptTopMax', None, None, 'Maximum allowed height of the (ink) top of subscripts that does not require moving subscripts further down. Suggested: 4/5 x-height.'),
+		('MathValueRecord', 'SubscriptBaselineDropMin', None, None, 'Minimum allowed drop of the baseline of subscripts relative to the (ink) bottom of the base. Checked for bases that are treated as a box or extended shape. Positive for subscript baseline dropped below the base bottom.'),
+		('MathValueRecord', 'SuperscriptShiftUp', None, None, 'Standard shift up applied to superscript elements. Suggested: os2.ySuperscriptYOffset.'),
+		('MathValueRecord', 'SuperscriptShiftUpCramped', None, None, 'Standard shift of superscripts relative to the base, in cramped style.'),
+		('MathValueRecord', 'SuperscriptBottomMin', None, None, 'Minimum allowed height of the (ink) bottom of superscripts that does not require moving subscripts further up. Suggested: 1/4 x-height.'),
+		('MathValueRecord', 'SuperscriptBaselineDropMax', None, None, 'Maximum allowed drop of the baseline of superscripts relative to the (ink) top of the base. Checked for bases that are treated as a box or extended shape. Positive for superscript baseline below the base top.'),
+		('MathValueRecord', 'SubSuperscriptGapMin', None, None, 'Minimum gap between the superscript and subscript ink. Suggested: 4x default rule thickness.'),
+		('MathValueRecord', 'SuperscriptBottomMaxWithSubscript', None, None, 'The maximum level to which the (ink) bottom of superscript can be pushed to increase the gap between superscript and subscript, before subscript starts being moved down. Suggested: 4/5 x-height.'),
+		('MathValueRecord', 'SpaceAfterScript', None, None, 'Extra white space to be added after each subscript and superscript. Suggested: 0.5pt for a 12 pt font.'),
+		('MathValueRecord', 'UpperLimitGapMin', None, None, 'Minimum gap between the (ink) bottom of the upper limit, and the (ink) top of the base operator.'),
+		('MathValueRecord', 'UpperLimitBaselineRiseMin', None, None, 'Minimum distance between baseline of upper limit and (ink) top of the base operator.'),
+		('MathValueRecord', 'LowerLimitGapMin', None, None, 'Minimum gap between (ink) top of the lower limit, and (ink) bottom of the base operator.'),
+		('MathValueRecord', 'LowerLimitBaselineDropMin', None, None, 'Minimum distance between baseline of the lower limit and (ink) bottom of the base operator.'),
+		('MathValueRecord', 'StackTopShiftUp', None, None, 'Standard shift up applied to the top element of a stack.'),
+		('MathValueRecord', 'StackTopDisplayStyleShiftUp', None, None, 'Standard shift up applied to the top element of a stack in display style.'),
+		('MathValueRecord', 'StackBottomShiftDown', None, None, 'Standard shift down applied to the bottom element of a stack. Positive for moving in the downward direction.'),
+		('MathValueRecord', 'StackBottomDisplayStyleShiftDown', None, None, 'Standard shift down applied to the bottom element of a stack in display style. Positive for moving in the downward direction.'),
+		('MathValueRecord', 'StackGapMin', None, None, 'Minimum gap between (ink) bottom of the top element of a stack, and the (ink) top of the bottom element. Suggested: 3x default rule thickness.'),
+		('MathValueRecord', 'StackDisplayStyleGapMin', None, None, 'Minimum gap between (ink) bottom of the top element of a stack, and the (ink) top of the bottom element in display style. Suggested: 7x default rule thickness.'),
+		('MathValueRecord', 'StretchStackTopShiftUp', None, None, 'Standard shift up applied to the top element of the stretch stack.'),
+		('MathValueRecord', 'StretchStackBottomShiftDown', None, None, 'Standard shift down applied to the bottom element of the stretch stack. Positive for moving in the downward direction.'),
+		('MathValueRecord', 'StretchStackGapAboveMin', None, None, 'Minimum gap between the ink of the stretched element, and the (ink) bottom of the element above. Suggested: UpperLimitGapMin'),
+		('MathValueRecord', 'StretchStackGapBelowMin', None, None, 'Minimum gap between the ink of the stretched element, and the (ink) top of the element below. Suggested: LowerLimitGapMin.'),
+		('MathValueRecord', 'FractionNumeratorShiftUp', None, None, 'Standard shift up applied to the numerator.'),
+		('MathValueRecord', 'FractionNumeratorDisplayStyleShiftUp', None, None, 'Standard shift up applied to the numerator in display style. Suggested: StackTopDisplayStyleShiftUp.'),
+		('MathValueRecord', 'FractionDenominatorShiftDown', None, None, 'Standard shift down applied to the denominator. Positive for moving in the downward direction.'),
+		('MathValueRecord', 'FractionDenominatorDisplayStyleShiftDown', None, None, 'Standard shift down applied to the denominator in display style. Positive for moving in the downward direction. Suggested: StackBottomDisplayStyleShiftDown.'),
+		('MathValueRecord', 'FractionNumeratorGapMin', None, None, 'Minimum tolerated gap between the (ink) bottom of the numerator and the ink of the fraction bar. Suggested: default rule thickness'),
+		('MathValueRecord', 'FractionNumDisplayStyleGapMin', None, None, 'Minimum tolerated gap between the (ink) bottom of the numerator and the ink of the fraction bar in display style. Suggested: 3x default rule thickness.'),
+		('MathValueRecord', 'FractionRuleThickness', None, None, 'Thickness of the fraction bar. Suggested: default rule thickness.'),
+		('MathValueRecord', 'FractionDenominatorGapMin', None, None, 'Minimum tolerated gap between the (ink) top of the denominator and the ink of the fraction bar. Suggested: default rule thickness'),
+		('MathValueRecord', 'FractionDenomDisplayStyleGapMin', None, None, 'Minimum tolerated gap between the (ink) top of the denominator and the ink of the fraction bar in display style. Suggested: 3x default rule thickness.'),
+		('MathValueRecord', 'SkewedFractionHorizontalGap', None, None, 'Horizontal distance between the top and bottom elements of a skewed fraction.'),
+		('MathValueRecord', 'SkewedFractionVerticalGap', None, None, 'Vertical distance between the ink of the top and bottom elements of a skewed fraction.'),
+		('MathValueRecord', 'OverbarVerticalGap', None, None, 'Distance between the overbar and the (ink) top of he base. Suggested: 3x default rule thickness.'),
+		('MathValueRecord', 'OverbarRuleThickness', None, None, 'Thickness of overbar. Suggested: default rule thickness.'),
+		('MathValueRecord', 'OverbarExtraAscender', None, None, 'Extra white space reserved above the overbar. Suggested: default rule thickness.'),
+		('MathValueRecord', 'UnderbarVerticalGap', None, None, 'Distance between underbar and (ink) bottom of the base. Suggested: 3x default rule thickness.'),
+		('MathValueRecord', 'UnderbarRuleThickness', None, None, 'Thickness of underbar. Suggested: default rule thickness.'),
+		('MathValueRecord', 'UnderbarExtraDescender', None, None, 'Extra white space reserved below the underbar. Always positive. Suggested: default rule thickness.'),
+		('MathValueRecord', 'RadicalVerticalGap', None, None, 'Space between the (ink) top of the expression and the bar over it. Suggested: 1 1/4 default rule thickness.'),
+		('MathValueRecord', 'RadicalDisplayStyleVerticalGap', None, None, 'Space between the (ink) top of the expression and the bar over it. Suggested: default rule thickness + 1/4 x-height.'),
+		('MathValueRecord', 'RadicalRuleThickness', None, None, 'Thickness of the radical rule. This is the thickness of the rule in designed or constructed radical signs. Suggested: default rule thickness.'),
+		('MathValueRecord', 'RadicalExtraAscender', None, None, 'Extra white space reserved above the radical. Suggested: RadicalRuleThickness.'),
+		('MathValueRecord', 'RadicalKernBeforeDegree', None, None, 'Extra horizontal kern before the degree of a radical, if such is present. Suggested: 5/18 of em.'),
+		('MathValueRecord', 'RadicalKernAfterDegree', None, None, 'Negative kern after the degree of a radical, if such is present. Suggested: 10/18 of em.'),
+		('uint16', 'RadicalDegreeBottomRaisePercent', None, None, 'Height of the bottom of the radical degree, if such is present, in proportion to the ascender of the radical sign. Suggested: 60%.'),
+	]),
+
+	('MathGlyphInfo', [
+		('Offset', 'MathItalicsCorrectionInfo', None, None, 'Offset to MathItalicsCorrectionInfo table - from the beginning of MathGlyphInfo table.'),
+		('Offset', 'MathTopAccentAttachment', None, None, 'Offset to MathTopAccentAttachment table - from the beginning of MathGlyphInfo table.'),
+		('Offset', 'ExtendedShapeCoverage', None, None, 'Offset to coverage table for Extended Shape glyphs - from the  beginning of MathGlyphInfo table. When the left or right glyph of a box is an extended shape variant, the (ink) box (and not the default position defined by values in MathConstants table) should be used for vertical positioning purposes. May be NULL.'),
+		('Offset', 'MathKernInfo', None, None, 'Offset to MathKernInfo table - from the beginning of MathGlyphInfo table.'),
+	]),
+
+	('MathItalicsCorrectionInfo', [
+		('Offset', 'Coverage', None, None, 'Offset to Coverage table - from the beginning of MathItalicsCorrectionInfo table.'),
+		('uint16', 'ItalicsCorrectionCount', None, None, 'Number of italics correction values. Should coincide with the number of covered glyphs.'),
+		('MathValueRecord', 'ItalicsCorrection', 'ItalicsCorrectionCount', 0, 'Array of MathValueRecords defining italics correction values for each covered glyph.'),
+	]),
+
+	('MathTopAccentAttachment', [
+		('Offset', 'TopAccentCoverage', None, None, 'Offset to Coverage table - from the beginning of  MathTopAccentAttachment table.'),
+		('uint16', 'TopAccentAttachmentCount', None, None, 'Number of top accent attachment point values. Should coincide with the number of covered glyphs'),
+		('MathValueRecord', 'TopAccentAttachment', 'TopAccentAttachmentCount', 0, 'Array of MathValueRecords defining top accent attachment points for each covered glyph'),
+	]),
+
+	('MathKernInfo', [
+		('Offset', 'MathKernCoverage', None, None, 'Offset to Coverage table - from the beginning of the MathKernInfo table.'),
+		('uint16', 'MathKernCount', None, None, 'Number of MathKernInfoRecords.'),
+		('MathKernInfoRecord', 'MathKernInfoRecords', 'MathKernCount', 0, 'Array of MathKernInfoRecords, per-glyph information for mathematical positioning of subscripts and superscripts.'),
+	]),
+
+	('MathKernInfoRecord', [
+		('Offset', 'TopRightMathKern', None, None, 'Offset to MathKern table for top right corner - from the beginning of MathKernInfo table. May be NULL.'),
+		('Offset', 'TopLeftMathKern', None, None, 'Offset to MathKern table for the top left corner - from the beginning of MathKernInfo table. May be NULL.'),
+		('Offset', 'BottomRightMathKern', None, None, 'Offset to MathKern table for bottom right corner - from the beginning of MathKernInfo table. May be NULL.'),
+		('Offset', 'BottomLeftMathKern', None, None, 'Offset to MathKern table for bottom left corner - from the beginning of MathKernInfo table. May be NULL.'),
+	]),
+
+	('MathKern', [
+		('uint16', 'HeightCount', None, None, 'Number of heights on which the kern value changes.'),
+		('MathValueRecord', 'CorrectionHeight', 'HeightCount', 0, 'Array of correction heights at which the kern value changes. Sorted by the height value in design units.'),
+		('MathValueRecord', 'KernValue', 'HeightCount', 1, 'Array of kern values corresponding to heights. First value is the kern value for all heights less or equal than the first height in this table.Last value is the value to be applied for all heights greater than the last height in this table. Negative values are interpreted as move glyphs closer to each other.'),
+	]),
+
+	('MathVariants', [
+		('uint16', 'MinConnectorOverlap', None, None, 'Minimum overlap of connecting glyphs during glyph construction,  in design units.'),
+		('Offset', 'VertGlyphCoverage', None, None, 'Offset to Coverage table - from the beginning of MathVariants table.'),
+		('Offset', 'HorizGlyphCoverage', None, None, 'Offset to Coverage table - from the beginning of MathVariants table.'),
+		('uint16', 'VertGlyphCount', None, None, 'Number of glyphs for which information is provided for vertically growing variants.'),
+		('uint16', 'HorizGlyphCount', None, None, 'Number of glyphs for which information is provided for horizontally growing variants.'),
+		('Offset', 'VertGlyphConstruction', 'VertGlyphCount', 0, 'Array of offsets to MathGlyphConstruction tables - from the beginning of the MathVariants table, for shapes growing in vertical direction.'),
+		('Offset', 'HorizGlyphConstruction', 'HorizGlyphCount', 0, 'Array of offsets to MathGlyphConstruction tables - from the beginning of the MathVariants table, for shapes growing in horizontal direction.'),
+	]),
+
+	('MathGlyphConstruction', [
+		('Offset', 'GlyphAssembly', None, None, 'Offset to GlyphAssembly table for this shape - from the beginning of MathGlyphConstruction table. May be NULL'),
+		('uint16', 'VariantCount', None, None, 'Count of glyph growing variants for this glyph.'),
+		('MathGlyphVariantRecord', 'MathGlyphVariantRecord', 'VariantCount', 0, 'MathGlyphVariantRecords for alternative variants of the glyphs.'),
+	]),
+
+	('MathGlyphVariantRecord', [
+		('GlyphID', 'VariantGlyph', None, None, 'Glyph ID for the variant.'),
+		('uint16', 'AdvanceMeasurement', None, None, 'Advance width/height, in design units, of the variant, in the direction of requested glyph extension.'),
+	]),
+
+	('GlyphAssembly', [
+		('MathValueRecord', 'ItalicsCorrection', None, None, 'Italics correction of this GlyphAssembly. Should not depend on the assembly size.'),
+		('uint16', 'PartCount', None, None, 'Number of parts in this assembly.'),
+		('GlyphPartRecord', 'PartRecords', 'PartCount', 0, 'Array of part records, from left to right and bottom to top.'),
+	]),
+
+	('GlyphPartRecord', [
+		('GlyphID', 'glyph', None, None, 'Glyph ID for the part.'),
+		('uint16', 'StartConnectorLength', None, None, 'Advance width/ height of the straight bar connector material, in design units, is at the beginning of the glyph, in the direction of the extension.'),
+		('uint16', 'EndConnectorLength', None, None, 'Advance width/ height of the straight bar connector material, in design units, is at the end of the glyph, in the direction of the extension.'),
+		('uint16', 'FullAdvance', None, None, 'Full advance width/height for this part, in the direction of the extension. In design units.'),
+		('uint16', 'PartFlags', None, None, 'Part qualifiers. PartFlags enumeration currently uses only one bit: 0x0001 fExtender: If set, the part can be skipped or repeated. 0xFFFE Reserved'),
+	]),
+
+
+	##
+	## Apple Advanced Typography (AAT) tables
+	##
+
+	#
+	# feat
+	#
+
+	('feat', [
+		('Version', 'Version', None, None, 'Version of the feat table-initially set to 0x00010000.'),
+		('FeatureNames', 'FeatureNames', None, None, 'The feature names.'),
+	]),
+
+	('FeatureNames', [
+		('uint16', 'FeatureNameCount', None, None, 'Number of entries in the feature name array.'),
+		('uint16', 'Reserved1', None, None, 'Reserved (set to zero).'),
+		('uint32', 'Reserved2', None, None, 'Reserved (set to zero).'),
+		('FeatureName', 'FeatureName', 'FeatureNameCount', 0, 'The feature name array.'),
+	]),
+
+	('FeatureName', [
+		('uint16', 'FeatureType', None, None, 'Feature type.'),
+		('uint16', 'SettingsCount', None, None, 'The number of records in the setting name array.'),
+		('LOffset', 'Settings', None, None, 'Offset to setting table for this feature.'),
+		('uint16', 'FeatureFlags', None, None, 'Single-bit flags associated with the feature type.'),
+		('uint16', 'FeatureNameID', None, None, 'The name table index for the feature name.'),
+	]),
+
+	('Settings', [
+		('Setting', 'Setting', 'SettingsCount', 0, 'The setting array.'),
+	]),
+
+	('Setting', [
+		('uint16', 'SettingValue', None, None, 'The setting.'),
+		('uint16', 'SettingNameID', None, None, 'The name table index for the setting name.'),
+	]),
+
+]

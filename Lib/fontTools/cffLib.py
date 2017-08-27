@@ -1,13 +1,11 @@
 """cffLib.py -- read/write tools for Adobe CFF fonts."""
 
-#
-# $Id: cffLib.py,v 1.34 2008-03-07 19:56:17 jvr Exp $
-#
-
-import struct, sstruct
-import string
+from __future__ import print_function, division, absolute_import
+from fontTools.misc.py23 import *
+from fontTools.misc import sstruct
 from fontTools.misc import psCharStrings
 from fontTools.misc.textTools import safeEval
+import struct
 
 DEBUG = 0
 
@@ -19,16 +17,16 @@ cffHeaderFormat = """
 	offSize: B
 """
 
-class CFFFontSet:
-	
+class CFFFontSet(object):
+
 	def __init__(self):
 		pass
-	
+
 	def decompile(self, file, otFont):
 		sstruct.unpack(cffHeaderFormat, file.read(4), self)
 		assert self.major == 1 and self.minor == 0, \
 				"unknown CFF format: %d.%d" % (self.major, self.minor)
-		
+
 		file.seek(self.hdrSize)
 		self.fontNames = list(Index(file))
 		self.topDictIndex = TopDictIndex(file)
@@ -36,23 +34,23 @@ class CFFFontSet:
 		self.GlobalSubrs = GlobalSubrsIndex(file)
 		self.topDictIndex.strings = self.strings
 		self.topDictIndex.GlobalSubrs = self.GlobalSubrs
-	
+
 	def __len__(self):
 		return len(self.fontNames)
-	
+
 	def keys(self):
 		return list(self.fontNames)
-	
+
 	def values(self):
 		return self.topDictIndex
-	
+
 	def __getitem__(self, name):
 		try:
 			index = self.fontNames.index(name)
 		except ValueError:
-			raise KeyError, name
+			raise KeyError(name)
 		return self.topDictIndex[index]
-	
+
 	def compile(self, file, otFont):
 		strings = IndexedStrings()
 		writer = CFFWriter()
@@ -65,21 +63,20 @@ class CFFFontSet:
 		writer.add(topCompiler)
 		writer.add(strings.getCompiler())
 		writer.add(self.GlobalSubrs.getCompiler(strings, None))
-		
+
 		for topDict in self.topDictIndex:
 			if not hasattr(topDict, "charset") or topDict.charset is None:
 				charset = otFont.getGlyphOrder()
 				topDict.charset = charset
-		
+
 		for child in topCompiler.getChildren(strings):
 			writer.add(child)
-		
+
 		writer.toFile(file)
-	
+
 	def toXML(self, xmlWriter, progress=None):
-		xmlWriter.newline()
 		for fontName in self.fontNames:
-			xmlWriter.begintag("CFFFont", name=fontName)
+			xmlWriter.begintag("CFFFont", name=tostr(fontName))
 			xmlWriter.newline()
 			font = self[fontName]
 			font.toXML(xmlWriter, progress)
@@ -91,9 +88,8 @@ class CFFFontSet:
 		self.GlobalSubrs.toXML(xmlWriter, progress)
 		xmlWriter.endtag("GlobalSubrs")
 		xmlWriter.newline()
-		xmlWriter.newline()
-	
-	def fromXML(self, (name, attrs, content)):
+
+	def fromXML(self, name, attrs, content):
 		if not hasattr(self, "GlobalSubrs"):
 			self.GlobalSubrs = GlobalSubrsIndex()
 			self.major = 1
@@ -112,31 +108,32 @@ class CFFFontSet:
 			for element in content:
 				if isinstance(element, basestring):
 					continue
-				topDict.fromXML(element)
+				name, attrs, content = element
+				topDict.fromXML(name, attrs, content)
 		elif name == "GlobalSubrs":
 			for element in content:
 				if isinstance(element, basestring):
 					continue
 				name, attrs, content = element
 				subr = psCharStrings.T2CharString()
-				subr.fromXML((name, attrs, content))
+				subr.fromXML(name, attrs, content)
 				self.GlobalSubrs.append(subr)
 
 
-class CFFWriter:
-	
+class CFFWriter(object):
+
 	def __init__(self):
 		self.data = []
-	
+
 	def add(self, table):
 		self.data.append(table)
-	
+
 	def toFile(self, file):
 		lastPosList = None
 		count = 1
-		while 1:
+		while True:
 			if DEBUG:
-				print "CFFWriter.toFile() iteration:", count
+				print("CFFWriter.toFile() iteration:", count)
 			count = count + 1
 			pos = 0
 			posList = [pos]
@@ -153,7 +150,7 @@ class CFFWriter:
 				break
 			lastPosList = posList
 		if DEBUG:
-			print "CFFWriter.toFile() writing to file."
+			print("CFFWriter.toFile() writing to file.")
 		begin = file.tell()
 		posList = [0]
 		for item in self.data:
@@ -177,15 +174,15 @@ def calcOffSize(largestOffset):
 	return offSize
 
 
-class IndexCompiler:
-	
+class IndexCompiler(object):
+
 	def __init__(self, items, strings, parent):
 		self.items = self.getItems(items, strings)
 		self.parent = parent
-	
+
 	def getItems(self, items, strings):
 		return items
-	
+
 	def getOffsets(self):
 		pos = 1
 		offsets = [pos]
@@ -196,7 +193,7 @@ class IndexCompiler:
 				pos = pos + len(item)
 			offsets.append(pos)
 		return offsets
-	
+
 	def getDataLength(self):
 		lastOffset = self.getOffsets()[-1]
 		offSize = calcOffSize(lastOffset)
@@ -207,7 +204,7 @@ class IndexCompiler:
 			lastOffset - 1                     # size of object data
 		)
 		return dataLength
-	
+
 	def toFile(self, file):
 		offsets = self.getOffsets()
 		writeCard16(file, len(self.items))
@@ -223,23 +220,23 @@ class IndexCompiler:
 			if hasattr(item, "toFile"):
 				item.toFile(file)
 			else:
-				file.write(item)
+				file.write(tobytes(item, encoding="latin1"))
 
 
 class IndexedStringsCompiler(IndexCompiler):
-	
+
 	def getItems(self, items, strings):
 		return items.strings
 
 
 class TopDictIndexCompiler(IndexCompiler):
-	
+
 	def getItems(self, items, strings):
 		out = []
 		for item in items:
 			out.append(item.getCompiler(strings, self))
 		return out
-	
+
 	def getChildren(self, strings):
 		children = []
 		for topDict in self.items:
@@ -248,13 +245,13 @@ class TopDictIndexCompiler(IndexCompiler):
 
 
 class FDArrayIndexCompiler(IndexCompiler):
-	
+
 	def getItems(self, items, strings):
 		out = []
 		for item in items:
 			out.append(item.getCompiler(strings, self))
 		return out
-	
+
 	def getChildren(self, strings):
 		children = []
 		for fontDict in self.items:
@@ -300,32 +297,30 @@ class CharStringsCompiler(GlobalSubrsCompiler):
 		self.parent.rawDict["CharStrings"] = pos
 
 
-class Index:
-	
+class Index(object):
+
 	"""This class represents what the CFF spec calls an INDEX."""
-	
+
 	compilerClass = IndexCompiler
-	
+
 	def __init__(self, file=None):
+		self.items = []
 		name = self.__class__.__name__
 		if file is None:
-			self.items = []
 			return
 		if DEBUG:
-			print "loading %s at %s" % (name, file.tell())
+			print("loading %s at %s" % (name, file.tell()))
 		self.file = file
 		count = readCard16(file)
-		self.count = count
-		self.items = [None] * count
 		if count == 0:
-			self.items = []
 			return
+		self.items = [None] * count
 		offSize = readCard8(file)
 		if DEBUG:
-			print "    index count: %s offSize: %s" % (count, offSize)
+			print("    index count: %s offSize: %s" % (count, offSize))
 		assert offSize <= 4, "offSize too large: %s" % offSize
 		self.offsets = offsets = []
-		pad = '\0' * (4 - offSize)
+		pad = b'\0' * (4 - offSize)
 		for index in range(count+1):
 			chunk = file.read(offSize)
 			chunk = pad + chunk
@@ -334,11 +329,11 @@ class Index:
 		self.offsetBase = file.tell() - 1
 		file.seek(self.offsetBase + offsets[-1])  # pretend we've read the whole lot
 		if DEBUG:
-			print "    end of %s at %s" % (name, file.tell())
-	
+			print("    end of %s at %s" % (name, file.tell()))
+
 	def __len__(self):
 		return len(self.items)
-	
+
 	def __getitem__(self, index):
 		item = self.items[index]
 		if item is not None:
@@ -352,21 +347,21 @@ class Index:
 		item = self.produceItem(index, data, file, offset, size)
 		self.items[index] = item
 		return item
-	
+
 	def produceItem(self, index, data, file, offset, size):
 		return data
-	
+
 	def append(self, item):
 		self.items.append(item)
-	
+
 	def getCompiler(self, strings, parent):
 		return self.compilerClass(self, strings, parent)
 
 
 class GlobalSubrsIndex(Index):
-	
+
 	compilerClass = GlobalSubrsCompiler
-	
+
 	def __init__(self, file=None, globalSubrs=None, private=None, fdSelect=None, fdArray=None):
 		Index.__init__(self, file)
 		self.globalSubrs = globalSubrs
@@ -375,7 +370,7 @@ class GlobalSubrsIndex(Index):
 			self.fdSelect = fdSelect
 		if fdArray:
 			self.fdArray = fdArray
-	
+
 	def produceItem(self, index, data, file, offset, size):
 		if self.private is not None:
 			private = self.private
@@ -384,7 +379,7 @@ class GlobalSubrsIndex(Index):
 		else:
 			private = None
 		return psCharStrings.T2CharString(data, private=private, globalSubrs=self.globalSubrs)
-	
+
 	def toXML(self, xmlWriter, progress):
 		xmlWriter.comment("The 'index' attribute is only for humans; it is ignored when parsed.")
 		xmlWriter.newline()
@@ -398,14 +393,14 @@ class GlobalSubrsIndex(Index):
 			subr.toXML(xmlWriter)
 			xmlWriter.endtag("CharString")
 			xmlWriter.newline()
-	
-	def fromXML(self, (name, attrs, content)):
-		if name <> "CharString":
+
+	def fromXML(self, name, attrs, content):
+		if name != "CharString":
 			return
 		subr = psCharStrings.T2CharString()
-		subr.fromXML((name, attrs, content))
+		subr.fromXML(name, attrs, content)
 		self.append(subr)
-	
+
 	def getItemAndSelector(self, index):
 		sel = None
 		if hasattr(self, 'fdSelect'):
@@ -418,14 +413,14 @@ class SubrsIndex(GlobalSubrsIndex):
 
 
 class TopDictIndex(Index):
-	
+
 	compilerClass = TopDictIndexCompiler
-	
+
 	def produceItem(self, index, data, file, offset, size):
 		top = TopDict(self.strings, file, offset, self.GlobalSubrs)
 		top.decompile(data)
 		return top
-	
+
 	def toXML(self, xmlWriter, progress):
 		for i in range(len(self)):
 			xmlWriter.begintag("FontDict", index=i)
@@ -436,22 +431,23 @@ class TopDictIndex(Index):
 
 
 class FDArrayIndex(TopDictIndex):
-	
+
 	compilerClass = FDArrayIndexCompiler
 
-	def fromXML(self, (name, attrs, content)):
-		if name <> "FontDict":
+	def fromXML(self, name, attrs, content):
+		if name != "FontDict":
 			return
 		fontDict = FontDict()
 		for element in content:
 			if isinstance(element, basestring):
 				continue
-			fontDict.fromXML(element)
+			name, attrs, content = element
+			fontDict.fromXML(name, attrs, content)
 		self.append(fontDict)
 
 
 class	FDSelect:
-	def __init__(self, file = None, numGlyphs = None, format=None):
+	def __init__(self, file=None, numGlyphs=None, format=None):
 		if file:
 			# read data in from file
 			self.format = readCard8(file)
@@ -461,6 +457,7 @@ class	FDSelect:
 			elif self.format == 3:
 				gidArray = [None] * numGlyphs
 				nRanges = readCard16(file)
+				fd = None
 				prev = None
 				for i in range(nRanges):
 					first = readCard16(file)
@@ -475,29 +472,28 @@ class	FDSelect:
 						gidArray[glyphID] = fd
 				self.gidArray = gidArray
 			else:
-				assert 0, "unsupported FDSelect format: %s" % format
+				assert False, "unsupported FDSelect format: %s" % format
 		else:
 			# reading from XML. Make empty gidArray,, and leave format as passed in.
-			# format == None will result in the smallest representation being used.
+			# format is None will result in the smallest representation being used.
 			self.format = format
 			self.gidArray = []
 
-
 	def __len__(self):
 		return len(self.gidArray)
-	
+
 	def __getitem__(self, index):
 		return self.gidArray[index]
-	
+
 	def __setitem__(self, index, fdSelectValue):
 		self.gidArray[index] = fdSelectValue
 
 	def append(self, fdSelectValue):
 		self.gidArray.append(fdSelectValue)
-	
 
-class CharStrings:
-	
+
+class CharStrings(object):
+
 	def __init__(self, file, charset, globalSubrs, private, fdSelect, fdArray):
 		if file is not None:
 			self.charStringsIndex = SubrsIndex(file, globalSubrs, private, fdSelect, fdArray)
@@ -510,39 +506,41 @@ class CharStrings:
 			self.charStringsAreIndexed = 0
 			self.globalSubrs = globalSubrs
 			self.private = private
-			if fdSelect != None:
+			if fdSelect is not None:
 				self.fdSelect = fdSelect
-			if fdArray!= None:
+			if fdArray is not None:
 				self.fdArray = fdArray
-	
+
 	def keys(self):
-		return self.charStrings.keys()
-	
+		return list(self.charStrings.keys())
+
 	def values(self):
 		if self.charStringsAreIndexed:
 			return self.charStringsIndex
 		else:
-			return self.charStrings.values()
-	
+			return list(self.charStrings.values())
+
 	def has_key(self, name):
-		return self.charStrings.has_key(name)
-	
+		return name in self.charStrings
+
+	__contains__ = has_key
+
 	def __len__(self):
 		return len(self.charStrings)
-	
+
 	def __getitem__(self, name):
 		charString = self.charStrings[name]
 		if self.charStringsAreIndexed:
 			charString = self.charStringsIndex[charString]
 		return charString
-	
+
 	def __setitem__(self, name, charString):
 		if self.charStringsAreIndexed:
 			index = self.charStrings[name]
 			self.charStringsIndex[index] = charString
 		else:
 			self.charStrings[name] = charString
-	
+
 	def getItemAndSelector(self, name):
 		if self.charStringsAreIndexed:
 			index = self.charStrings[name]
@@ -553,10 +551,9 @@ class CharStrings:
 			else:
 				raise KeyError("fdSelect array not yet defined.")
 			return self.charStrings[name], sel
-	
+
 	def toXML(self, xmlWriter, progress):
-		names = self.keys()
-		names.sort()
+		names = sorted(self.keys())
 		i = 0
 		step = 10
 		numGlyphs = len(names)
@@ -577,15 +574,15 @@ class CharStrings:
 			xmlWriter.newline()
 			if not i % step and progress is not None:
 				progress.setLabel("Dumping 'CFF ' table... (%s)" % name)
-				progress.increment(step / float(numGlyphs))
+				progress.increment(step / numGlyphs)
 			i = i + 1
-	
-	def fromXML(self, (name, attrs, content)):
+
+	def fromXML(self, name, attrs, content):
 		for element in content:
 			if isinstance(element, basestring):
 				continue
 			name, attrs, content = element
-			if name <> "CharString":
+			if name != "CharString":
 				continue
 			fdID = -1
 			if hasattr(self, "fdArray"):
@@ -593,32 +590,32 @@ class CharStrings:
 				private = self.fdArray[fdID].Private
 			else:
 				private = self.private
-				
+
 			glyphName = attrs["name"]
 			charString = psCharStrings.T2CharString(
 					private=private,
 					globalSubrs=self.globalSubrs)
-			charString.fromXML((name, attrs, content))
+			charString.fromXML(name, attrs, content)
 			if fdID >= 0:
 				charString.fdSelectIndex = fdID
 			self[glyphName] = charString
 
 
 def readCard8(file):
-	return ord(file.read(1))
+	return byteord(file.read(1))
 
 def readCard16(file):
 	value, = struct.unpack(">H", file.read(2))
 	return value
 
 def writeCard8(file, value):
-	file.write(chr(value))
+	file.write(bytechr(value))
 
 def writeCard16(file, value):
 	file.write(struct.pack(">H", value))
 
 def packCard8(value):
-	return chr(value)
+	return bytechr(value)
 
 def packCard16(value):
 	return struct.pack(">H", value)
@@ -633,9 +630,9 @@ def buildOpcodeDict(table):
 	d = {}
 	for op, name, arg, default, conv in table:
 		if isinstance(op, tuple):
-			op = chr(op[0]) + chr(op[1])
+			op = bytechr(op[0]) + bytechr(op[1])
 		else:
-			op = chr(op)
+			op = bytechr(op)
 		d[name] = (op, arg)
 	return d
 
@@ -659,7 +656,7 @@ def buildConverters(table):
 	return d
 
 
-class SimpleConverter:
+class SimpleConverter(object):
 	def read(self, parent, value):
 		return value
 	def write(self, parent, value):
@@ -667,13 +664,30 @@ class SimpleConverter:
 	def xmlWrite(self, xmlWriter, name, value, progress):
 		xmlWriter.simpletag(name, value=value)
 		xmlWriter.newline()
-	def xmlRead(self, (name, attrs, content), parent):
+	def xmlRead(self, name, attrs, content, parent):
 		return attrs["value"]
 
+class ASCIIConverter(SimpleConverter):
+	def read(self, parent, value):
+		return tostr(value, encoding='ascii')
+	def write(self, parent, value):
+		return tobytes(value, encoding='ascii')
+	def xmlWrite(self, xmlWriter, name, value, progress):
+		xmlWriter.simpletag(name, value=tounicode(value, encoding="ascii"))
+		xmlWriter.newline()
+	def xmlRead(self, name, attrs, content, parent):
+		return tobytes(attrs["value"], encoding=("ascii"))
+
 class Latin1Converter(SimpleConverter):
-	def xmlRead(self, (name, attrs, content), parent):
-		s = unicode(attrs["value"], "utf-8")
-		return s.encode("latin-1")
+	def read(self, parent, value):
+		return tostr(value, encoding='latin1')
+	def write(self, parent, value):
+		return tobytes(value, encoding='latin1')
+	def xmlWrite(self, xmlWriter, name, value, progress):
+		xmlWriter.simpletag(name, value=tounicode(value, encoding="latin1"))
+		xmlWriter.newline()
+	def xmlRead(self, name, attrs, content, parent):
+		return tobytes(attrs["value"], encoding=("latin1"))
 
 
 def parseNum(s):
@@ -684,17 +698,17 @@ def parseNum(s):
 	return value
 
 class NumberConverter(SimpleConverter):
-	def xmlRead(self, (name, attrs, content), parent):
+	def xmlRead(self, name, attrs, content, parent):
 		return parseNum(attrs["value"])
 
 class ArrayConverter(SimpleConverter):
 	def xmlWrite(self, xmlWriter, name, value, progress):
-		value = map(str, value)
-		xmlWriter.simpletag(name, value=" ".join(value))
+		value = " ".join(map(str, value))
+		xmlWriter.simpletag(name, value=value)
 		xmlWriter.newline()
-	def xmlRead(self, (name, attrs, content), parent):
+	def xmlRead(self, name, attrs, content, parent):
 		values = attrs["value"].split()
-		return map(parseNum, values)
+		return [parseNum(value) for value in values]
 
 class TableConverter(SimpleConverter):
 	def xmlWrite(self, xmlWriter, name, value, progress):
@@ -703,12 +717,13 @@ class TableConverter(SimpleConverter):
 		value.toXML(xmlWriter, progress)
 		xmlWriter.endtag(name)
 		xmlWriter.newline()
-	def xmlRead(self, (name, attrs, content), parent):
+	def xmlRead(self, name, attrs, content, parent):
 		ob = self.getClass()()
 		for element in content:
 			if isinstance(element, basestring):
 				continue
-			ob.fromXML(element)
+			name, attrs, content = element
+			ob.fromXML(name, attrs, content)
 		return ob
 
 class PrivateDictConverter(TableConverter):
@@ -720,7 +735,7 @@ class PrivateDictConverter(TableConverter):
 		priv = PrivateDict(parent.strings, file, offset)
 		file.seek(offset)
 		data = file.read(size)
-		len(data) == size
+		assert len(data) == size
 		priv.decompile(data)
 		return priv
 	def write(self, parent, value):
@@ -751,18 +766,18 @@ class CharStringsConverter(TableConverter):
 		return CharStrings(file, charset, globalSubrs, private, fdSelect, fdArray)
 	def write(self, parent, value):
 		return 0  # dummy value
-	def xmlRead(self, (name, attrs, content), parent):
+	def xmlRead(self, name, attrs, content, parent):
 		if hasattr(parent, "ROS"):
-			# if it is a CID-keyed font, then the private Dict is extracted from the parent.FDArray 
+			# if it is a CID-keyed font, then the private Dict is extracted from the parent.FDArray
 			private, fdSelect, fdArray = None, parent.FDSelect, parent.FDArray
 		else:
-			# if it is a name-keyed font, then the private dict is in the top dict, and there is no fdArray. 
+			# if it is a name-keyed font, then the private dict is in the top dict, and there is no fdArray.
 			private, fdSelect, fdArray = parent.Private, None, None
 		charStrings = CharStrings(None, None, parent.GlobalSubrs, private, fdSelect, fdArray)
-		charStrings.fromXML((name, attrs, content))
+		charStrings.fromXML(name, attrs, content)
 		return charStrings
 
-class CharsetConverter:
+class CharsetConverter(object):
 	def read(self, parent, value):
 		isCID = hasattr(parent, "ROS")
 		if value > 2:
@@ -770,7 +785,7 @@ class CharsetConverter:
 			file = parent.file
 			file.seek(value)
 			if DEBUG:
-				print "loading charset at %s" % value
+				print("loading charset at %s" % value)
 			format = readCard8(file)
 			if format == 0:
 				charset = parseCharset0(numGlyphs, file, parent.strings, isCID)
@@ -780,9 +795,9 @@ class CharsetConverter:
 				raise NotImplementedError
 			assert len(charset) == numGlyphs
 			if DEBUG:
-				print "    charset end at %s" % file.tell()
+				print("    charset end at %s" % file.tell())
 		else: # offset == 0 -> no charset data.
-			if isCID or not parent.rawDict.has_key("CharStrings"): 
+			if isCID or "CharStrings" not in parent.rawDict:
 				assert value == 0 # We get here only when processing fontDicts from the FDArray of CFF-CID fonts. Only the real topDict references the chrset.
 				charset = None
 			elif value == 0:
@@ -801,13 +816,13 @@ class CharsetConverter:
 		##xmlWriter.simpletag("charset")
 		xmlWriter.comment("charset is dumped separately as the 'GlyphOrder' element")
 		xmlWriter.newline()
-	def xmlRead(self, (name, attrs, content), parent):
+	def xmlRead(self, name, attrs, content, parent):
 		if 0:
 			return safeEval(attrs["value"])
 
 
-class CharsetCompiler:
-	
+class CharsetCompiler(object):
+
 	def __init__(self, strings, charset, parent):
 		assert charset[0] == '.notdef'
 		isCID = hasattr(parent.dictObj, "ROS")
@@ -818,13 +833,13 @@ class CharsetCompiler:
 		else:
 			self.data = data0
 		self.parent = parent
-	
+
 	def setPos(self, pos, endPos):
 		self.parent.rawDict["charset"] = pos
-	
+
 	def getDataLength(self):
 		return len(self.data)
-	
+
 	def toFile(self, file):
 		file.write(self.data)
 
@@ -836,8 +851,8 @@ def getSIDfromName(name, strings):
 	return strings.getSID(name)
 
 def packCharset0(charset, isCID, strings):
-	format = 0
-	data = [packCard8(format)]
+	fmt = 0
+	data = [packCard8(fmt)]
 	if isCID:
 		getNameID = getCIDfromName
 	else:
@@ -845,11 +860,11 @@ def packCharset0(charset, isCID, strings):
 
 	for name in charset[1:]:
 		data.append(packCard16(getNameID(name,strings)))
-	return "".join(data)
+	return bytesjoin(data)
 
 
 def packCharset(charset, isCID, strings):
-	format = 1
+	fmt = 1
 	ranges = []
 	first = None
 	end = 0
@@ -857,48 +872,49 @@ def packCharset(charset, isCID, strings):
 		getNameID = getCIDfromName
 	else:
 		getNameID = getSIDfromName
-	
+
 	for name in charset[1:]:
 		SID = getNameID(name, strings)
 		if first is None:
 			first = SID
-		elif end + 1 <> SID:
+		elif end + 1 != SID:
 			nLeft = end - first
 			if nLeft > 255:
-				format = 2
+				fmt = 2
 			ranges.append((first, nLeft))
 			first = SID
 		end = SID
-	nLeft = end - first
-	if nLeft > 255:
-		format = 2
-	ranges.append((first, nLeft))
-	
-	data = [packCard8(format)]
-	if format == 1:
+	if end:
+		nLeft = end - first
+		if nLeft > 255:
+			fmt = 2
+		ranges.append((first, nLeft))
+
+	data = [packCard8(fmt)]
+	if fmt == 1:
 		nLeftFunc = packCard8
 	else:
 		nLeftFunc = packCard16
 	for first, nLeft in ranges:
 		data.append(packCard16(first) + nLeftFunc(nLeft))
-	return "".join(data)
+	return bytesjoin(data)
 
 def parseCharset0(numGlyphs, file, strings, isCID):
 	charset = [".notdef"]
 	if isCID:
 		for i in range(numGlyphs - 1):
 			CID = readCard16(file)
-			charset.append("cid" + string.zfill(str(CID), 5) )
+			charset.append("cid" + str(CID).zfill(5))
 	else:
 		for i in range(numGlyphs - 1):
 			SID = readCard16(file)
 			charset.append(strings[SID])
 	return charset
 
-def parseCharset(numGlyphs, file, strings, isCID, format):
+def parseCharset(numGlyphs, file, strings, isCID, fmt):
 	charset = ['.notdef']
 	count = 1
-	if format == 1:
+	if fmt == 1:
 		nLeftFunc = readCard8
 	else:
 		nLeftFunc = readCard16
@@ -907,7 +923,7 @@ def parseCharset(numGlyphs, file, strings, isCID, format):
 		nLeft = nLeftFunc(file)
 		if isCID:
 			for CID in range(first, first+nLeft+1):
-				charset.append("cid" + string.zfill(str(CID), 5) )
+				charset.append("cid" + str(CID).zfill(5))
 		else:
 			for SID in range(first, first+nLeft+1):
 				charset.append(strings[SID])
@@ -915,7 +931,7 @@ def parseCharset(numGlyphs, file, strings, isCID, format):
 	return charset
 
 
-class EncodingCompiler:
+class EncodingCompiler(object):
 
 	def __init__(self, strings, encoding, parent):
 		assert not isinstance(encoding, basestring)
@@ -929,10 +945,10 @@ class EncodingCompiler:
 
 	def setPos(self, pos, endPos):
 		self.parent.rawDict["Encoding"] = pos
-	
+
 	def getDataLength(self):
 		return len(self.data)
-	
+
 	def toFile(self, file):
 		file.write(self.data)
 
@@ -949,16 +965,16 @@ class EncodingConverter(SimpleConverter):
 			file = parent.file
 			file.seek(value)
 			if DEBUG:
-				print "loading Encoding at %s" % value
-			format = readCard8(file)
-			haveSupplement = format & 0x80
+				print("loading Encoding at %s" % value)
+			fmt = readCard8(file)
+			haveSupplement = fmt & 0x80
 			if haveSupplement:
-				raise NotImplementedError, "Encoding supplements are not yet supported"
-			format = format & 0x7f
-			if format == 0:
+				raise NotImplementedError("Encoding supplements are not yet supported")
+			fmt = fmt & 0x7f
+			if fmt == 0:
 				encoding = parseEncoding0(parent.charset, file, haveSupplement,
 						parent.strings)
-			elif format == 1:
+			elif fmt == 1:
 				encoding = parseEncoding1(parent.charset, file, haveSupplement,
 						parent.strings)
 			return encoding
@@ -985,8 +1001,8 @@ class EncodingConverter(SimpleConverter):
 		xmlWriter.endtag(name)
 		xmlWriter.newline()
 
-	def xmlRead(self, (name, attrs, content), parent):
-		if attrs.has_key("name"):
+	def xmlRead(self, name, attrs, content, parent):
+		if "name" in attrs:
 			return attrs["name"]
 		encoding = [".notdef"] * 256
 		for element in content:
@@ -1022,7 +1038,7 @@ def parseEncoding1(charset, file, haveSupplement, strings):
 	return encoding
 
 def packEncoding0(charset, encoding, strings):
-	format = 0
+	fmt = 0
 	m = {}
 	for code in range(len(encoding)):
 		name = encoding[code]
@@ -1032,19 +1048,19 @@ def packEncoding0(charset, encoding, strings):
 	for name in charset[1:]:
 		code = m.get(name)
 		codes.append(code)
-	
+
 	while codes and codes[-1] is None:
 		codes.pop()
 
-	data = [packCard8(format), packCard8(len(codes))]
+	data = [packCard8(fmt), packCard8(len(codes))]
 	for code in codes:
 		if code is None:
 			code = 0
 		data.append(packCard8(code))
-	return "".join(data)
+	return bytesjoin(data)
 
 def packEncoding1(charset, encoding, strings):
-	format = 1
+	fmt = 1
 	m = {}
 	for code in range(len(encoding)):
 		name = encoding[code]
@@ -1057,24 +1073,24 @@ def packEncoding1(charset, encoding, strings):
 		code = m.get(name, -1)
 		if first is None:
 			first = code
-		elif end + 1 <> code:
+		elif end + 1 != code:
 			nLeft = end - first
 			ranges.append((first, nLeft))
 			first = code
 		end = code
 	nLeft = end - first
 	ranges.append((first, nLeft))
-	
+
 	# remove unencoded glyphs at the end.
 	while ranges and ranges[-1][0] == -1:
 		ranges.pop()
 
-	data = [packCard8(format), packCard8(len(ranges))]
+	data = [packCard8(fmt), packCard8(len(ranges))]
 	for first, nLeft in ranges:
 		if first == -1:  # unencoded
 			first = 0
 		data.append(packCard8(first) + packCard8(nLeft))
-	return "".join(data)
+	return bytesjoin(data)
 
 
 class FDArrayConverter(TableConverter):
@@ -1090,16 +1106,17 @@ class FDArrayConverter(TableConverter):
 	def write(self, parent, value):
 		return 0  # dummy value
 
-	def xmlRead(self, (name, attrs, content), parent):
+	def xmlRead(self, name, attrs, content, parent):
 		fdArray = FDArrayIndex()
 		for element in content:
 			if isinstance(element, basestring):
 				continue
-			fdArray.fromXML(element)
+			name, attrs, content = element
+			fdArray.fromXML(name, attrs, content)
 		return fdArray
 
 
-class FDSelectConverter:
+class FDSelectConverter(object):
 
 	def read(self, parent, value):
 		file = parent.file
@@ -1116,24 +1133,24 @@ class FDSelectConverter:
 		xmlWriter.simpletag(name, [('format', value.format)])
 		xmlWriter.newline()
 
-	def xmlRead(self, (name, attrs, content), parent):
-		format = safeEval(attrs["format"])
+	def xmlRead(self, name, attrs, content, parent):
+		fmt = safeEval(attrs["format"])
 		file = None
 		numGlyphs = None
-		fdSelect = FDSelect(file, numGlyphs, format)
+		fdSelect = FDSelect(file, numGlyphs, fmt)
 		return fdSelect
-		
+
 
 def packFDSelect0(fdSelectArray):
-	format = 0
-	data = [packCard8(format)]
+	fmt = 0
+	data = [packCard8(fmt)]
 	for index in fdSelectArray:
 		data.append(packCard8(index))
-	return "".join(data)
+	return bytesjoin(data)
 
 
 def packFDSelect3(fdSelectArray):
-	format = 3
+	fmt = 3
 	fdRanges = []
 	first = None
 	end = 0
@@ -1145,24 +1162,24 @@ def packFDSelect3(fdSelectArray):
 			fdRanges.append([i, fdIndex])
 			lastFDIndex = fdIndex
 	sentinelGID = i + 1
-		
-	data = [packCard8(format)]
+
+	data = [packCard8(fmt)]
 	data.append(packCard16( len(fdRanges) ))
 	for fdRange in fdRanges:
 		data.append(packCard16(fdRange[0]))
 		data.append(packCard8(fdRange[1]))
 	data.append(packCard16(sentinelGID))
-	return "".join(data)
+	return bytesjoin(data)
 
 
-class FDSelectCompiler:
-	
+class FDSelectCompiler(object):
+
 	def __init__(self, fdSelect, parent):
-		format = fdSelect.format
+		fmt = fdSelect.format
 		fdSelectArray = fdSelect.gidArray
-		if format == 0:
+		if fmt == 0:
 			self.data = packFDSelect0(fdSelectArray)
-		elif format == 3:
+		elif fmt == 3:
 			self.data = packFDSelect3(fdSelectArray)
 		else:
 			# choose smaller of the two formats
@@ -1176,13 +1193,13 @@ class FDSelectCompiler:
 				fdSelect.format = 3
 
 		self.parent = parent
-	
+
 	def setPos(self, pos, endPos):
 		self.parent.rawDict["FDSelect"] = pos
-	
+
 	def getDataLength(self):
 		return len(self.data)
-	
+
 	def toFile(self, file):
 		file.write(self.data)
 
@@ -1191,51 +1208,50 @@ class ROSConverter(SimpleConverter):
 
 	def xmlWrite(self, xmlWriter, name, value, progress):
 		registry, order, supplement = value
-		xmlWriter.simpletag(name, [('Registry', registry), ('Order', order),
+		xmlWriter.simpletag(name, [('Registry', tostr(registry)), ('Order', tostr(order)),
 			('Supplement', supplement)])
 		xmlWriter.newline()
 
-	def xmlRead(self, (name, attrs, content), parent):
+	def xmlRead(self, name, attrs, content, parent):
 		return (attrs['Registry'], attrs['Order'], safeEval(attrs['Supplement']))
 
 
-
 topDictOperators = [
-#	opcode     name                  argument type   default    converter
-	((12, 30), 'ROS',        ('SID','SID','number'), None,      ROSConverter()),
-	((12, 20), 'SyntheticBase',      'number',       None,      None),
-	(0,        'version',            'SID',          None,      None),
-	(1,        'Notice',             'SID',          None,      Latin1Converter()),
-	((12, 0),  'Copyright',          'SID',          None,      Latin1Converter()),
-	(2,        'FullName',           'SID',          None,      None),
-	((12, 38), 'FontName',           'SID',          None,      None),
-	(3,        'FamilyName',         'SID',          None,      None),
-	(4,        'Weight',             'SID',          None,      None),
-	((12, 1),  'isFixedPitch',       'number',       0,         None),
-	((12, 2),  'ItalicAngle',        'number',       0,         None),
-	((12, 3),  'UnderlinePosition',  'number',       None,      None),
-	((12, 4),  'UnderlineThickness', 'number',       50,        None),
-	((12, 5),  'PaintType',          'number',       0,         None),
-	((12, 6),  'CharstringType',     'number',       2,         None),
-	((12, 7),  'FontMatrix',         'array',  [0.001,0,0,0.001,0,0],  None),
-	(13,       'UniqueID',           'number',       None,      None),
-	(5,        'FontBBox',           'array',  [0,0,0,0],       None),
-	((12, 8),  'StrokeWidth',        'number',       0,         None),
-	(14,       'XUID',               'array',        None,      None),
-	((12, 21), 'PostScript',         'SID',          None,      None),
-	((12, 22), 'BaseFontName',       'SID',          None,      None),
-	((12, 23), 'BaseFontBlend',      'delta',        None,      None),
-	((12, 31), 'CIDFontVersion',     'number',       0,         None),
-	((12, 32), 'CIDFontRevision',    'number',       0,         None),
-	((12, 33), 'CIDFontType',        'number',       0,         None),
-	((12, 34), 'CIDCount',           'number',       8720,      None),
-	(15,       'charset',            'number',       0,         CharsetConverter()),
-	((12, 35), 'UIDBase',            'number',       None,      None),
-	(16,       'Encoding',           'number',       0,         EncodingConverter()),
-	(18,       'Private',       ('number','number'), None,      PrivateDictConverter()),
-	((12, 37), 'FDSelect',           'number',       None,      FDSelectConverter()),
-	((12, 36), 'FDArray',            'number',       None,      FDArrayConverter()),
-	(17,       'CharStrings',        'number',       None,      CharStringsConverter()),
+#	opcode		name			argument type	default	converter
+	((12, 30),	'ROS',	('SID', 'SID', 'number'),	None,	ROSConverter()),
+	((12, 20),	'SyntheticBase',	'number',	None,	None),
+	(0,		'version',		'SID',		None,	None),
+	(1,		'Notice',		'SID',		None,	Latin1Converter()),
+	((12, 0),	'Copyright',		'SID',		None,	Latin1Converter()),
+	(2,		'FullName',		'SID',		None,	None),
+	((12, 38),	'FontName',		'SID',		None,	None),
+	(3,		'FamilyName',		'SID',		None,	None),
+	(4,		'Weight',		'SID',		None,	None),
+	((12, 1),	'isFixedPitch',		'number',	0,	None),
+	((12, 2),	'ItalicAngle',		'number',	0,	None),
+	((12, 3),	'UnderlinePosition',	'number',	None,	None),
+	((12, 4),	'UnderlineThickness',	'number',	50,	None),
+	((12, 5),	'PaintType',		'number',	0,	None),
+	((12, 6),	'CharstringType',	'number',	2,	None),
+	((12, 7),	'FontMatrix',		'array',	[0.001, 0, 0, 0.001, 0, 0],	None),
+	(13,		'UniqueID',		'number',	None,	None),
+	(5,		'FontBBox',		'array',	[0, 0, 0, 0],	None),
+	((12, 8),	'StrokeWidth',		'number',	0,	None),
+	(14,		'XUID',			'array',	None,	None),
+	((12, 21),	'PostScript',		'SID',		None,	None),
+	((12, 22),	'BaseFontName',		'SID',		None,	None),
+	((12, 23),	'BaseFontBlend',	'delta',	None,	None),
+	((12, 31),	'CIDFontVersion',	'number',	0,	None),
+	((12, 32),	'CIDFontRevision',	'number',	0,	None),
+	((12, 33),	'CIDFontType',		'number',	0,	None),
+	((12, 34),	'CIDCount',		'number',	8720,	None),
+	(15,		'charset',		'number',	0,	CharsetConverter()),
+	((12, 35),	'UIDBase',		'number',	None,	None),
+	(16,		'Encoding',		'number',	0,	EncodingConverter()),
+	(18,		'Private',	('number', 'number'),	None,	PrivateDictConverter()),
+	((12, 37),	'FDSelect',		'number',	None,	FDSelectConverter()),
+	((12, 36),	'FDArray',		'number',	None,	FDArrayConverter()),
+	(17,		'CharStrings',		'number',	None,	CharStringsConverter()),
 ]
 
 # Note! FDSelect and FDArray must both preceed CharStrings in the output XML build order,
@@ -1243,27 +1259,27 @@ topDictOperators = [
 
 
 privateDictOperators = [
-#	opcode     name                  argument type   default    converter
-	(6,        'BlueValues',         'delta',        None,      None),
-	(7,        'OtherBlues',         'delta',        None,      None),
-	(8,        'FamilyBlues',        'delta',        None,      None),
-	(9,        'FamilyOtherBlues',   'delta',        None,      None),
-	((12, 9),  'BlueScale',          'number',       0.039625,  None),
-	((12, 10), 'BlueShift',          'number',       7,         None),
-	((12, 11), 'BlueFuzz',           'number',       1,         None),
-	(10,       'StdHW',              'number',       None,      None),
-	(11,       'StdVW',              'number',       None,      None),
-	((12, 12), 'StemSnapH',          'delta',        None,      None),
-	((12, 13), 'StemSnapV',          'delta',        None,      None),
-	((12, 14), 'ForceBold',          'number',       0,         None),
-	((12, 15), 'ForceBoldThreshold', 'number',       None,      None),  # deprecated
-	((12, 16), 'lenIV',              'number',       None,      None),  # deprecated
-	((12, 17), 'LanguageGroup',      'number',       0,         None),
-	((12, 18), 'ExpansionFactor',    'number',       0.06,      None),
-	((12, 19), 'initialRandomSeed',  'number',       0,         None),
-	(20,       'defaultWidthX',      'number',       0,         None),
-	(21,       'nominalWidthX',      'number',       0,         None),
-	(19,       'Subrs',              'number',       None,      SubrsConverter()),
+#	opcode		name			argument type	default	converter
+	(6,		'BlueValues',		'delta',	None,	None),
+	(7,		'OtherBlues',		'delta',	None,	None),
+	(8,		'FamilyBlues',		'delta',	None,	None),
+	(9,		'FamilyOtherBlues',	'delta',	None,	None),
+	((12, 9),	'BlueScale',		'number',	0.039625, None),
+	((12, 10),	'BlueShift',		'number',	7,	None),
+	((12, 11),	'BlueFuzz',		'number',	1,	None),
+	(10,		'StdHW',		'number',	None,	None),
+	(11,		'StdVW',		'number',	None,	None),
+	((12, 12),	'StemSnapH',		'delta',	None,	None),
+	((12, 13),	'StemSnapV',		'delta',	None,	None),
+	((12, 14),	'ForceBold',		'number',	0,	None),
+	((12, 15),	'ForceBoldThreshold',	'number',	None,	None), # deprecated
+	((12, 16),	'lenIV',		'number',	None,	None), # deprecated
+	((12, 17),	'LanguageGroup',	'number',	0,	None),
+	((12, 18),	'ExpansionFactor',	'number',	0.06,	None),
+	((12, 19),	'initialRandomSeed',	'number',	0,	None),
+	(20,		'defaultWidthX',	'number',	0,	None),
+	(21,		'nominalWidthX',	'number',	0,	None),
+	(19,		'Subrs',		'number',	None,	SubrsConverter()),
 ]
 
 def addConverters(table):
@@ -1276,9 +1292,9 @@ def addConverters(table):
 		elif arg == "number":
 			conv = NumberConverter()
 		elif arg == "SID":
-			conv = SimpleConverter()
+			conv = ASCIIConverter()
 		else:
-			assert 0
+			assert False
 		table[i] = op, name, arg, default, conv
 
 addConverters(privateDictOperators)
@@ -1293,8 +1309,8 @@ class PrivateDictDecompiler(psCharStrings.DictDecompiler):
 	operators = buildOperatorDict(privateDictOperators)
 
 
-class DictCompiler:
-	
+class DictCompiler(object):
+
 	def __init__(self, dictObj, strings, parent):
 		assert isinstance(strings, IndexedStrings)
 		self.dictObj = dictObj
@@ -1311,17 +1327,17 @@ class DictCompiler:
 				continue
 			rawDict[name] = value
 		self.rawDict = rawDict
-	
+
 	def setPos(self, pos, endPos):
 		pass
-	
+
 	def getDataLength(self):
 		return len(self.compile("getDataLength"))
-	
+
 	def compile(self, reason):
 		if DEBUG:
-			print "-- compiling %s for %s" % (self.__class__.__name__, reason)
-			print "in baseDict: ", self
+			print("-- compiling %s for %s" % (self.__class__.__name__, reason))
+			print("in baseDict: ", self)
 		rawDict = self.rawDict
 		data = []
 		for name in self.dictObj.order:
@@ -1341,11 +1357,11 @@ class DictCompiler:
 				arghandler = getattr(self, "arg_" + argType)
 				data.append(arghandler(value))
 			data.append(op)
-		return "".join(data)
-	
+		return bytesjoin(data)
+
 	def toFile(self, file):
 		file.write(self.compile("toFile"))
-	
+
 	def arg_number(self, num):
 		return encodeNumber(num)
 	def arg_SID(self, s):
@@ -1354,7 +1370,7 @@ class DictCompiler:
 		data = []
 		for num in value:
 			data.append(encodeNumber(num))
-		return "".join(data)
+		return bytesjoin(data)
 	def arg_delta(self, value):
 		out = []
 		last = 0
@@ -1364,7 +1380,7 @@ class DictCompiler:
 		data = []
 		for num in out:
 			data.append(encodeNumber(num))
-		return "".join(data)
+		return bytesjoin(data)
 
 
 def encodeNumber(num):
@@ -1375,9 +1391,9 @@ def encodeNumber(num):
 
 
 class TopDictCompiler(DictCompiler):
-	
+
 	opcodes = buildOpcodeDict(topDictOperators)
-	
+
 	def getChildren(self, strings):
 		children = []
 		if hasattr(self.dictObj, "charset") and self.dictObj.charset:
@@ -1395,7 +1411,6 @@ class TopDictCompiler(DictCompiler):
 			if len(fdSelect) == 0: # probably read in from XML; assume fdIndex in CharString data
 				charStrings = self.dictObj.CharStrings
 				for name in self.dictObj.charset:
-					charstring = charStrings[name]
 					fdSelect.append(charStrings[name].fdSelectIndex)
 			fdSelectComp = FDSelectCompiler(fdSelect, self)
 			children.append(fdSelectComp)
@@ -1421,9 +1436,9 @@ class TopDictCompiler(DictCompiler):
 
 
 class FontDictCompiler(DictCompiler):
-	
+
 	opcodes = buildOpcodeDict(topDictOperators)
-	
+
 	def getChildren(self, strings):
 		children = []
 		if hasattr(self.dictObj, "Private"):
@@ -1434,14 +1449,14 @@ class FontDictCompiler(DictCompiler):
 
 
 class PrivateDictCompiler(DictCompiler):
-	
+
 	opcodes = buildOpcodeDict(privateDictOperators)
-	
+
 	def setPos(self, pos, endPos):
 		size = endPos - pos
 		self.parent.rawDict["Private"] = size, pos
 		self.pos = pos
-	
+
 	def getChildren(self, strings):
 		children = []
 		if hasattr(self.dictObj, "Subrs"):
@@ -1449,42 +1464,42 @@ class PrivateDictCompiler(DictCompiler):
 		return children
 
 
-class BaseDict:
-	
+class BaseDict(object):
+
 	def __init__(self, strings=None, file=None, offset=None):
 		self.rawDict = {}
 		if DEBUG:
-			print "loading %s at %s" % (self.__class__.__name__, offset)
+			print("loading %s at %s" % (self.__class__.__name__, offset))
 		self.file = file
 		self.offset = offset
 		self.strings = strings
 		self.skipNames = []
-	
+
 	def decompile(self, data):
 		if DEBUG:
-			print "    length %s is %s" % (self.__class__.__name__, len(data))
+			print("    length %s is %s" % (self.__class__.__name__, len(data)))
 		dec = self.decompilerClass(self.strings)
 		dec.decompile(data)
 		self.rawDict = dec.getDict()
 		self.postDecompile()
-	
+
 	def postDecompile(self):
 		pass
-	
+
 	def getCompiler(self, strings, parent):
 		return self.compilerClass(self, strings, parent)
-	
+
 	def __getattr__(self, name):
 		value = self.rawDict.get(name)
 		if value is None:
 			value = self.defaults.get(name)
 		if value is None:
-			raise AttributeError, name
+			raise AttributeError(name)
 		conv = self.converters[name]
 		value = conv.read(self, value)
 		setattr(self, name, value)
 		return value
-	
+
 	def toXML(self, xmlWriter, progress):
 		for name in self.order:
 			if name in self.skipNames:
@@ -1494,28 +1509,28 @@ class BaseDict:
 				continue
 			conv = self.converters[name]
 			conv.xmlWrite(xmlWriter, name, value, progress)
-	
-	def fromXML(self, (name, attrs, content)):
+
+	def fromXML(self, name, attrs, content):
 		conv = self.converters[name]
-		value = conv.xmlRead((name, attrs, content), self)
+		value = conv.xmlRead(name, attrs, content, self)
 		setattr(self, name, value)
 
 
 class TopDict(BaseDict):
-	
+
 	defaults = buildDefaults(topDictOperators)
 	converters = buildConverters(topDictOperators)
 	order = buildOrder(topDictOperators)
 	decompilerClass = TopDictDecompiler
 	compilerClass = TopDictCompiler
-	
+
 	def __init__(self, strings=None, file=None, offset=None, GlobalSubrs=None):
 		BaseDict.__init__(self, strings, file, offset)
 		self.GlobalSubrs = GlobalSubrs
-	
+
 	def getGlyphOrder(self):
 		return self.charset
-	
+
 	def postDecompile(self):
 		offset = self.rawDict.get("CharStrings")
 		if offset is None:
@@ -1523,7 +1538,7 @@ class TopDict(BaseDict):
 		# get the number of glyphs beforehand.
 		self.file.seek(offset)
 		self.numGlyphs = readCard16(self.file)
-	
+
 	def toXML(self, xmlWriter, progress):
 		if hasattr(self, "CharStrings"):
 			self.decompileAllCharStrings(progress)
@@ -1535,7 +1550,7 @@ class TopDict(BaseDict):
 			self.skipNames = ['CIDFontVersion', 'CIDFontRevision', 'CIDFontType',
 					'CIDCount']
 		BaseDict.toXML(self, xmlWriter, progress)
-	
+
 	def decompileAllCharStrings(self, progress):
 		# XXX only when doing ttdump -i?
 		i = 0
@@ -1543,34 +1558,33 @@ class TopDict(BaseDict):
 			try:
 				charString.decompile()
 			except:
-				print "Error in charstring ", i
+				print("Error in charstring ", i)
 				import sys
-				type, value = sys. exc_info()[0:2]
-				raise type(value)
+				typ, value = sys.exc_info()[0:2]
+				raise typ(value)
 			if not i % 30 and progress:
 				progress.increment(0)  # update
 			i = i + 1
 
 
 class FontDict(BaseDict):
-	
+
 	defaults = buildDefaults(topDictOperators)
 	converters = buildConverters(topDictOperators)
 	order = buildOrder(topDictOperators)
 	decompilerClass = None
 	compilerClass = FontDictCompiler
-	
+
 	def __init__(self, strings=None, file=None, offset=None, GlobalSubrs=None):
 		BaseDict.__init__(self, strings, file, offset)
 		self.GlobalSubrs = GlobalSubrs
-	
+
 	def getGlyphOrder(self):
 		return self.charset
-	
+
 	def toXML(self, xmlWriter, progress):
 		self.skipNames = ['Encoding']
 		BaseDict.toXML(self, xmlWriter, progress)
-	
 
 
 class PrivateDict(BaseDict):
@@ -1581,45 +1595,45 @@ class PrivateDict(BaseDict):
 	compilerClass = PrivateDictCompiler
 
 
-class IndexedStrings:
-	
+class IndexedStrings(object):
+
 	"""SID -> string mapping."""
-	
+
 	def __init__(self, file=None):
 		if file is None:
 			strings = []
 		else:
-			strings = list(Index(file))
+			strings = [tostr(s, encoding="latin1") for s in Index(file)]
 		self.strings = strings
-	
+
 	def getCompiler(self):
 		return IndexedStringsCompiler(self, None, None)
-	
+
 	def __len__(self):
 		return len(self.strings)
-	
+
 	def __getitem__(self, SID):
 		if SID < cffStandardStringCount:
 			return cffStandardStrings[SID]
 		else:
 			return self.strings[SID - cffStandardStringCount]
-	
+
 	def getSID(self, s):
 		if not hasattr(self, "stringMapping"):
 			self.buildStringMapping()
-		if cffStandardStringMapping.has_key(s):
+		if s in cffStandardStringMapping:
 			SID = cffStandardStringMapping[s]
-		elif self.stringMapping.has_key(s):
+		elif s in self.stringMapping:
 			SID = self.stringMapping[s]
 		else:
 			SID = len(self.strings) + cffStandardStringCount
 			self.strings.append(s)
 			self.stringMapping[s] = SID
 		return SID
-	
+
 	def getStrings(self):
 		return self.strings
-	
+
 	def buildStringMapping(self):
 		self.stringMapping = {}
 		for index in range(len(self.strings)):
@@ -1629,68 +1643,68 @@ class IndexedStrings:
 # The 391 Standard Strings as used in the CFF format.
 # from Adobe Technical None #5176, version 1.0, 18 March 1998
 
-cffStandardStrings = ['.notdef', 'space', 'exclam', 'quotedbl', 'numbersign', 
-		'dollar', 'percent', 'ampersand', 'quoteright', 'parenleft', 'parenright', 
-		'asterisk', 'plus', 'comma', 'hyphen', 'period', 'slash', 'zero', 'one', 
-		'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'colon', 
-		'semicolon', 'less', 'equal', 'greater', 'question', 'at', 'A', 'B', 'C', 
-		'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 
-		'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'bracketleft', 'backslash', 
-		'bracketright', 'asciicircum', 'underscore', 'quoteleft', 'a', 'b', 'c', 
-		'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 
-		's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'braceleft', 'bar', 'braceright', 
-		'asciitilde', 'exclamdown', 'cent', 'sterling', 'fraction', 'yen', 'florin', 
-		'section', 'currency', 'quotesingle', 'quotedblleft', 'guillemotleft', 
-		'guilsinglleft', 'guilsinglright', 'fi', 'fl', 'endash', 'dagger', 
-		'daggerdbl', 'periodcentered', 'paragraph', 'bullet', 'quotesinglbase', 
-		'quotedblbase', 'quotedblright', 'guillemotright', 'ellipsis', 'perthousand', 
-		'questiondown', 'grave', 'acute', 'circumflex', 'tilde', 'macron', 'breve', 
-		'dotaccent', 'dieresis', 'ring', 'cedilla', 'hungarumlaut', 'ogonek', 'caron', 
-		'emdash', 'AE', 'ordfeminine', 'Lslash', 'Oslash', 'OE', 'ordmasculine', 'ae', 
-		'dotlessi', 'lslash', 'oslash', 'oe', 'germandbls', 'onesuperior', 
-		'logicalnot', 'mu', 'trademark', 'Eth', 'onehalf', 'plusminus', 'Thorn', 
-		'onequarter', 'divide', 'brokenbar', 'degree', 'thorn', 'threequarters', 
-		'twosuperior', 'registered', 'minus', 'eth', 'multiply', 'threesuperior', 
-		'copyright', 'Aacute', 'Acircumflex', 'Adieresis', 'Agrave', 'Aring', 
-		'Atilde', 'Ccedilla', 'Eacute', 'Ecircumflex', 'Edieresis', 'Egrave', 
-		'Iacute', 'Icircumflex', 'Idieresis', 'Igrave', 'Ntilde', 'Oacute', 
-		'Ocircumflex', 'Odieresis', 'Ograve', 'Otilde', 'Scaron', 'Uacute', 
-		'Ucircumflex', 'Udieresis', 'Ugrave', 'Yacute', 'Ydieresis', 'Zcaron', 
-		'aacute', 'acircumflex', 'adieresis', 'agrave', 'aring', 'atilde', 'ccedilla', 
-		'eacute', 'ecircumflex', 'edieresis', 'egrave', 'iacute', 'icircumflex', 
-		'idieresis', 'igrave', 'ntilde', 'oacute', 'ocircumflex', 'odieresis', 
-		'ograve', 'otilde', 'scaron', 'uacute', 'ucircumflex', 'udieresis', 'ugrave', 
-		'yacute', 'ydieresis', 'zcaron', 'exclamsmall', 'Hungarumlautsmall', 
-		'dollaroldstyle', 'dollarsuperior', 'ampersandsmall', 'Acutesmall', 
-		'parenleftsuperior', 'parenrightsuperior', 'twodotenleader', 'onedotenleader', 
-		'zerooldstyle', 'oneoldstyle', 'twooldstyle', 'threeoldstyle', 'fouroldstyle', 
-		'fiveoldstyle', 'sixoldstyle', 'sevenoldstyle', 'eightoldstyle', 
-		'nineoldstyle', 'commasuperior', 'threequartersemdash', 'periodsuperior', 
-		'questionsmall', 'asuperior', 'bsuperior', 'centsuperior', 'dsuperior', 
-		'esuperior', 'isuperior', 'lsuperior', 'msuperior', 'nsuperior', 'osuperior', 
-		'rsuperior', 'ssuperior', 'tsuperior', 'ff', 'ffi', 'ffl', 'parenleftinferior', 
-		'parenrightinferior', 'Circumflexsmall', 'hyphensuperior', 'Gravesmall', 
-		'Asmall', 'Bsmall', 'Csmall', 'Dsmall', 'Esmall', 'Fsmall', 'Gsmall', 'Hsmall', 
-		'Ismall', 'Jsmall', 'Ksmall', 'Lsmall', 'Msmall', 'Nsmall', 'Osmall', 'Psmall', 
-		'Qsmall', 'Rsmall', 'Ssmall', 'Tsmall', 'Usmall', 'Vsmall', 'Wsmall', 'Xsmall', 
-		'Ysmall', 'Zsmall', 'colonmonetary', 'onefitted', 'rupiah', 'Tildesmall', 
-		'exclamdownsmall', 'centoldstyle', 'Lslashsmall', 'Scaronsmall', 'Zcaronsmall', 
-		'Dieresissmall', 'Brevesmall', 'Caronsmall', 'Dotaccentsmall', 'Macronsmall', 
-		'figuredash', 'hypheninferior', 'Ogoneksmall', 'Ringsmall', 'Cedillasmall', 
-		'questiondownsmall', 'oneeighth', 'threeeighths', 'fiveeighths', 'seveneighths', 
-		'onethird', 'twothirds', 'zerosuperior', 'foursuperior', 'fivesuperior', 
-		'sixsuperior', 'sevensuperior', 'eightsuperior', 'ninesuperior', 'zeroinferior', 
-		'oneinferior', 'twoinferior', 'threeinferior', 'fourinferior', 'fiveinferior', 
-		'sixinferior', 'seveninferior', 'eightinferior', 'nineinferior', 'centinferior', 
-		'dollarinferior', 'periodinferior', 'commainferior', 'Agravesmall', 
-		'Aacutesmall', 'Acircumflexsmall', 'Atildesmall', 'Adieresissmall', 'Aringsmall', 
-		'AEsmall', 'Ccedillasmall', 'Egravesmall', 'Eacutesmall', 'Ecircumflexsmall', 
-		'Edieresissmall', 'Igravesmall', 'Iacutesmall', 'Icircumflexsmall', 
-		'Idieresissmall', 'Ethsmall', 'Ntildesmall', 'Ogravesmall', 'Oacutesmall', 
-		'Ocircumflexsmall', 'Otildesmall', 'Odieresissmall', 'OEsmall', 'Oslashsmall', 
-		'Ugravesmall', 'Uacutesmall', 'Ucircumflexsmall', 'Udieresissmall', 
-		'Yacutesmall', 'Thornsmall', 'Ydieresissmall', '001.000', '001.001', '001.002', 
-		'001.003', 'Black', 'Bold', 'Book', 'Light', 'Medium', 'Regular', 'Roman', 
+cffStandardStrings = ['.notdef', 'space', 'exclam', 'quotedbl', 'numbersign',
+		'dollar', 'percent', 'ampersand', 'quoteright', 'parenleft', 'parenright',
+		'asterisk', 'plus', 'comma', 'hyphen', 'period', 'slash', 'zero', 'one',
+		'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'colon',
+		'semicolon', 'less', 'equal', 'greater', 'question', 'at', 'A', 'B', 'C',
+		'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R',
+		'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'bracketleft', 'backslash',
+		'bracketright', 'asciicircum', 'underscore', 'quoteleft', 'a', 'b', 'c',
+		'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r',
+		's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'braceleft', 'bar', 'braceright',
+		'asciitilde', 'exclamdown', 'cent', 'sterling', 'fraction', 'yen', 'florin',
+		'section', 'currency', 'quotesingle', 'quotedblleft', 'guillemotleft',
+		'guilsinglleft', 'guilsinglright', 'fi', 'fl', 'endash', 'dagger',
+		'daggerdbl', 'periodcentered', 'paragraph', 'bullet', 'quotesinglbase',
+		'quotedblbase', 'quotedblright', 'guillemotright', 'ellipsis', 'perthousand',
+		'questiondown', 'grave', 'acute', 'circumflex', 'tilde', 'macron', 'breve',
+		'dotaccent', 'dieresis', 'ring', 'cedilla', 'hungarumlaut', 'ogonek', 'caron',
+		'emdash', 'AE', 'ordfeminine', 'Lslash', 'Oslash', 'OE', 'ordmasculine', 'ae',
+		'dotlessi', 'lslash', 'oslash', 'oe', 'germandbls', 'onesuperior',
+		'logicalnot', 'mu', 'trademark', 'Eth', 'onehalf', 'plusminus', 'Thorn',
+		'onequarter', 'divide', 'brokenbar', 'degree', 'thorn', 'threequarters',
+		'twosuperior', 'registered', 'minus', 'eth', 'multiply', 'threesuperior',
+		'copyright', 'Aacute', 'Acircumflex', 'Adieresis', 'Agrave', 'Aring',
+		'Atilde', 'Ccedilla', 'Eacute', 'Ecircumflex', 'Edieresis', 'Egrave',
+		'Iacute', 'Icircumflex', 'Idieresis', 'Igrave', 'Ntilde', 'Oacute',
+		'Ocircumflex', 'Odieresis', 'Ograve', 'Otilde', 'Scaron', 'Uacute',
+		'Ucircumflex', 'Udieresis', 'Ugrave', 'Yacute', 'Ydieresis', 'Zcaron',
+		'aacute', 'acircumflex', 'adieresis', 'agrave', 'aring', 'atilde', 'ccedilla',
+		'eacute', 'ecircumflex', 'edieresis', 'egrave', 'iacute', 'icircumflex',
+		'idieresis', 'igrave', 'ntilde', 'oacute', 'ocircumflex', 'odieresis',
+		'ograve', 'otilde', 'scaron', 'uacute', 'ucircumflex', 'udieresis', 'ugrave',
+		'yacute', 'ydieresis', 'zcaron', 'exclamsmall', 'Hungarumlautsmall',
+		'dollaroldstyle', 'dollarsuperior', 'ampersandsmall', 'Acutesmall',
+		'parenleftsuperior', 'parenrightsuperior', 'twodotenleader', 'onedotenleader',
+		'zerooldstyle', 'oneoldstyle', 'twooldstyle', 'threeoldstyle', 'fouroldstyle',
+		'fiveoldstyle', 'sixoldstyle', 'sevenoldstyle', 'eightoldstyle',
+		'nineoldstyle', 'commasuperior', 'threequartersemdash', 'periodsuperior',
+		'questionsmall', 'asuperior', 'bsuperior', 'centsuperior', 'dsuperior',
+		'esuperior', 'isuperior', 'lsuperior', 'msuperior', 'nsuperior', 'osuperior',
+		'rsuperior', 'ssuperior', 'tsuperior', 'ff', 'ffi', 'ffl', 'parenleftinferior',
+		'parenrightinferior', 'Circumflexsmall', 'hyphensuperior', 'Gravesmall',
+		'Asmall', 'Bsmall', 'Csmall', 'Dsmall', 'Esmall', 'Fsmall', 'Gsmall', 'Hsmall',
+		'Ismall', 'Jsmall', 'Ksmall', 'Lsmall', 'Msmall', 'Nsmall', 'Osmall', 'Psmall',
+		'Qsmall', 'Rsmall', 'Ssmall', 'Tsmall', 'Usmall', 'Vsmall', 'Wsmall', 'Xsmall',
+		'Ysmall', 'Zsmall', 'colonmonetary', 'onefitted', 'rupiah', 'Tildesmall',
+		'exclamdownsmall', 'centoldstyle', 'Lslashsmall', 'Scaronsmall', 'Zcaronsmall',
+		'Dieresissmall', 'Brevesmall', 'Caronsmall', 'Dotaccentsmall', 'Macronsmall',
+		'figuredash', 'hypheninferior', 'Ogoneksmall', 'Ringsmall', 'Cedillasmall',
+		'questiondownsmall', 'oneeighth', 'threeeighths', 'fiveeighths', 'seveneighths',
+		'onethird', 'twothirds', 'zerosuperior', 'foursuperior', 'fivesuperior',
+		'sixsuperior', 'sevensuperior', 'eightsuperior', 'ninesuperior', 'zeroinferior',
+		'oneinferior', 'twoinferior', 'threeinferior', 'fourinferior', 'fiveinferior',
+		'sixinferior', 'seveninferior', 'eightinferior', 'nineinferior', 'centinferior',
+		'dollarinferior', 'periodinferior', 'commainferior', 'Agravesmall',
+		'Aacutesmall', 'Acircumflexsmall', 'Atildesmall', 'Adieresissmall', 'Aringsmall',
+		'AEsmall', 'Ccedillasmall', 'Egravesmall', 'Eacutesmall', 'Ecircumflexsmall',
+		'Edieresissmall', 'Igravesmall', 'Iacutesmall', 'Icircumflexsmall',
+		'Idieresissmall', 'Ethsmall', 'Ntildesmall', 'Ogravesmall', 'Oacutesmall',
+		'Ocircumflexsmall', 'Otildesmall', 'Odieresissmall', 'OEsmall', 'Oslashsmall',
+		'Ugravesmall', 'Uacutesmall', 'Ucircumflexsmall', 'Udieresissmall',
+		'Yacutesmall', 'Thornsmall', 'Ydieresissmall', '001.000', '001.001', '001.002',
+		'001.003', 'Black', 'Bold', 'Book', 'Light', 'Medium', 'Regular', 'Roman',
 		'Semibold'
 ]
 
