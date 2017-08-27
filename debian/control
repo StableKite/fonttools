@@ -1,7 +1,8 @@
 Source: fonttools
 Section: fonts
 Priority: optional
-Maintainer: Luke Faraone <lfaraone@debian.org>
+Maintainer: Debian Fonts Task Force <pkg-fonts-devel@lists.alioth.debian.org>
+Uploaders: Luke Faraone <lfaraone@debian.org>
 Build-Depends:
  debhelper (>= 9),
  python-dev (>= 2.6.6-3~),
