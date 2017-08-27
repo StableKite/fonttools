@@ -126,10 +126,10 @@ class Options:
 			elif option == "-b":
 				self.recalcBBoxes = 0
 		if self.onlyTables and self.skipTables:
-			print "-t and -x options are mutually exlusive"
+			print "-t and -x options are mutually exclusive"
 			sys.exit(2)
 		if self.mergeFile and numFiles > 1:
-			print "Must specify exactly one TTX source file when using -i"
+			print "Must specify exactly one TTX source file when using -m"
 			sys.exit(2)
 
 
@@ -145,7 +145,10 @@ def ttList(input, output, options):
 	print format % ("----", "----------", "-------", "-------")
 	for tag in tags:
 		entry = reader.tables[tag]
-		checksum = "0x" + string.zfill(hex(entry.checkSum)[2:], 8)
+		checkSum = long(entry.checkSum)
+		if checkSum < 0:
+			checkSum = checkSum + 0x100000000L
+		checksum = "0x" + string.zfill(hex(checkSum)[2:-1], 8)
 		print format % (tag, checksum, entry.length, entry.offset)
 	print
 	ttf.close()
