@@ -4,4 +4,4 @@
 
 override_dh_sphinxdoc:
 	sphinx-build $(CURDIR)/Doc/source $(CURDIR)/Doc/_build
-	dh_sphinxdoc $(CURDIR)/Doc/source/_build
+	dh_sphinxdoc $(CURDIR)/Doc/_build
