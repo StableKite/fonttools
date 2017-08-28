@@ -25,6 +25,8 @@ fonttools (3.15.1-1) UNRELEASED; urgency=medium
     - update to version4
   * debian/doc-base
     - once drop it
+  * debian/patches
+    - add 0001-add-module-path-for-automodule-directive.patch
 
  -- Hideki Yamane <henrich@debian.org>  Sun, 27 Aug 2017 20:52:44 +0900
 
