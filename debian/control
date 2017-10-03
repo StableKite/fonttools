@@ -1,5 +1,5 @@
 Source: fonttools
-Section: fonts
+Section: devel
 Priority: optional
 Maintainer: Debian Fonts Task Force <pkg-fonts-devel@lists.alioth.debian.org>
 Uploaders: Luke Faraone <lfaraone@debian.org>
@@ -10,13 +10,13 @@ Build-Depends:
  python3-numpy,
  python-sphinx,
  dh-python
-Standards-Version: 4.1.0
+Standards-Version: 4.1.1
 Homepage: https://github.com/fonttools/fonttools
 Vcs-Git: https://anonscm.debian.org/git/pkg-fonts/fonttools.git
 Vcs-Browser: https://anonscm.debian.org/cgit/pkg-fonts/fonttools.git
 X-Python3-Version: >= 3.4
 
-Package: fonttools
+Package: python3-fonttools
 Architecture: all
 Depends:
  python3-numpy,
@@ -29,3 +29,11 @@ Description: Converts OpenType and TrueType fonts to and from XML
  and writing of AFM files, reading (and partially writing) of PS Type 1
  fonts.  It also contains a tool called "TTX" which converts
  TrueType/OpenType fonts to and from an XML-based format.
+
+Package: fonttools
+Depends: python3-fonttools, ${misc:Depends}
+Architecture: all
+Priority: optional
+Section: devel
+Description: transitional dummy package
+ This is a transitional package. It can be safely removed.
