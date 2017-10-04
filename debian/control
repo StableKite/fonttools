@@ -42,6 +42,8 @@ Depends:
  python-numpy,
  ${misc:Depends},
  ${python:Depends}
+Replaces: fonttools (<< 3.15.1-1)
+Breaks: fonttools (<< 3.15.1-1)
 Description: Converts OpenType and TrueType fonts to and from XML
  FontTools/TTX is a library to manipulate font files from Python.
  It supports reading and writing of TrueType/OpenType fonts, reading
@@ -56,6 +58,8 @@ Architecture: all
 Depends:
  ${sphinxdoc:Depends},
  ${misc:Depends}
+Replaces: fonttools (<< 3.15.1-1)
+Breaks: fonttools (<< 3.15.1-1)
 Description: Converts OpenType and TrueType fonts to and from XML
  FontTools/TTX is a library to manipulate font files from Python.
  It supports reading and writing of TrueType/OpenType fonts, reading
@@ -66,9 +70,14 @@ Description: Converts OpenType and TrueType fonts to and from XML
  This is the sphinx documentation of the fontTools package.
 
 Package: fonttools
-Depends: python-fonttools, ${misc:Depends}
+Depends: python3-fonttools, ${misc:Depends}
 Architecture: all
-Priority: optional
-Section: devel
-Description: transitional dummy package
- This is a transitional package. It can be safely removed.
+Breaks: fonttools (<< 3.15.1-1)
+Description: Converts OpenType and TrueType fonts to and from XML
+ FontTools/TTX is a library to manipulate font files from Python.
+ It supports reading and writing of TrueType/OpenType fonts, reading
+ and writing of AFM files, reading (and partially writing) of PS Type 1
+ fonts.  It also contains a tool called "TTX" which converts
+ TrueType/OpenType fonts to and from an XML-based format.
+ .
+ This provides the executables of fontTools package.

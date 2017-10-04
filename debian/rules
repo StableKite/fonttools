@@ -3,5 +3,5 @@
 	dh $@ --with python2,python3,sphinxdoc --buildsystem=pybuild
 
 override_dh_sphinxdoc:
-	sphinx-build $(CURDIR)/Doc/source $(CURDIR)/debian/python3-fonttools/usr/share/doc/fonttools/html/
+	sphinx-build $(CURDIR)/Doc/source $(CURDIR)/debian/python-fonttools-doc/usr/share/doc/fonttools/html/
 	dh_sphinxdoc
