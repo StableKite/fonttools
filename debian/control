@@ -5,6 +5,9 @@ Maintainer: Debian Fonts Task Force <pkg-fonts-devel@lists.alioth.debian.org>
 Uploaders: Luke Faraone <lfaraone@debian.org>
 Build-Depends:
  debhelper (>= 10),
+ python-all,
+ python-setuptools,
+ python-numpy,
  python3-all,
  python3-setuptools,
  python3-numpy,
@@ -14,6 +17,7 @@ Standards-Version: 4.1.1
 Homepage: https://github.com/fonttools/fonttools
 Vcs-Git: https://anonscm.debian.org/git/pkg-fonts/fonttools.git
 Vcs-Browser: https://anonscm.debian.org/cgit/pkg-fonts/fonttools.git
+X-Python-Version: >= 2.7
 X-Python3-Version: >= 3.4
 
 Package: python3-fonttools
@@ -29,9 +33,40 @@ Description: Converts OpenType and TrueType fonts to and from XML
  and writing of AFM files, reading (and partially writing) of PS Type 1
  fonts.  It also contains a tool called "TTX" which converts
  TrueType/OpenType fonts to and from an XML-based format.
+ .
+ This is the Python 3 version of the fontTools package.
+
+Package: python-fonttools
+Architecture: all
+Depends:
+ python-numpy,
+ ${misc:Depends},
+ ${python:Depends}
+Description: Converts OpenType and TrueType fonts to and from XML
+ FontTools/TTX is a library to manipulate font files from Python.
+ It supports reading and writing of TrueType/OpenType fonts, reading
+ and writing of AFM files, reading (and partially writing) of PS Type 1
+ fonts.  It also contains a tool called "TTX" which converts
+ TrueType/OpenType fonts to and from an XML-based format.
+ .
+ This is the Python 2 version of the fontTools package.
+
+Package: python-fonttools-doc
+Architecture: all
+Depends:
+ ${sphinxdoc:Depends},
+ ${misc:Depends}
+Description: Converts OpenType and TrueType fonts to and from XML
+ FontTools/TTX is a library to manipulate font files from Python.
+ It supports reading and writing of TrueType/OpenType fonts, reading
+ and writing of AFM files, reading (and partially writing) of PS Type 1
+ fonts.  It also contains a tool called "TTX" which converts
+ TrueType/OpenType fonts to and from an XML-based format.
+ .
+ This is the sphinx documentation of the fontTools package.
 
 Package: fonttools
-Depends: python3-fonttools, ${misc:Depends}
+Depends: python-fonttools, ${misc:Depends}
 Architecture: all
 Priority: optional
 Section: devel
