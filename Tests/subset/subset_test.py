@@ -95,6 +95,97 @@ class SubsetTest(unittest.TestCase):
         subsetfont = TTFont(subsetpath)
         self.expect_ttx(subsetfont, self.getpath("expect_no_notdef_outline_ttf.ttx"), ["glyf", "hmtx"])
 
+    def test_subset_ankr(self):
+        _, fontpath = self.compile_font(self.getpath("TestANKR.ttx"), ".ttf")
+        subsetpath = self.temp_path(".ttf")
+        subset.main([fontpath, "--glyphs=one", "--output-file=%s" % subsetpath])
+        subsetfont = TTFont(subsetpath)
+        self.expect_ttx(subsetfont, self.getpath("expect_ankr.ttx"), ["ankr"])
+
+    def test_subset_ankr_remove(self):
+        _, fontpath = self.compile_font(self.getpath("TestANKR.ttx"), ".ttf")
+        subsetpath = self.temp_path(".ttf")
+        subset.main([fontpath, "--glyphs=two", "--output-file=%s" % subsetpath])
+        self.assertNotIn("ankr", TTFont(subsetpath))
+
+    def test_subset_bsln_format_0(self):
+        _, fontpath = self.compile_font(self.getpath("TestBSLN-0.ttx"), ".ttf")
+        subsetpath = self.temp_path(".ttf")
+        subset.main([fontpath, "--glyphs=one", "--output-file=%s" % subsetpath])
+        subsetfont = TTFont(subsetpath)
+        self.expect_ttx(subsetfont, self.getpath("expect_bsln_0.ttx"), ["bsln"])
+
+    def test_subset_bsln_format_0_from_format_1(self):
+        # TestBSLN-1 defines the ideographic baseline to be the font's default,
+        # and specifies that glyphs {.notdef, zero, one, two} use the roman
+        # baseline instead of the default ideographic baseline. As we request
+        # a subsetted font with {zero, one} and the implicit .notdef, all
+        # glyphs in the resulting font use the Roman baseline. In this case,
+        # we expect a format 0 'bsln' table because it is the most compact.
+        _, fontpath = self.compile_font(self.getpath("TestBSLN-1.ttx"), ".ttf")
+        subsetpath = self.temp_path(".ttf")
+        subset.main([fontpath, "--unicodes=U+0030-0031",
+                     "--output-file=%s" % subsetpath])
+        subsetfont = TTFont(subsetpath)
+        self.expect_ttx(subsetfont, self.getpath("expect_bsln_0.ttx"), ["bsln"])
+
+    def test_subset_bsln_format_1(self):
+        # TestBSLN-1 defines the ideographic baseline to be the font's default,
+        # and specifies that glyphs {.notdef, zero, one, two} use the roman
+        # baseline instead of the default ideographic baseline. We request
+        # a subset where the majority of glyphs use the roman baseline,
+        # but one single glyph (uni2EA2) is ideographic. In the resulting
+        # subsetted font, we expect a format 1 'bsln' table whose default
+        # is Roman, but with an override that uses the ideographic baseline
+        # for uni2EA2.
+        _, fontpath = self.compile_font(self.getpath("TestBSLN-1.ttx"), ".ttf")
+        subsetpath = self.temp_path(".ttf")
+        subset.main([fontpath, "--unicodes=U+0030-0031,U+2EA2",
+                     "--output-file=%s" % subsetpath])
+        subsetfont = TTFont(subsetpath)
+        self.expect_ttx(subsetfont, self.getpath("expect_bsln_1.ttx"), ["bsln"])
+
+    def test_subset_bsln_format_2(self):
+        # The 'bsln' table in TestBSLN-2 refers to control points in glyph 'P'
+        # for defining its baselines. Therefore, the subsetted font should
+        # include this glyph even though it is not requested explicitly.
+        _, fontpath = self.compile_font(self.getpath("TestBSLN-2.ttx"), ".ttf")
+        subsetpath = self.temp_path(".ttf")
+        subset.main([fontpath, "--glyphs=one", "--output-file=%s" % subsetpath])
+        subsetfont = TTFont(subsetpath)
+        self.expect_ttx(subsetfont, self.getpath("expect_bsln_2.ttx"), ["bsln"])
+
+    def test_subset_bsln_format_2_from_format_3(self):
+        # TestBSLN-3 defines the ideographic baseline to be the font's default,
+        # and specifies that glyphs {.notdef, zero, one, two, P} use the roman
+        # baseline instead of the default ideographic baseline. As we request
+        # a subsetted font with zero and the implicit .notdef and P for
+        # baseline measurement, all glyphs in the resulting font use the Roman
+        # baseline. In this case, we expect a format 2 'bsln' table because it
+        # is the most compact encoding.
+        _, fontpath = self.compile_font(self.getpath("TestBSLN-3.ttx"), ".ttf")
+        subsetpath = self.temp_path(".ttf")
+        subset.main([fontpath, "--unicodes=U+0030",
+                     "--output-file=%s" % subsetpath])
+        subsetfont = TTFont(subsetpath)
+        self.expect_ttx(subsetfont, self.getpath("expect_bsln_2.ttx"), ["bsln"])
+
+    def test_subset_bsln_format_3(self):
+        # TestBSLN-3 defines the ideographic baseline to be the font's default,
+        # and specifies that glyphs {.notdef, zero, one, two} use the roman
+        # baseline instead of the default ideographic baseline. We request
+        # a subset where the majority of glyphs use the roman baseline,
+        # but one single glyph (uni2EA2) is ideographic. In the resulting
+        # subsetted font, we expect a format 1 'bsln' table whose default
+        # is Roman, but with an override that uses the ideographic baseline
+        # for uni2EA2.
+        _, fontpath = self.compile_font(self.getpath("TestBSLN-3.ttx"), ".ttf")
+        subsetpath = self.temp_path(".ttf")
+        subset.main([fontpath, "--unicodes=U+0030-0031,U+2EA2",
+                     "--output-file=%s" % subsetpath])
+        subsetfont = TTFont(subsetpath)
+        self.expect_ttx(subsetfont, self.getpath("expect_bsln_3.ttx"), ["bsln"])
+
     def test_subset_clr(self):
         _, fontpath = self.compile_font(self.getpath("TestCLR-Regular.ttx"), ".ttf")
         subsetpath = self.temp_path(".ttf")
@@ -116,12 +207,95 @@ class SubsetTest(unittest.TestCase):
         subsetfont = TTFont(subsetpath)
         self.expect_ttx(subsetfont, self.getpath("expect_keep_gvar_notdef_outline.ttx"), ["GlyphOrder", "avar", "fvar", "gvar", "name"])
 
+    def test_subset_lcar_remove(self):
+        _, fontpath = self.compile_font(self.getpath("TestLCAR-0.ttx"), ".ttf")
+        subsetpath = self.temp_path(".ttf")
+        subset.main([fontpath, "--glyphs=one", "--output-file=%s" % subsetpath])
+        subsetfont = TTFont(subsetpath)
+        self.assertNotIn("lcar", subsetfont)
+
+    def test_subset_lcar_format_0(self):
+        _, fontpath = self.compile_font(self.getpath("TestLCAR-0.ttx"), ".ttf")
+        subsetpath = self.temp_path(".ttf")
+        subset.main([fontpath, "--unicodes=U+FB01",
+                     "--output-file=%s" % subsetpath])
+        subsetfont = TTFont(subsetpath)
+        self.expect_ttx(subsetfont, self.getpath("expect_lcar_0.ttx"), ["lcar"])
+
+    def test_subset_lcar_format_1(self):
+        _, fontpath = self.compile_font(self.getpath("TestLCAR-1.ttx"), ".ttf")
+        subsetpath = self.temp_path(".ttf")
+        subset.main([fontpath, "--unicodes=U+FB01",
+                     "--output-file=%s" % subsetpath])
+        subsetfont = TTFont(subsetpath)
+        self.expect_ttx(subsetfont, self.getpath("expect_lcar_1.ttx"), ["lcar"])
+
     def test_subset_math(self):
         _, fontpath = self.compile_font(self.getpath("TestMATH-Regular.ttx"), ".ttf")
         subsetpath = self.temp_path(".ttf")
         subset.main([fontpath, "--unicodes=U+0041,U+0028,U+0302,U+1D400,U+1D435", "--output-file=%s" % subsetpath])
         subsetfont = TTFont(subsetpath)
         self.expect_ttx(subsetfont, self.getpath("expect_keep_math.ttx"), ["GlyphOrder", "CFF ", "MATH", "hmtx"])
+
+    def test_subset_opbd_remove(self):
+        # In the test font, only the glyphs 'A' and 'zero' have an entry in
+        # the Optical Bounds table. When subsetting, we do not request any
+        # of those glyphs. Therefore, the produced subsetted font should
+        # not contain an 'opbd' table.
+        _, fontpath = self.compile_font(self.getpath("TestOPBD-0.ttx"), ".ttf")
+        subsetpath = self.temp_path(".ttf")
+        subset.main([fontpath, "--glyphs=one", "--output-file=%s" % subsetpath])
+        subsetfont = TTFont(subsetpath)
+        self.assertNotIn("opbd", subsetfont)
+
+    def test_subset_opbd_format_0(self):
+        _, fontpath = self.compile_font(self.getpath("TestOPBD-0.ttx"), ".ttf")
+        subsetpath = self.temp_path(".ttf")
+        subset.main([fontpath, "--glyphs=A", "--output-file=%s" % subsetpath])
+        subsetfont = TTFont(subsetpath)
+        self.expect_ttx(subsetfont, self.getpath("expect_opbd_0.ttx"), ["opbd"])
+
+    def test_subset_opbd_format_1(self):
+        _, fontpath = self.compile_font(self.getpath("TestOPBD-1.ttx"), ".ttf")
+        subsetpath = self.temp_path(".ttf")
+        subset.main([fontpath, "--glyphs=A", "--output-file=%s" % subsetpath])
+        subsetfont = TTFont(subsetpath)
+        self.expect_ttx(subsetfont, self.getpath("expect_opbd_1.ttx"), ["opbd"])
+
+    def test_subset_prop_remove_default_zero(self):
+        # If all glyphs have an AAT glyph property with value 0,
+        # the "prop" table should be removed from the subsetted font.
+        _, fontpath = self.compile_font(self.getpath("TestPROP.ttx"), ".ttf")
+        subsetpath = self.temp_path(".ttf")
+        subset.main([fontpath, "--unicodes=U+0041",
+                     "--output-file=%s" % subsetpath])
+        subsetfont = TTFont(subsetpath)
+        self.assertNotIn("prop", subsetfont)
+
+    def test_subset_prop_0(self):
+        # If all glyphs share the same AAT glyph properties, the "prop" table
+        # in the subsetted font should use format 0.
+        #
+        # Unless the shared value is zero, in which case the subsetted font
+        # should have no "prop" table at all. But that case has already been
+        # tested above in test_subset_prop_remove_default_zero().
+        _, fontpath = self.compile_font(self.getpath("TestPROP.ttx"), ".ttf")
+        subsetpath = self.temp_path(".ttf")
+        subset.main([fontpath, "--unicodes=U+0030-0032", "--no-notdef-glyph",
+                     "--output-file=%s" % subsetpath])
+        subsetfont = TTFont(subsetpath)
+        self.expect_ttx(subsetfont, self.getpath("expect_prop_0.ttx"), ["prop"])
+
+    def test_subset_prop_1(self):
+        # If not all glyphs share the same AAT glyph properties, the subsetted
+        # font should contain a "prop" table in format 1. To save space, the
+        # DefaultProperties should be set to the most frequent value.
+        _, fontpath = self.compile_font(self.getpath("TestPROP.ttx"), ".ttf")
+        subsetpath = self.temp_path(".ttf")
+        subset.main([fontpath, "--unicodes=U+0030-0032", "--notdef-outline",
+                     "--output-file=%s" % subsetpath])
+        subsetfont = TTFont(subsetpath)
+        self.expect_ttx(subsetfont, self.getpath("expect_prop_1.ttx"), ["prop"])
 
     def test_options(self):
         # https://github.com/behdad/fonttools/issues/413
