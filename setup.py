@@ -28,7 +28,7 @@ pytest_runner = ['pytest_runner'] if needs_pytest else []
 needs_wheel = {'bdist_wheel'}.intersection(sys.argv)
 wheel = ['wheel'] if needs_wheel else []
 needs_bumpversion = {'release'}.intersection(sys.argv)
-bumpversion = ['bumpversion'] if needs_bumpversion else []
+bumpversion = ['bump2version'] if needs_bumpversion else []
 
 # Trove classifiers for PyPI
 classifiers = {"classifiers": [
@@ -104,7 +104,7 @@ class release(Command):
 	Links:
 	- http://semver.org/
 	- https://www.python.org/dev/peps/pep-0440/
-	- https://github.com/peritus/bumpversion
+	- https://github.com/c4urself/bump2version
 	"""
 
 	description = "update version strings for release"
@@ -309,7 +309,7 @@ def find_data_files(manpath="share/man"):
 
 setup(
 	name="fonttools",
-	version="3.15.1",
+	version="3.16.0",
 	description="Tools to manipulate font files",
 	author="Just van Rossum",
 	author_email="just@letterror.com",

@@ -1,7 +1,10 @@
-from __future__ import print_function, division, absolute_import
+# coding: utf-8
+from __future__ import print_function, division, absolute_import, unicode_literals
 from fontTools.misc.py23 import *
-from fontTools.misc.testTools import parseXML, FakeFont
+from fontTools.misc.testTools import getXML, parseXML, FakeFont
+from fontTools.misc.textTools import deHexStr, hexStr
 from fontTools.misc.xmlWriter import XMLWriter
+from fontTools.ttLib.tables.otBase import OTTableReader, OTTableWriter
 import fontTools.ttLib.tables.otTables as otTables
 import unittest
 
@@ -365,6 +368,61 @@ class AlternateSubstTest(unittest.TestCase):
             "G": ["G.alt2", "G.alt1"],
             "Z": ["Z.fina"]
         })
+
+
+class RearrangementMorphActionTest(unittest.TestCase):
+    def setUp(self):
+        self.font = FakeFont(['.notdef', 'A', 'B', 'C'])
+
+    def testCompile(self):
+        r = otTables.RearrangementMorphAction()
+        r.NewState = 0x1234
+        r.MarkFirst = r.DontAdvance = r.MarkLast = True
+        r.ReservedFlags, r.Verb = 0x1FF0, 0xD
+        writer = OTTableWriter()
+        r.compile(writer, self.font)
+        self.assertEqual(hexStr(writer.getAllData()), "1234fffd")
+
+    def testDecompileToXML(self):
+        r = otTables.RearrangementMorphAction()
+        r.decompile(OTTableReader(deHexStr("1234fffd")), self.font)
+        toXML = lambda w, f: r.toXML(w, f, {"Test": "Foo"}, "Transition")
+        self.assertEqual(getXML(toXML, self.font), [
+                '<Transition Test="Foo">',
+                '  <NewState value="4660"/>',  # 0x1234 = 4660
+                '  <Flags value="MarkFirst,DontAdvance,MarkLast"/>',
+                '  <ReservedFlags value="0x1FF0"/>',
+                '  <Verb value="13"/><!-- ABxCD ⇒ CDxBA -->',
+                '</Transition>',
+        ])
+
+
+class ContextualMorphActionTest(unittest.TestCase):
+    def setUp(self):
+        self.font = FakeFont(['.notdef', 'A', 'B', 'C'])
+
+    def testCompile(self):
+        a = otTables.ContextualMorphAction()
+        a.NewState = 0x1234
+        a.SetMark, a.DontAdvance, a.ReservedFlags = True, True, 0x3117
+        a.MarkIndex, a.CurrentIndex = 0xDEAD, 0xBEEF
+        writer = OTTableWriter()
+        a.compile(writer, self.font)
+        self.assertEqual(hexStr(writer.getAllData()), "1234f117deadbeef")
+
+    def testDecompileToXML(self):
+        a = otTables.ContextualMorphAction()
+        a.decompile(OTTableReader(deHexStr("1234f117deadbeef")), self.font)
+        toXML = lambda w, f: a.toXML(w, f, {"Test": "Foo"}, "Transition")
+        self.assertEqual(getXML(toXML, self.font), [
+                '<Transition Test="Foo">',
+                '  <NewState value="4660"/>',  # 0x1234 = 4660
+                '  <Flags value="SetMark,DontAdvance"/>',
+                '  <ReservedFlags value="0x3117"/>',
+                '  <MarkIndex value="57005"/>',  # 0xDEAD = 57005
+                '  <CurrentIndex value="48879"/>',  # 0xBEEF = 48879
+                '</Transition>',
+        ])
 
 
 if __name__ == "__main__":
