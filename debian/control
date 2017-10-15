@@ -28,6 +28,8 @@ Depends:
  ${misc:Depends},
  ${sphinxdoc:Depends},
  ${python3:Depends}
+Replaces: fonttools (<< 3.15.1-3)
+Breaks: fonttools (<< 3.15.1-3)
 Description: Converts OpenType and TrueType fonts to and from XML
  FontTools/TTX is a library to manipulate font files from Python.
  It supports reading and writing of TrueType/OpenType fonts, reading
