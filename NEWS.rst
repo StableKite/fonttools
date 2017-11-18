@@ -1,3 +1,49 @@
+3.19.0 (released 2017-11-06)
+----------------------------
+
+- [varLib] Try set of used points instead of all points when testing whether to
+  share points between tuples (#1090).
+- [CFF2] Fixed issue with reading/writing PrivateDict BlueValues to TTX file.
+  Read the commit message 8b02b5a and issue #1030 for more details.
+  NOTE: this change invalidates all the TTX files containing CFF2 tables
+  that where dumped with previous verisons of fonttools.
+  CFF2 Subr items can have values on the stack after the last operator, thus
+  a ``CFF2Subr`` class was added to accommodate this (#1091).
+- [_k_e_r_n] Fixed compilation of AAT kern version=1.0 tables (#1089, #1094)
+- [ttLib] Added getBestCmap() convenience method to TTFont class and cmap table
+  class that returns a preferred Unicode cmap subtable given a list of options
+  (#1092).
+- [morx] Emit more meaningful subtable flags. Implement InsertionMorphAction
+
+3.18.0 (released 2017-10-30)
+----------------------------
+
+- [feaLib] Fixed writing back nested glyph classes (#1086).
+- [TupleVariation] Reactivated shared points logic, bugfixes (#1009).
+- [AAT] Implemented ``morx`` ligature subtables (#1082).
+- [reverseContourPen] Keep duplicate lineTo following a moveTo (#1080,
+  https://github.com/googlei18n/cu2qu/issues/51).
+- [varLib.mutator] Suport instantiation of GPOS, GDEF and MVAR (#1079).
+- [sstruct] Fixed issue with ``unicode_literals`` and ``struct`` module in
+  old versions of python 2.7 (#993).
+
+3.17.0 (released 2017-10-16)
+----------------------------
+
+- [svgPathPen] Added an ``SVGPathPen`` that translates segment pen commands
+  into SVG path descriptions. Copied from Tal Leming's ``ufo2svg.svgPathPen``
+  https://github.com/typesupply/ufo2svg/blob/d69f992/Lib/ufo2svg/svgPathPen.py
+- [reverseContourPen] Added ``ReverseContourPen``, a filter pen that draws
+  contours with the winding direction reversed, while keeping the starting
+  point (#1071).
+- [filterPen] Added ``ContourFilterPen`` to manipulate contours as a whole
+  rather than segment by segment.
+- [arrayTools] Added ``Vector`` class to apply math operations on an array
+  of numbers, and ``pairwise`` function to loop over pairs of items in an
+  iterable.
+- [varLib] Added support for building and interpolation of ``cvar`` table
+  (f874cf6, a25a401).
+
 3.16.0 (released 2017-10-03)
 ----------------------------
 

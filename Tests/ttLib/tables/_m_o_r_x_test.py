@@ -71,8 +71,8 @@ MORX_NONCONTEXTUAL_XML = [
     '  </MorphFeature>',
     '  <MorphSubtable index="0">',
     '    <!-- StructLength=36 -->',
-    '    <CoverageFlags value="128"/>',
-    '    <Reserved value="0"/>',
+    '    <TextDirection value="Vertical"/>',
+    '    <ProcessingOrder value="LayoutOrder"/>',
     '    <!-- MorphType=4 -->',
     '    <SubFeatureFlags value="0x00000001"/>',
     '    <NoncontextualMorph>',
@@ -130,8 +130,8 @@ MORX_REARRANGEMENT_XML = [
     '  <!-- MorphSubtableCount=1 -->',
     '  <MorphSubtable index="0">',
     '    <!-- StructLength=104 -->',
-    '    <CoverageFlags value="128"/>',
-    '    <Reserved value="0"/>',
+    '    <TextDirection value="Vertical"/>',
+    '    <ProcessingOrder value="LayoutOrder"/>',
     '    <!-- MorphType=0 -->',
     '    <SubFeatureFlags value="0x00000001"/>',
     '    <RearrangementMorph>',
@@ -339,8 +339,8 @@ MORX_CONTEXTUAL_XML = [
     '  <!-- MorphSubtableCount=1 -->',
     '  <MorphSubtable index="0">',
     '    <!-- StructLength=164 -->',
-    '    <CoverageFlags value="128"/>',
-    '    <Reserved value="0"/>',
+    '    <TextDirection value="Vertical"/>',
+    '    <ProcessingOrder value="LayoutOrder"/>',
     '    <!-- MorphType=1 -->',
     '    <SubFeatureFlags value="0x00000001"/>',
     '    <ContextualMorph>',
@@ -460,6 +460,254 @@ MORX_CONTEXTUAL_XML = [
 ]
 
 
+# Taken from “Example 2: A ligature table” in
+# https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6morx.html
+# as retrieved on 2017-09-11.
+#
+# Compared to the example table in Apple’s specification, we’ve
+# made the following changes:
+#
+# * at offsets 0..35, we’ve prepended 36 bytes of boilerplate
+#   to make the data a structurally valid ‘morx’ table;
+#
+# * at offsets 88..91 (offsets 52..55 in Apple’s document), we’ve
+#   changed the range of the third segment from 23..24 to 26..28.
+#   The hexdump values in Apple’s specification are completely wrong;
+#   the values from the comments would work, but they can be encoded
+#   more compactly than in the specification example. For round-trip
+#   testing, we omit the ‘f’ glyph, which makes AAT lookup format 2
+#   the most compact encoding;
+#
+# * at offsets 92..93 (offsets 56..57 in Apple’s document), we’ve
+#   changed the glyph class of the third segment from 5 to 6, which
+#   matches the values from the comments to the spec (but not the
+#   Apple’s hexdump).
+#
+# TODO: Ask Apple to fix “Example 2” in the ‘morx’ specification.
+MORX_LIGATURE_DATA = deHexStr(
+    '0002 0000 '  #  0: Version=2, Reserved=0
+    '0000 0001 '  #  4: MorphChainCount=1
+    '0000 0001 '  #  8: DefaultFlags=1
+    '0000 00DA '  # 12: StructLength=218 (+8=226)
+    '0000 0000 '  # 16: MorphFeatureCount=0
+    '0000 0001 '  # 20: MorphSubtableCount=1
+    '0000 00CA '  # 24: Subtable[0].StructLength=202 (+24=226)
+    '80 '         # 28: Subtable[0].CoverageFlags=0x80
+    '00 00 '      # 29: Subtable[0].Reserved=0
+    '02 '         # 31: Subtable[0].MorphType=2/LigatureMorph
+    '0000 0001 '  # 32: Subtable[0].SubFeatureFlags=0x1
+
+    # State table header.
+    '0000 0007 '  # 36: STXHeader.ClassCount=7
+    '0000 001C '  # 40: STXHeader.ClassTableOffset=28 (+36=64)
+    '0000 0040 '  # 44: STXHeader.StateArrayOffset=64 (+36=100)
+    '0000 0078 '  # 48: STXHeader.EntryTableOffset=120 (+36=156)
+    '0000 0090 '  # 52: STXHeader.LigActionsOffset=144 (+36=180)
+    '0000 009C '  # 56: STXHeader.LigComponentsOffset=156 (+36=192)
+    '0000 00AE '  # 60: STXHeader.LigListOffset=174 (+36=210)
+
+    # Glyph class table.
+    '0002 0006 '       # 64: ClassTable.LookupFormat=2, .UnitSize=6
+    '0003 000C '       # 68:   .NUnits=3, .SearchRange=12
+    '0001 0006 '       # 72:   .EntrySelector=1, .RangeShift=6
+    '0016 0014 0004 '  # 76: GlyphID 20..22 [a..c] -> GlyphClass 4
+    '0018 0017 0005 '  # 82: GlyphID 23..24 [d..e] -> GlyphClass 5
+    '001C 001A 0006 '  # 88: GlyphID 26..28 [g..i] -> GlyphClass 6
+    'FFFF FFFF 0000 '  # 94: <end of lookup>
+
+    # State array.
+    '0000 0000 0000 0000 0001 0000 0000 '  # 100: State[0][0..6]
+    '0000 0000 0000 0000 0001 0000 0000 '  # 114: State[1][0..6]
+    '0000 0000 0000 0000 0001 0002 0000 '  # 128: State[2][0..6]
+    '0000 0000 0000 0000 0001 0002 0003 '  # 142: State[3][0..6]
+
+    # Entry table.
+    '0000 0000 '  # 156: Entries[0].NewState=0, .Flags=0
+    '0000 '       # 160: Entries[0].ActionIndex=<n/a> because no 0x2000 flag
+    '0002 8000 '  # 162: Entries[1].NewState=2, .Flags=0x8000 (SetComponent)
+    '0000 '       # 166: Entries[1].ActionIndex=<n/a> because no 0x2000 flag
+    '0003 8000 '  # 168: Entries[2].NewState=3, .Flags=0x8000 (SetComponent)
+    '0000 '       # 172: Entries[2].ActionIndex=<n/a> because no 0x2000 flag
+    '0000 A000 '  # 174: Entries[3].NewState=0, .Flags=0xA000 (SetComponent,Act)
+    '0000 '       # 178: Entries[3].ActionIndex=0 (start at Action[0])
+
+    # Ligature actions table.
+    '3FFF FFE7 '  # 180: Action[0].Flags=0, .GlyphIndexDelta=-25
+    '3FFF FFED '  # 184: Action[1].Flags=0, .GlyphIndexDelta=-19
+    'BFFF FFF2 '  # 188: Action[2].Flags=<end of list>, .GlyphIndexDelta=-14
+
+    # Ligature component table.
+    '0000 0001 '  # 192: LigComponent[0]=0, LigComponent[1]=1
+    '0002 0003 '  # 196: LigComponent[2]=2, LigComponent[3]=3
+    '0000 0004 '  # 200: LigComponent[4]=0, LigComponent[5]=4
+    '0000 0008 '  # 204: LigComponent[6]=0, LigComponent[7]=8
+    '0010      '  # 208: LigComponent[8]=16
+
+    # Ligature list.
+    '03E8 03E9 '  # 210: LigList[0]=1000, LigList[1]=1001
+    '03EA 03EB '  # 214: LigList[2]=1002, LigList[3]=1003
+    '03EC 03ED '  # 218: LigList[4]=1004, LigList[3]=1005
+    '03EE 03EF '  # 222: LigList[5]=1006, LigList[6]=1007
+)   # 226: <end>
+assert len(MORX_LIGATURE_DATA) == 226, len(MORX_LIGATURE_DATA)
+
+
+MORX_LIGATURE_XML = [
+    '<Version value="2"/>',
+    '<Reserved value="0"/>',
+    '<!-- MorphChainCount=1 -->',
+    '<MorphChain index="0">',
+    '  <DefaultFlags value="0x00000001"/>',
+    '  <!-- StructLength=218 -->',
+    '  <!-- MorphFeatureCount=0 -->',
+    '  <!-- MorphSubtableCount=1 -->',
+    '  <MorphSubtable index="0">',
+    '    <!-- StructLength=202 -->',
+    '    <TextDirection value="Vertical"/>',
+    '    <ProcessingOrder value="LayoutOrder"/>',
+    '    <!-- MorphType=2 -->',
+    '    <SubFeatureFlags value="0x00000001"/>',
+    '    <LigatureMorph>',
+    '      <StateTable>',
+    '        <!-- GlyphClassCount=7 -->',
+    '        <GlyphClass glyph="a" value="4"/>',
+    '        <GlyphClass glyph="b" value="4"/>',
+    '        <GlyphClass glyph="c" value="4"/>',
+    '        <GlyphClass glyph="d" value="5"/>',
+    '        <GlyphClass glyph="e" value="5"/>',
+    '        <GlyphClass glyph="g" value="6"/>',
+    '        <GlyphClass glyph="h" value="6"/>',
+    '        <GlyphClass glyph="i" value="6"/>',
+    '        <State index="0">',
+    '          <Transition onGlyphClass="0">',
+    '            <NewState value="0"/>',
+    '          </Transition>',
+    '          <Transition onGlyphClass="1">',
+    '            <NewState value="0"/>',
+    '          </Transition>',
+    '          <Transition onGlyphClass="2">',
+    '            <NewState value="0"/>',
+    '          </Transition>',
+    '          <Transition onGlyphClass="3">',
+    '            <NewState value="0"/>',
+    '          </Transition>',
+    '          <Transition onGlyphClass="4">',
+    '            <NewState value="2"/>',
+    '            <Flags value="SetComponent"/>',
+    '          </Transition>',
+    '          <Transition onGlyphClass="5">',
+    '            <NewState value="0"/>',
+    '          </Transition>',
+    '          <Transition onGlyphClass="6">',
+    '            <NewState value="0"/>',
+    '          </Transition>',
+    '        </State>',
+    '        <State index="1">',
+    '          <Transition onGlyphClass="0">',
+    '            <NewState value="0"/>',
+    '          </Transition>',
+    '          <Transition onGlyphClass="1">',
+    '            <NewState value="0"/>',
+    '          </Transition>',
+    '          <Transition onGlyphClass="2">',
+    '            <NewState value="0"/>',
+    '          </Transition>',
+    '          <Transition onGlyphClass="3">',
+    '            <NewState value="0"/>',
+    '          </Transition>',
+    '          <Transition onGlyphClass="4">',
+    '            <NewState value="2"/>',
+    '            <Flags value="SetComponent"/>',
+    '          </Transition>',
+    '          <Transition onGlyphClass="5">',
+    '            <NewState value="0"/>',
+    '          </Transition>',
+    '          <Transition onGlyphClass="6">',
+    '            <NewState value="0"/>',
+    '          </Transition>',
+    '        </State>',
+    '        <State index="2">',
+    '          <Transition onGlyphClass="0">',
+    '            <NewState value="0"/>',
+    '          </Transition>',
+    '          <Transition onGlyphClass="1">',
+    '            <NewState value="0"/>',
+    '          </Transition>',
+    '          <Transition onGlyphClass="2">',
+    '            <NewState value="0"/>',
+    '          </Transition>',
+    '          <Transition onGlyphClass="3">',
+    '            <NewState value="0"/>',
+    '          </Transition>',
+    '          <Transition onGlyphClass="4">',
+    '            <NewState value="2"/>',
+    '            <Flags value="SetComponent"/>',
+    '          </Transition>',
+    '          <Transition onGlyphClass="5">',
+    '            <NewState value="3"/>',
+    '            <Flags value="SetComponent"/>',
+    '          </Transition>',
+    '          <Transition onGlyphClass="6">',
+    '            <NewState value="0"/>',
+    '          </Transition>',
+    '        </State>',
+    '        <State index="3">',
+    '          <Transition onGlyphClass="0">',
+    '            <NewState value="0"/>',
+    '          </Transition>',
+    '          <Transition onGlyphClass="1">',
+    '            <NewState value="0"/>',
+    '          </Transition>',
+    '          <Transition onGlyphClass="2">',
+    '            <NewState value="0"/>',
+    '          </Transition>',
+    '          <Transition onGlyphClass="3">',
+    '            <NewState value="0"/>',
+    '          </Transition>',
+    '          <Transition onGlyphClass="4">',
+    '            <NewState value="2"/>',
+    '            <Flags value="SetComponent"/>',
+    '          </Transition>',
+    '          <Transition onGlyphClass="5">',
+    '            <NewState value="3"/>',
+    '            <Flags value="SetComponent"/>',
+    '          </Transition>',
+    '          <Transition onGlyphClass="6">',
+    '            <NewState value="0"/>',
+    '            <Flags value="SetComponent"/>',
+    '            <Action GlyphIndexDelta="-25"/>',
+    '            <Action GlyphIndexDelta="-19"/>',
+    '            <Action GlyphIndexDelta="-14"/>',
+    '          </Transition>',
+    '        </State>',
+    '        <LigComponents>',
+    '          <LigComponent index="0" value="0"/>',
+    '          <LigComponent index="1" value="1"/>',
+    '          <LigComponent index="2" value="2"/>',
+    '          <LigComponent index="3" value="3"/>',
+    '          <LigComponent index="4" value="0"/>',
+    '          <LigComponent index="5" value="4"/>',
+    '          <LigComponent index="6" value="0"/>',
+    '          <LigComponent index="7" value="8"/>',
+    '          <LigComponent index="8" value="16"/>',
+    '        </LigComponents>',
+    '        <Ligatures>',
+    '          <Ligature glyph="adf" index="0"/>',
+    '          <Ligature glyph="adg" index="1"/>',
+    '          <Ligature glyph="adh" index="2"/>',
+    '          <Ligature glyph="adi" index="3"/>',
+    '          <Ligature glyph="aef" index="4"/>',
+    '          <Ligature glyph="aeg" index="5"/>',
+    '          <Ligature glyph="aeh" index="6"/>',
+    '          <Ligature glyph="aei" index="7"/>',
+    '        </Ligatures>',
+    '      </StateTable>',
+    '    </LigatureMorph>',
+    '  </MorphSubtable>',
+    '</MorphChain>',
+]
+
+
 class MORXNoncontextualGlyphSubstitutionTest(unittest.TestCase):
 
     @classmethod
@@ -526,6 +774,128 @@ class MORXContextualSubstitutionTest(unittest.TestCase):
             table.fromXML(name, attrs, content, font=self.font)
         self.assertEqual(hexStr(table.compile(self.font)),
                          hexStr(MORX_CONTEXTUAL_DATA))
+
+
+class MORXLigatureSubstitutionTest(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.maxDiff = None
+        g = ['.notdef'] + ['g.%d' % i for i in range (1, 1515)]
+        g[20:29] = 'a b c d e f g h i'.split()
+        g[1000:1008] = 'adf adg adh adi aef aeg aeh aei'.split()
+        g[1008:1016] = 'bdf bdg bdh bdi bef beg beh bei'.split()
+        g[1500:1507] = 'cdf cdg cdh cdi cef ceg ceh'.split()
+        g[1511] = 'cei'
+        cls.font = FakeFont(g)
+
+    def test_decompile_toXML(self):
+        table = newTable('morx')
+        table.decompile(MORX_LIGATURE_DATA, self.font)
+        self.assertEqual(getXML(table.toXML), MORX_LIGATURE_XML)
+
+    def test_compile_fromXML(self):
+        table = newTable('morx')
+        for name, attrs, content in parseXML(MORX_LIGATURE_XML):
+            table.fromXML(name, attrs, content, font=self.font)
+        self.assertEqual(hexStr(table.compile(self.font)),
+                         hexStr(MORX_LIGATURE_DATA))
+
+
+class MORXCoverageFlagsTest(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.maxDiff = None
+        cls.font = FakeFont(['.notdef', 'A', 'B', 'C'])
+
+    def checkFlags(self, flags, textDirection, processingOrder,
+                   checkCompile=True):
+        data = bytesjoin([
+            MORX_REARRANGEMENT_DATA[:28],
+            bytechr(flags << 4),
+            MORX_REARRANGEMENT_DATA[29:]])
+        xml = []
+        for line in MORX_REARRANGEMENT_XML:
+            if line.startswith('    <TextDirection '):
+                line = '    <TextDirection value="%s"/>' % textDirection
+            elif line.startswith('    <ProcessingOrder '):
+                line = '    <ProcessingOrder value="%s"/>' % processingOrder
+            xml.append(line)
+        table1 = newTable('morx')
+        table1.decompile(data, self.font)
+        self.assertEqual(getXML(table1.toXML), xml)
+        if checkCompile:
+            table2 = newTable('morx')
+            for name, attrs, content in parseXML(xml):
+                table2.fromXML(name, attrs, content, font=self.font)
+            self.assertEqual(hexStr(table2.compile(self.font)), hexStr(data))
+
+    def test_CoverageFlags(self):
+        self.checkFlags(0x0, "Horizontal", "LayoutOrder")
+        self.checkFlags(0x1, "Horizontal", "LogicalOrder")
+        self.checkFlags(0x2, "Any", "LayoutOrder")
+        self.checkFlags(0x3, "Any", "LogicalOrder")
+        self.checkFlags(0x4, "Horizontal", "ReversedLayoutOrder")
+        self.checkFlags(0x5, "Horizontal", "ReversedLogicalOrder")
+        self.checkFlags(0x6, "Any", "ReversedLayoutOrder")
+        self.checkFlags(0x7, "Any", "ReversedLogicalOrder")
+        self.checkFlags(0x8, "Vertical", "LayoutOrder")
+        self.checkFlags(0x9, "Vertical", "LogicalOrder")
+        # We do not always check the compilation to binary data:
+        # some flag combinations do not make sense to emit in binary.
+        # Specifically, if bit 28 (TextDirection=Any) is set in
+        # CoverageFlags, bit 30 (TextDirection=Vertical) is to be
+        # ignored according to the 'morx' specification. We still want
+        # to test the _decoding_ of 'morx' subtables whose CoverageFlags
+        # have both bits 28 and 30 set, since this is a valid flag
+        # combination with defined semantics.  However, our encoder
+        # does not set TextDirection=Vertical when TextDirection=Any.
+        self.checkFlags(0xA, "Any", "LayoutOrder", checkCompile=False)
+        self.checkFlags(0xB, "Any", "LogicalOrder", checkCompile=False)
+        self.checkFlags(0xC, "Vertical", "ReversedLayoutOrder")
+        self.checkFlags(0xD, "Vertical", "ReversedLogicalOrder")
+        self.checkFlags(0xE, "Any", "ReversedLayoutOrder", checkCompile=False)
+        self.checkFlags(0xF, "Any", "ReversedLogicalOrder", checkCompile=False)
+
+    def test_ReservedCoverageFlags(self):
+        # 8A BC DE = TextDirection=Vertical, Reserved=0xABCDE
+        # Note that the lower 4 bits of the first byte are already
+        # part of the Reserved value. We test the full round-trip
+        # to encoding and decoding is quite hairy.
+        data = bytesjoin([
+            MORX_REARRANGEMENT_DATA[:28],
+            bytechr(0x8A), bytechr(0xBC), bytechr(0xDE),
+            MORX_REARRANGEMENT_DATA[31:]])
+        table = newTable('morx')
+        table.decompile(data, self.font)
+        subtable = table.table.MorphChain[0].MorphSubtable[0]
+        self.assertEqual(subtable.Reserved, 0xABCDE)
+        xml = getXML(table.toXML)
+        self.assertIn('    <Reserved value="0xabcde"/>', xml)
+        table2 = newTable('morx')
+        for name, attrs, content in parseXML(xml):
+            table2.fromXML(name, attrs, content, font=self.font)
+        self.assertEqual(hexStr(table2.compile(self.font)[28:31]), "8abcde")
+
+
+class UnsupportedMorxLookupTest(unittest.TestCase):
+    def __init__(self, methodName):
+        unittest.TestCase.__init__(self, methodName)
+        # Python 3 renamed assertRaisesRegexp to assertRaisesRegex,
+        # and fires deprecation warnings if a program uses the old name.
+        if not hasattr(self, "assertRaisesRegex"):
+            self.assertRaisesRegex = self.assertRaisesRegexp
+
+    def test_unsupportedLookupType(self):
+        data = bytesjoin([
+            MORX_NONCONTEXTUAL_DATA[:67],
+            bytechr(66),
+            MORX_NONCONTEXTUAL_DATA[69:]])
+        with self.assertRaisesRegex(AssertionError,
+                                    r"unsupported 'morx' lookup type 66"):
+            morx = newTable('morx')
+            morx.decompile(data, FakeFont(['.notdef']))
 
 
 if __name__ == '__main__':

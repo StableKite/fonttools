@@ -174,6 +174,10 @@ class table__g_l_y_f(DefaultTable.DefaultTable):
 		# XXX optimize with reverse dict!!!
 		return self.glyphOrder.index(glyphName)
 
+	def removeHinting(self):
+		for glyph in self.glyphs.values():
+			glyph.removeHinting()
+
 	def keys(self):
 		return self.glyphs.keys()
 
@@ -1053,7 +1057,7 @@ class GlyphComponent(object):
 		haveInstructions = self.flags & WE_HAVE_INSTRUCTIONS
 		self.flags = self.flags & (ROUND_XY_TO_GRID | USE_MY_METRICS |
 				SCALED_COMPONENT_OFFSET | UNSCALED_COMPONENT_OFFSET |
-				NON_OVERLAPPING)
+				NON_OVERLAPPING | OVERLAP_COMPOUND)
 		return more, haveInstructions, data
 
 	def compile(self, more, haveInstructions, glyfTable):
@@ -1062,7 +1066,7 @@ class GlyphComponent(object):
 		# reset all flags we will calculate ourselves
 		flags = self.flags & (ROUND_XY_TO_GRID | USE_MY_METRICS |
 				SCALED_COMPONENT_OFFSET | UNSCALED_COMPONENT_OFFSET |
-				NON_OVERLAPPING)
+				NON_OVERLAPPING | OVERLAP_COMPOUND)
 		if more:
 			flags = flags | MORE_COMPONENTS
 		if haveInstructions:
@@ -1075,8 +1079,8 @@ class GlyphComponent(object):
 				data = data + struct.pack(">HH", self.firstPt, self.secondPt)
 				flags = flags | ARG_1_AND_2_ARE_WORDS
 		else:
-			x = int(round(self.x))
-			y = int(round(self.y))
+			x = round(self.x)
+			y = round(self.y)
 			flags = flags | ARGS_ARE_XY_VALUES
 			if (-128 <= x <= 127) and (-128 <= y <= 127):
 				data = data + struct.pack(">bb", x, y)
@@ -1238,7 +1242,7 @@ class GlyphCoordinates(object):
 			return
 		a = array.array("h")
 		for n in self._a:
-			a.append(int(round(n)))
+			a.append(round(n))
 		self._a = a
 
 	def relativeToAbsolute(self):
