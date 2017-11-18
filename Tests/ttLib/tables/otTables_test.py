@@ -380,12 +380,13 @@ class RearrangementMorphActionTest(unittest.TestCase):
         r.MarkFirst = r.DontAdvance = r.MarkLast = True
         r.ReservedFlags, r.Verb = 0x1FF0, 0xD
         writer = OTTableWriter()
-        r.compile(writer, self.font)
+        r.compile(writer, self.font, actionIndex=None)
         self.assertEqual(hexStr(writer.getAllData()), "1234fffd")
 
     def testDecompileToXML(self):
         r = otTables.RearrangementMorphAction()
-        r.decompile(OTTableReader(deHexStr("1234fffd")), self.font)
+        r.decompile(OTTableReader(deHexStr("1234fffd")),
+                    self.font, actionReader=None)
         toXML = lambda w, f: r.toXML(w, f, {"Test": "Foo"}, "Transition")
         self.assertEqual(getXML(toXML, self.font), [
                 '<Transition Test="Foo">',
@@ -407,12 +408,13 @@ class ContextualMorphActionTest(unittest.TestCase):
         a.SetMark, a.DontAdvance, a.ReservedFlags = True, True, 0x3117
         a.MarkIndex, a.CurrentIndex = 0xDEAD, 0xBEEF
         writer = OTTableWriter()
-        a.compile(writer, self.font)
+        a.compile(writer, self.font, actionIndex=None)
         self.assertEqual(hexStr(writer.getAllData()), "1234f117deadbeef")
 
     def testDecompileToXML(self):
         a = otTables.ContextualMorphAction()
-        a.decompile(OTTableReader(deHexStr("1234f117deadbeef")), self.font)
+        a.decompile(OTTableReader(deHexStr("1234f117deadbeef")),
+                    self.font, actionReader=None)
         toXML = lambda w, f: a.toXML(w, f, {"Test": "Foo"}, "Transition")
         self.assertEqual(getXML(toXML, self.font), [
                 '<Transition Test="Foo">',
@@ -423,6 +425,64 @@ class ContextualMorphActionTest(unittest.TestCase):
                 '  <CurrentIndex value="48879"/>',  # 0xBEEF = 48879
                 '</Transition>',
         ])
+
+
+class LigatureMorphActionTest(unittest.TestCase):
+    def setUp(self):
+        self.font = FakeFont(['.notdef', 'A', 'B', 'C'])
+
+    def testDecompileToXML(self):
+        a = otTables.LigatureMorphAction()
+        actionReader = OTTableReader(deHexStr("DEADBEEF 7FFFFFFE 80000003"))
+        a.decompile(OTTableReader(deHexStr("1234FAB30001")),
+                    self.font, actionReader)
+        toXML = lambda w, f: a.toXML(w, f, {"Test": "Foo"}, "Transition")
+        self.assertEqual(getXML(toXML, self.font), [
+                '<Transition Test="Foo">',
+                '  <NewState value="4660"/>',  # 0x1234 = 4660
+                '  <Flags value="SetComponent,DontAdvance"/>',
+                '  <ReservedFlags value="0x1AB3"/>',
+                '  <Action GlyphIndexDelta="-2" Flags="Store"/>',
+                '  <Action GlyphIndexDelta="3"/>',
+                '</Transition>',
+        ])
+
+
+class InsertionMorphActionTest(unittest.TestCase):
+    MORPH_ACTION_XML = [
+        '<Transition Test="Foo">',
+        '  <NewState value="4660"/>',  # 0x1234 = 4660
+        '  <Flags value="SetMark,DontAdvance,CurrentIsKashidaLike,'
+              'MarkedIsKashidaLike,CurrentInsertBefore,MarkedInsertBefore"/>',
+        '  <CurrentInsertionAction glyph="B"/>',
+        '  <CurrentInsertionAction glyph="C"/>',
+        '  <MarkedInsertionAction glyph="B"/>',
+        '  <MarkedInsertionAction glyph="A"/>',
+        '  <MarkedInsertionAction glyph="D"/>',
+        '</Transition>'
+    ]
+
+    def setUp(self):
+        self.font = FakeFont(['.notdef', 'A', 'B', 'C', 'D'])
+        self.maxDiff = None
+
+    def testDecompileToXML(self):
+        a = otTables.InsertionMorphAction()
+        actionReader = OTTableReader(
+            deHexStr("DEAD BEEF 0002 0001 0004 0002 0003 DEAD BEEF"))
+        a.decompile(OTTableReader(deHexStr("1234 FC43 0005 0002")),
+                    self.font, actionReader)
+        toXML = lambda w, f: a.toXML(w, f, {"Test": "Foo"}, "Transition")
+        self.assertEqual(getXML(toXML, self.font), self.MORPH_ACTION_XML)
+
+    def testCompileFromXML(self):
+        a = otTables.InsertionMorphAction()
+        for name, attrs, content in parseXML(self.MORPH_ACTION_XML):
+            a.fromXML(name, attrs, content, self.font)
+        writer = OTTableWriter()
+        a.compile(writer, self.font,
+	          actionIndex={('B', 'C'): 9, ('B', 'A', 'D'): 7})
+        self.assertEqual(hexStr(writer.getAllData()), "1234fc4300090007")
 
 
 if __name__ == "__main__":

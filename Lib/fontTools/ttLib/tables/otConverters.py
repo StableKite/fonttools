@@ -6,9 +6,10 @@ from fontTools.misc.fixedTools import (
 from fontTools.misc.textTools import pad, safeEval
 from fontTools.ttLib import getSearchRange
 from .otBase import (CountReference, FormatSwitchingBaseTable,
-                     OTTableWriter, ValueRecordFactory)
-from .otTables import (AATStateTable, AATState, AATAction,
-                       ContextualMorphAction)
+                     OTTableReader, OTTableWriter, ValueRecordFactory)
+from .otTables import (lookupTypes, AATStateTable, AATState, AATAction,
+                       ContextualMorphAction, LigatureMorphAction,
+                       MorxSubtable)
 from functools import partial
 import struct
 import logging
@@ -51,8 +52,7 @@ def buildConverters(tableSpec, tableNamespace):
 				converterClass = Struct
 			else:
 				converterClass = eval(tp, tableNamespace, converterMapping)
-		if tp in ('MortChain', 'MortSubtable',
-		          'MorxChain', 'MorxSubtable'):
+		if tp in ('MortChain', 'MortSubtable', 'MorxChain'):
 			tableClass = tableNamespace.get(tp)
 		else:
 			tableClass = tableNamespace.get(tableName)
@@ -307,7 +307,7 @@ class DeciPoints(FloatValue):
 		return reader.readUShort() / 10
 
 	def write(self, writer, font, tableDict, value, repeatIndex=None):
-		writer.writeUShort(int(round(value * 10)))
+		writer.writeUShort(round(value * 10))
 
 class Fixed(FloatValue):
 	staticSize = 4
@@ -882,7 +882,139 @@ class AATLookupWithDataOffset(BaseConverter):
 		lookup.xmlWrite(xmlWriter, font, value, name, attrs)
 
 
+class MorxSubtableConverter(BaseConverter):
+	_PROCESSING_ORDERS = {
+		# bits 30 and 28 of morx.CoverageFlags; see morx spec
+		(False, False): "LayoutOrder",
+		(True, False): "ReversedLayoutOrder",
+		(False, True): "LogicalOrder",
+		(True, True): "ReversedLogicalOrder",
+	}
+
+	_PROCESSING_ORDERS_REVERSED = {
+		val: key for key, val in _PROCESSING_ORDERS.items()
+	}
+
+	def __init__(self, name, repeat, aux):
+		BaseConverter.__init__(self, name, repeat, aux)
+
+	def _setTextDirectionFromCoverageFlags(self, flags, subtable):
+		if (flags & 0x20) != 0:
+			subtable.TextDirection = "Any"
+		elif (flags & 0x80) != 0:
+			subtable.TextDirection = "Vertical"
+		else:
+			subtable.TextDirection = "Horizontal"
+
+	def read(self, reader, font, tableDict):
+		pos = reader.pos
+		m = MorxSubtable()
+		m.StructLength = reader.readULong()
+		flags = reader.readUInt8()
+		orderKey = ((flags & 0x40) != 0, (flags & 0x10) != 0)
+		m.ProcessingOrder = self._PROCESSING_ORDERS[orderKey]
+		self._setTextDirectionFromCoverageFlags(flags, m)
+		m.Reserved = reader.readUShort()
+		m.Reserved |= (flags & 0xF) << 16
+		m.MorphType = reader.readUInt8()
+		m.SubFeatureFlags = reader.readULong()
+		tableClass = lookupTypes["morx"].get(m.MorphType)
+		if tableClass is None:
+			assert False, ("unsupported 'morx' lookup type %s" %
+			               m.MorphType)
+		# To decode AAT ligatures, we need to know the subtable size.
+		# The easiest way to pass this along is to create a new reader
+		# that works on just the subtable as its data.
+		headerLength = reader.pos - pos
+		data = reader.data[
+			reader.pos
+			: reader.pos + m.StructLength - headerLength]
+		assert len(data) == m.StructLength - headerLength
+		subReader = OTTableReader(data=data, tableTag=reader.tableTag)
+		m.SubStruct = tableClass()
+		m.SubStruct.decompile(subReader, font)
+		reader.seek(pos + m.StructLength)
+		return m
+
+	def xmlWrite(self, xmlWriter, font, value, name, attrs):
+		xmlWriter.begintag(name, attrs)
+		xmlWriter.newline()
+		xmlWriter.comment("StructLength=%d" % value.StructLength)
+		xmlWriter.newline()
+		xmlWriter.simpletag("TextDirection", value=value.TextDirection)
+		xmlWriter.newline()
+		xmlWriter.simpletag("ProcessingOrder",
+		                    value=value.ProcessingOrder)
+		xmlWriter.newline()
+		if value.Reserved != 0:
+			xmlWriter.simpletag("Reserved",
+			                    value="0x%04x" % value.Reserved)
+			xmlWriter.newline()
+		xmlWriter.comment("MorphType=%d" % value.MorphType)
+		xmlWriter.newline()
+		xmlWriter.simpletag("SubFeatureFlags",
+		                    value="0x%08x" % value.SubFeatureFlags)
+		xmlWriter.newline()
+		value.SubStruct.toXML(xmlWriter, font)
+		xmlWriter.endtag(name)
+		xmlWriter.newline()
+
+	def xmlRead(self, attrs, content, font):
+		m = MorxSubtable()
+		covFlags = 0
+		m.Reserved = 0
+		for eltName, eltAttrs, eltContent in filter(istuple, content):
+			if eltName == "CoverageFlags":
+				# Only in XML from old versions of fonttools.
+				covFlags = safeEval(eltAttrs["value"])
+				orderKey = ((covFlags & 0x40) != 0,
+				            (covFlags & 0x10) != 0)
+				m.ProcessingOrder = self._PROCESSING_ORDERS[
+					orderKey]
+				self._setTextDirectionFromCoverageFlags(
+					covFlags, m)
+			elif eltName == "ProcessingOrder":
+				m.ProcessingOrder = eltAttrs["value"]
+				assert m.ProcessingOrder in self._PROCESSING_ORDERS_REVERSED, "unknown ProcessingOrder: %s" % m.ProcessingOrder
+			elif eltName == "TextDirection":
+				m.TextDirection = eltAttrs["value"]
+				assert m.TextDirection in {"Horizontal", "Vertical", "Any"}, "unknown TextDirection %s" % m.TextDirection
+			elif eltName == "Reserved":
+				m.Reserved = safeEval(eltAttrs["value"])
+			elif eltName == "SubFeatureFlags":
+				m.SubFeatureFlags = safeEval(eltAttrs["value"])
+			elif eltName.endswith("Morph"):
+				m.fromXML(eltName, eltAttrs, eltContent, font)
+			else:
+				assert False, eltName
+		m.Reserved = (covFlags & 0xF) << 16 | m.Reserved
+		return m
+
+	def write(self, writer, font, tableDict, value, repeatIndex=None):
+		covFlags = (value.Reserved & 0x000F0000) >> 16
+		reverseOrder, logicalOrder = self._PROCESSING_ORDERS_REVERSED[
+			value.ProcessingOrder]
+		covFlags |= 0x80 if value.TextDirection == "Vertical" else 0
+		covFlags |= 0x40 if reverseOrder else 0
+		covFlags |= 0x20 if value.TextDirection == "Any" else 0
+		covFlags |= 0x10 if logicalOrder else 0
+		value.CoverageFlags = covFlags
+		lengthIndex = len(writer.items)
+		before = writer.getDataLength()
+		value.StructLength = 0xdeadbeef
+		# The high nibble of value.Reserved is actuallly encoded
+		# into coverageFlags, so we need to clear it here.
+		origReserved = value.Reserved # including high nibble
+		value.Reserved = value.Reserved & 0xFFFF # without high nibble
+		value.compile(writer, font)
+		value.Reserved = origReserved  # restore original value
+		assert writer.items[lengthIndex] == b"\xde\xad\xbe\xef"
+		length = writer.getDataLength() - before
+		writer.items[lengthIndex] = struct.pack(">L", length)
+
+
 # https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6Tables.html#ExtendedStateHeader
+# TODO: Untangle the implementation of the various lookup-specific formats.
 class STXHeader(BaseConverter):
 	def __init__(self, name, repeat, aux, tableClass):
 		BaseConverter.__init__(self, name, repeat, aux, tableClass)
@@ -900,6 +1032,8 @@ class STXHeader(BaseConverter):
 		classTableReader = reader.getSubReader(0)
 		stateArrayReader = reader.getSubReader(0)
 		entryTableReader = reader.getSubReader(0)
+		actionReader = None
+		ligaturesReader = None
 		table.GlyphClassCount = reader.readULong()
 		classTableReader.seek(pos + reader.readULong())
 		stateArrayReader.seek(pos + reader.readULong())
@@ -907,6 +1041,19 @@ class STXHeader(BaseConverter):
 		if self.perGlyphLookup is not None:
 			perGlyphTableReader = reader.getSubReader(0)
 			perGlyphTableReader.seek(pos + reader.readULong())
+		if issubclass(self.tableClass, LigatureMorphAction):
+			actionReader = reader.getSubReader(0)
+			actionReader.seek(pos + reader.readULong())
+			ligComponentReader = reader.getSubReader(0)
+			ligComponentReader.seek(pos + reader.readULong())
+			ligaturesReader = reader.getSubReader(0)
+			ligaturesReader.seek(pos + reader.readULong())
+			numLigComponents = (ligaturesReader.pos
+			                    - ligComponentReader.pos) // 2
+			assert numLigComponents >= 0
+			table.LigComponents = \
+				ligComponentReader.readUShortArray(numLigComponents)
+			table.Ligatures = self._readLigatures(ligaturesReader, font)
 		table.GlyphClasses = self.classLookup.read(classTableReader,
 		                                           font, tableDict)
 		numStates = int((entryTableReader.pos - stateArrayReader.pos)
@@ -918,18 +1065,25 @@ class STXHeader(BaseConverter):
 				entryIndex = stateArrayReader.readUShort()
 				state.Transitions[glyphClass] = \
 					self._readTransition(entryTableReader,
-					                     entryIndex, font)
+					                     entryIndex, font,
+					                     actionReader)
 		if self.perGlyphLookup is not None:
 			table.PerGlyphLookups = self._readPerGlyphLookups(
 				table, perGlyphTableReader, font)
 		return table
 
-	def _readTransition(self, reader, entryIndex, font):
+	def _readTransition(self, reader, entryIndex, font, actionReader):
 		transition = self.tableClass()
 		entryReader = reader.getSubReader(
 			reader.pos + entryIndex * transition.staticSize)
-		transition.decompile(entryReader, font)
+		transition.decompile(entryReader, font, actionReader)
 		return transition
+
+	def _readLigatures(self, reader, font):
+		limit = len(reader.data)
+		numLigatureGlyphs = (limit - reader.pos) // 2
+		return [font.getGlyphName(g)
+		        for g in reader.readUShortArray(numLigatureGlyphs)]
 
 	def _countPerGlyphLookups(self, table):
 		# Somewhat annoyingly, the morx table does not encode
@@ -969,13 +1123,62 @@ class STXHeader(BaseConverter):
 		glyphClassTableOffset = 16  # size of STXHeader
 		if self.perGlyphLookup is not None:
 			glyphClassTableOffset += 4
+
+		actionData, actionIndex = None, None
+		if issubclass(self.tableClass, LigatureMorphAction):
+			glyphClassTableOffset += 12
+			actionData, actionIndex = \
+				self._compileLigActions(value, font)
+			actionData = pad(actionData, 4)
+
+		stateArrayData, entryTableData = self._compileStates(
+			font, value.States, glyphClassCount, actionIndex)
+		stateArrayOffset = glyphClassTableOffset + len(glyphClassData)
+		entryTableOffset = stateArrayOffset + len(stateArrayData)
+		perGlyphOffset = entryTableOffset + len(entryTableData)
+		perGlyphData = \
+			pad(self._compilePerGlyphLookups(value, font), 4)
+		ligComponentsData = self._compileLigComponents(value, font)
+		ligaturesData = self._compileLigatures(value, font)
+		if actionData is None:
+			actionOffset = None
+			ligComponentsOffset = None
+			ligaturesOffset = None
+		else:
+			assert len(perGlyphData) == 0
+			actionOffset = entryTableOffset + len(entryTableData)
+			ligComponentsOffset = actionOffset + len(actionData)
+			ligaturesOffset = ligComponentsOffset + len(ligComponentsData)
+		writer.writeULong(glyphClassCount)
+		writer.writeULong(glyphClassTableOffset)
+		writer.writeULong(stateArrayOffset)
+		writer.writeULong(entryTableOffset)
+		if self.perGlyphLookup is not None:
+			writer.writeULong(perGlyphOffset)
+		if actionOffset is not None:
+			writer.writeULong(actionOffset)
+			writer.writeULong(ligComponentsOffset)
+			writer.writeULong(ligaturesOffset)
+		writer.writeData(glyphClassData)
+		writer.writeData(stateArrayData)
+		writer.writeData(entryTableData)
+		writer.writeData(perGlyphData)
+		if actionData is not None:
+			writer.writeData(actionData)
+		if ligComponentsData is not None:
+			writer.writeData(ligComponentsData)
+		if ligaturesData is not None:
+			writer.writeData(ligaturesData)
+
+	def _compileStates(self, font, states, glyphClassCount, actionIndex):
 		stateArrayWriter = OTTableWriter()
 		entries, entryIDs = [], {}
-		for state in value.States:
+		for state in states:
 			for glyphClass in range(glyphClassCount):
 				transition = state.Transitions[glyphClass]
 				entryWriter = OTTableWriter()
-				transition.compile(entryWriter, font)
+				transition.compile(entryWriter, font,
+				                   actionIndex)
 				entryData = entryWriter.getAllData()
 				assert len(entryData)  == transition.staticSize, ( \
 					"%s has staticSize %d, "
@@ -989,23 +1192,9 @@ class STXHeader(BaseConverter):
 					entryIDs[entryData] = entryIndex
 					entries.append(entryData)
 				stateArrayWriter.writeUShort(entryIndex)
-		stateArrayOffset = glyphClassTableOffset + len(glyphClassData)
 		stateArrayData = pad(stateArrayWriter.getAllData(), 4)
-		entryTableOffset = stateArrayOffset + len(stateArrayData)
 		entryTableData = pad(bytesjoin(entries), 4)
-		perGlyphOffset = entryTableOffset + len(entryTableData)
-		perGlyphData = \
-			pad(self._compilePerGlyphLookups(value, font), 4)
-		writer.writeULong(glyphClassCount)
-		writer.writeULong(glyphClassTableOffset)
-		writer.writeULong(stateArrayOffset)
-		writer.writeULong(entryTableOffset)
-		if self.perGlyphLookup is not None:
-			writer.writeULong(perGlyphOffset)
-		writer.writeData(glyphClassData)
-		writer.writeData(stateArrayData)
-		writer.writeData(entryTableData)
-		writer.writeData(perGlyphData)
+		return stateArrayData, entryTableData
 
 	def _compilePerGlyphLookups(self, table, font):
 		if self.perGlyphLookup is None:
@@ -1022,6 +1211,51 @@ class STXHeader(BaseConverter):
 			self.perGlyphLookup.write(lookupWriter, font,
 			                          {}, lookup, None)
 			writer.writeSubTable(lookupWriter)
+		return writer.getAllData()
+
+	def _compileLigActions(self, table, font):
+		assert issubclass(self.tableClass, LigatureMorphAction)
+		actions = set()
+		for state in table.States:
+			for _glyphClass, trans in state.Transitions.items():
+				actions.add(trans.compileLigActions())
+		result, actionIndex = b"", {}
+		# Sort the compiled actions in decreasing order of
+		# length, so that the longer sequence come before the
+		# shorter ones.  For each compiled action ABCD, its
+		# suffixes BCD, CD, and D do not be encoded separately
+		# (in case they occur); instead, we can just store an
+		# index that points into the middle of the longer
+		# sequence. Every compiled AAT ligature sequence is
+		# terminated with an end-of-sequence flag, which can
+		# only be set on the last element of the sequence.
+		# Therefore, it is sufficient to consider just the
+		# suffixes.
+		for a in sorted(actions, key=lambda x:(-len(x), x)):
+			if a not in actionIndex:
+				for i in range(0, len(a), 4):
+					suffix = a[i:]
+					suffixIndex = (len(result) + i) // 4
+					actionIndex.setdefault(
+						suffix, suffixIndex)
+				result += a
+		assert len(result) % self.tableClass.staticSize == 0
+		return (result, actionIndex)
+
+	def _compileLigComponents(self, table, font):
+		if not hasattr(table, "LigComponents"):
+			return None
+		writer = OTTableWriter()
+		for component in table.LigComponents:
+			writer.writeUShort(component)
+		return writer.getAllData()
+
+	def _compileLigatures(self, table, font):
+		if not hasattr(table, "Ligatures"):
+			return None
+		writer = OTTableWriter()
+		for glyphName in table.Ligatures:
+			writer.writeUShort(font.getGlyphID(glyphName))
 		return writer.getAllData()
 
 	def xmlWrite(self, xmlWriter, font, value, name, attrs):
@@ -1050,7 +1284,28 @@ class STXHeader(BaseConverter):
 				xmlWriter.newline()
 			xmlWriter.endtag("PerGlyphLookup")
 			xmlWriter.newline()
+		if hasattr(value, "LigComponents"):
+			xmlWriter.begintag("LigComponents")
+			xmlWriter.newline()
+			for i, val in enumerate(getattr(value, "LigComponents")):
+				xmlWriter.simpletag("LigComponent", index=i,
+				                    value=val)
+				xmlWriter.newline()
+			xmlWriter.endtag("LigComponents")
+			xmlWriter.newline()
+		self._xmlWriteLigatures(xmlWriter, font, value, name, attrs)
 		xmlWriter.endtag(name)
+		xmlWriter.newline()
+
+	def _xmlWriteLigatures(self, xmlWriter, font, value, name, attrs):
+		if not hasattr(value, "Ligatures"):
+			return
+		xmlWriter.begintag("Ligatures")
+		xmlWriter.newline()
+		for i, g in enumerate(getattr(value, "Ligatures")):
+			xmlWriter.simpletag("Ligature", index=i, glyph=g)
+			xmlWriter.newline()
+		xmlWriter.endtag("Ligatures")
 		xmlWriter.newline()
 
 	def xmlRead(self, attrs, content, font):
@@ -1067,6 +1322,14 @@ class STXHeader(BaseConverter):
 				lookup = self.perGlyphLookup.xmlRead(
 					eltAttrs, eltContent, font)
 				table.PerGlyphLookups.append(lookup)
+			elif eltName == "LigComponents":
+				table.LigComponents = \
+					self._xmlReadLigComponents(
+						eltAttrs, eltContent, font)
+			elif eltName == "Ligatures":
+				table.Ligatures = \
+					self._xmlReadLigatures(
+						eltAttrs, eltContent, font)
 		table.GlyphClassCount = max(table.GlyphClasses.values()) + 1
 		return table
 
@@ -1080,6 +1343,21 @@ class STXHeader(BaseConverter):
 				                   eltContent, font)
 				state.Transitions[glyphClass] = transition
 		return state
+
+	def _xmlReadLigComponents(self, attrs, content, font):
+		ligComponents = []
+		for eltName, eltAttrs, _eltContent in filter(istuple, content):
+			if eltName == "LigComponent":
+				ligComponents.append(
+					safeEval(eltAttrs["value"]))
+		return ligComponents
+
+	def _xmlReadLigatures(self, attrs, content, font):
+		ligs = []
+		for eltName, eltAttrs, _eltContent in filter(istuple, content):
+			if eltName == "Ligature":
+				ligs.append(eltAttrs["glyph"])
+		return ligs
 
 
 class CIDGlyphMap(BaseConverter):
@@ -1336,7 +1614,7 @@ converterMapping = {
 	"MortChain":	StructWithLength,
 	"MortSubtable": StructWithLength,
 	"MorxChain":	StructWithLength,
-	"MorxSubtable": StructWithLength,
+	"MorxSubtable": MorxSubtableConverter,
 
 	# "Template" types
 	"AATLookup":	lambda C: partial(AATLookup, tableClass=C),
