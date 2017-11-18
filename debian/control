@@ -9,7 +9,7 @@ Build-Depends:
  gir1.2-atk-1.0 <!nocheck>,
  gir1.2-gtk-3.0 <!nocheck>,
  python-all,
- python-brotli <!nocheck>,
+ python-brotli (>= 0.6.0) <!nocheck>,
  python-gi <!nocheck>,
  python-numpy,
  python-pytest <!nocheck>,
@@ -18,7 +18,7 @@ Build-Depends:
  python-sphinx,
  python-sympy <!nocheck>,
  python3-all,
- python3-brotli <!nocheck>,
+ python3-brotli (>= 0.6.0) <!nocheck>,
  python3-gi <!nocheck>,
  python3-numpy,
  python3-pytest <!nocheck>,
@@ -36,8 +36,14 @@ Package: python3-fonttools
 Section: python
 Architecture: all
 Depends:
- python3-pkg-resources,
+ gir1.2-atk-1.0,
+ gir1.2-gtk-3.0,
+ python3-brotli (>= 0.6.0),
+ python3-gi,
  python3-numpy,
+ python3-pkg-resources,
+ python3-reportlab,
+ python3-sympy,
  ${misc:Depends},
  ${sphinxdoc:Depends},
  ${python3:Depends}
@@ -56,7 +62,14 @@ Package: python-fonttools
 Section: python
 Architecture: all
 Depends:
+ gir1.2-atk-1.0,
+ gir1.2-gtk-3.0,
+ python-brotli (>= 0.6.0),
+ python-gi,
  python-numpy,
+ python-pkg-resources,
+ python-reportlab,
+ python-sympy,
  ${misc:Depends},
  ${python:Depends}
 Replaces: fonttools (<< 3.15.1-1)
