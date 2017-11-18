@@ -2,6 +2,7 @@ fonttools (3.19.0-1) UNRELEASED; urgency=medium
 
   * Team upload
   * New upstream release
+  * Add several Build-Depends for build tests
 
  -- Jeremy Bicha <jbicha@debian.org>  Sat, 18 Nov 2017 15:15:02 -0500
 
