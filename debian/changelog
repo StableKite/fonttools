@@ -1,11 +1,11 @@
-fonttools (3.19.0-1) UNRELEASED; urgency=medium
+fonttools (3.19.0-1) unstable; urgency=medium
 
   * Team upload
   * New upstream release
   * Add several Build-Depends for build tests
   * Depend on python-brotli, python-gi, python-reportlab, and python-sympy
 
- -- Jeremy Bicha <jbicha@debian.org>  Sat, 18 Nov 2017 15:15:02 -0500
+ -- Jeremy Bicha <jbicha@debian.org>  Sat, 18 Nov 2017 16:34:48 -0500
 
 fonttools (3.16.0-2) unstable; urgency=medium
 
