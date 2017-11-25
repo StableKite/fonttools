@@ -15,7 +15,6 @@ Build-Depends:
  python-pytest <!nocheck>,
  python-reportlab <!nocheck>,
  python-setuptools,
- python-sphinx,
  python-sympy <!nocheck>,
  python3-all,
  python3-brotli (>= 0.6.0) <!nocheck>,
@@ -25,6 +24,7 @@ Build-Depends:
  python3-reportlab <!nocheck>,
  python3-setuptools,
  python3-sympy <!nocheck>,
+ python3-sphinx
 Standards-Version: 4.1.1
 Homepage: https://github.com/fonttools/fonttools
 Vcs-Git: https://anonscm.debian.org/git/pkg-fonts/fonttools.git
