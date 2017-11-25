@@ -1,3 +1,14 @@
+fonttools (3.19.0-2) unstable; urgency=medium
+
+  * Team upload
+  * debian/copyright:
+    - Use copyright-format 1.0
+    - Add several known copyright information of test fonts (Closes: #878643)
+  * debian/control: replace python-sphinx to python3-sphinx
+  * debian/rules: add override_dh_auto_test
+
+ -- Yao Wei (魏銘廷) <mwei@lxde.org>  Sat, 25 Nov 2017 14:25:34 +0800
+
 fonttools (3.19.0-1) unstable; urgency=medium
 
   * Team upload
