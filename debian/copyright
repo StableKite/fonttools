@@ -2,6 +2,9 @@ Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: fontTools
 Upstream-Contact: Just van Rossum <just@letterror.com>
 Source: https://github.com/fonttools/fonttools/
+Files-Excluded: Lib/fontTools/unicodedata/Blocks.py
+                Lib/fontTools/unicodedata/ScriptExtensions.py
+                Lib/fontTools/unicodedata/Scripts.py
 
 Files:     *
 Copyright: 1996- Just van Rossum <just@letterror.com>
