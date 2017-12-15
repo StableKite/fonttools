@@ -9,7 +9,7 @@ fonttools (3.20.1-1) unstable; urgency=medium
   * debian/rules: add override_dh_auto_test
   * Build unicodeData library from source
 
- -- Yao Wei (魏銘廷) <mwei@lxde.org>  Sat, 25 Nov 2017 14:25:34 +0800
+ -- Yao Wei (魏銘廷) <mwei@lxde.org>  Fri, 15 Dec 2017 12:28:17 +0800
 
 fonttools (3.19.0-1) unstable; urgency=medium
 
