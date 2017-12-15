@@ -1,3 +1,36 @@
+3.20.1 (released 2017-11-22)
+----------------------------
+
+- [unicodedata] Fixed issue with ``script`` and ``script_extension`` functions
+  returning inconsistent short vs long names. They both return the short four-
+  letter script codes now. Added ``script_name`` and ``script_code`` functions
+  to look up the long human-readable script name from the script code, and
+  viceversa (#1109, #1111).
+
+3.20.0 (released 2017-11-21)
+----------------------------
+
+- [unicodedata] Addded new module ``fontTools.unicodedata`` which exports the
+  same interface as the built-in ``unicodedata`` module, with the addition of
+  a few functions that are missing from the latter, such as ``script``,
+  ``script_extension`` and ``block``. Added a ``MetaTools/buildUCD.py`` script
+  to download and parse data files from the Unicode Character Database and
+  generate python modules containing lists of ranges and property values.
+- [feaLib] Added ``__str__`` method to all ``ast`` elements (delegates to the
+  ``asFea`` method).
+- [feaLib] ``Parser`` constructor now accepts a ``glyphNames`` iterable
+  instead of ``glyphMap`` dict. The latter still works but with a pending
+  deprecation warning (#1104).
+- [bezierTools] Added arc length calculation functions originally from
+  ``pens.perimeterPen`` module (#1101).
+- [varLib] Started generating STAT table (8af4309). Right now it just reflects
+  the axes, and even that with certain limitations:
+  * AxisOrdering is set to the order axes are defined,
+  * Name-table entries are not shared with fvar.
+- [py23] Added backports for ``redirect_stdout`` and ``redirect_stderr``
+  context managers (#1097).
+- [Graphite] Fixed some round-trip bugs (#1093).
+
 3.19.0 (released 2017-11-06)
 ----------------------------
 
