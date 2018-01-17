@@ -12,22 +12,7 @@ Copyright: 1996- Just van Rossum <just@letterror.com>
            2000 BeOpen.com
            1995-2001 Corporation for National Research Initiatives
            1991-1995 Stichting Mathematisch Centrum, Amsterdam
-License:   MIT-FontTools
- Permission to use, copy, modify, and distribute this software and its
- documentation for any purpose and without fee is hereby granted, provided that
- the above copyright notice appear in all copies and that both that copyright
- notice and this permission notice appear in supporting documentation, and that
- the names of Just van Rossum or Letterror not be used in advertising or
- publicity pertaining to distribution of the software without specific, written
- prior permission.
- .
- JUST VAN ROSSUM AND LETTERROR DISCLAIM ALL WARRANTIES WITH REGARD TO THIS
- SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN
- NO EVENT SHALL JUST VAN ROSSUM OR LETTERROR BE LIABLE FOR ANY SPECIAL,
- INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
- LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
- OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
- PERFORMANCE OF THIS SOFTWARE.
+License:   Expat
 
 Files:     Tests/subset/data/Lobster.subset.ttx
 Copyright: 2010 Pablo Impallari <impallari@gmail.com>
@@ -77,12 +62,9 @@ License:   BSD-3-Clause-Adobe
  OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-Files-Binary: python-fonttools, usr/lib/python2.7/dist-packages/fontTools/unicodedata/Blocks.py
-              python-fonttools, usr/lib/python2.7/dist-packages/fontTools/unicodedata/ScriptExtensions.py
-              python-fonttools, usr/lib/python2.7/dist-packages/fontTools/unicodedata/Scripts.py
-              python3-fonttools, usr/lib/python3/dist-packages/fontTools/unicodedata/Blocks.py
-              python3-fonttools, usr/lib/python3/dist-packages/fontTools/unicodedata/ScriptExtensions.py
-              python3-fonttools, usr/lib/python3/dist-packages/fontTools/unicodedata/Scripts.py
+Files: Lib/fontTools/unicodedata/Blocks.py
+       Lib/fontTools/unicodedata/ScriptExtensions.py
+       Lib/fontTools/unicodedata/Scripts.py
 Copyright:    1991-2017 Unicode, Inc.
 License:      X11-Unicode
  Permission is hereby granted, free of charge, to any person obtaining
@@ -122,6 +104,8 @@ Copyright: 2002- Anthony Fok <foka@debian.org>
            2017- Rene Engelhard <rene@rene-engelhard.de>
            2017- Jeremy Bicha <jbicha@debian.org>
            2017- Yao Wei (魏銘廷) <mwei@lxde.org>
+License:   Expat
+
 License:   Expat
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this software and associated documentation files (the "Software"), to deal
