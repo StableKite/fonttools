@@ -1,3 +1,28 @@
+3.21.2 (released 2018-01-08)
+----------------------------
+
+- [varLib] Fixed merging PairPos Format1/2 with missing subtables (#1125).
+
+3.21.1 (released 2018-01-03)
+----------------------------
+
+- [feaLib] Allow mixed single/multiple substitutions (#612)
+- Added missing ``*.afm`` test assets to MAINFEST.in (#1137).
+- Fixed dumping ``SVG`` tables containing color palettes (#1124).
+
+3.21.0 (released 2017-12-18)
+----------------------------
+
+- [cmap] when compiling format6 subtable, don't assume gid0 is always called
+  '.notdef' (1e42224).
+- [ot] Allow decompiling fonts with bad Coverage format number (1aafae8).
+- Change FontTools licence to MIT (#1127).
+- [post] Prune extra names already in standard Mac set (df1e8c7).
+- [subset] Delete empty SubrsIndex after subsetting (#994, #1118).
+- [varLib] Don't share points in cvar by default, as it currently fails on
+  some browsers (#1113).
+- [afmLib] Make poor old afmLib work on python3.
+
 3.20.1 (released 2017-11-22)
 ----------------------------
 

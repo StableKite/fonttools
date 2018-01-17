@@ -56,7 +56,7 @@ Initial glyph set specification:
   --glyphs=<glyphname>[,<glyphname>...]
       Specify comma/whitespace-separated PS glyph names to add to the subset.
       Note that only PS glyph names are accepted, not gidNNN, U+XXXX, etc
-      that are accepted on the command line.  The special string '*' wil keep
+      that are accepted on the command line.  The special string '*' will keep
       the entire glyph set.
   --glyphs-file=<path>
       Like --glyphs but reads from a file. Anything after a '#' on any line
@@ -2407,11 +2407,26 @@ def prune_post_subset(self, options):
             for subr in subrs.items:
                 subr.subset_subroutines (local_subrs, font.GlobalSubrs)
 
+        # Delete local SubrsIndex if empty
+        if hasattr(font, 'FDSelect'):
+            for fd in font.FDArray:
+                _delete_empty_subrs(fd.Private)
+        else:
+            _delete_empty_subrs(font.Private)
+
         # Cleanup
         for subrs in all_subrs:
             del subrs._used, subrs._old_bias, subrs._new_bias
 
     return True
+
+
+def _delete_empty_subrs(private_dict):
+    if hasattr(private_dict, 'Subrs') and not private_dict.Subrs:
+        if 'Subrs' in private_dict.rawDict:
+            del private_dict.rawDict['Subrs']
+        del private_dict.Subrs
+
 
 @_add_method(ttLib.getTableClass('cmap'))
 def closure_glyphs(self, s):

@@ -280,7 +280,8 @@ def _PairPosFormat1_merge(self, lst, merger):
 	# Merge everything else; makes sure Format is the same.
 	merger.mergeObjects(self, lst,
 			    exclude=('Coverage',
-				     'PairSet', 'PairSetCount'))
+				     'PairSet', 'PairSetCount',
+				     'ValueFormat1', 'ValueFormat2'))
 
 	empty = ot.PairSet()
 	empty.PairValueRecord = []
@@ -389,8 +390,8 @@ def _PairPosFormat2_align_matrices(self, lst, font, transparent=False):
 							rec2 = None
 						else:
 							rec2 = ot.Class2Record()
-							rec2.Value1 = otBase.ValueRecord(l.ValueFormat1) if l.ValueFormat1 else None
-							rec2.Value2 = otBase.ValueRecord(l.ValueFormat2) if l.ValueFormat2 else None
+							rec2.Value1 = otBase.ValueRecord(self.ValueFormat1) if self.ValueFormat1 else None
+							rec2.Value2 = otBase.ValueRecord(self.ValueFormat2) if self.ValueFormat2 else None
 						class2records.append(rec2)
 				rec1 = nullRow
 			else:
@@ -435,7 +436,8 @@ def _PairPosFormat2_merge(self, lst, merger):
 			    exclude=('Coverage',
 				     'ClassDef1', 'Class1Count',
 				     'ClassDef2', 'Class2Count',
-				     'Class1Record'))
+				     'Class1Record',
+				     'ValueFormat1', 'ValueFormat2'))
 
 	# Align coverages
 	glyphs, _ = _merge_GlyphOrders(merger.font,
@@ -460,9 +462,8 @@ def _PairPosFormat2_merge(self, lst, merger):
 
 @AligningMerger.merger(ot.PairPos)
 def merge(merger, self, lst):
-	# TODO Support differing ValueFormats.
-	merger.valueFormat1 = self.ValueFormat1
-	merger.valueFormat2 = self.ValueFormat2
+	merger.valueFormat1 = self.ValueFormat1 = reduce(int.__or__, [l.ValueFormat1 for l in lst], 0)
+	merger.valueFormat2 = self.ValueFormat2 = reduce(int.__or__, [l.ValueFormat2 for l in lst], 0)
 
 	if self.Format == 1:
 		_PairPosFormat1_merge(self, lst, merger)
