@@ -8,6 +8,7 @@ fonttools (3.21.2-1) UNRELEASED; urgency=medium
   * debian/rules:
     - Bump Standards-Version to 4.1.3.
     - Change Vcs fields to salsa.debian.org.
+  * Add lintian overrides for documenting licenses of certain files.
 
  -- Yao Wei (魏銘廷) <mwei@lxde.org>  Wed, 17 Jan 2018 23:48:30 +0800
 
