@@ -5,30 +5,54 @@ from fontTools.misc import sstruct
 from fontTools.misc.textTools import binary2num, safeEval
 from fontTools.feaLib.error import FeatureLibError
 from fontTools.feaLib.parser import Parser
+from fontTools.feaLib.ast import FeatureFile
 from fontTools.otlLib import builder as otl
 from fontTools.ttLib import newTable, getTableModule
 from fontTools.ttLib.tables import otBase, otTables
+from collections import defaultdict
 import itertools
+import logging
 
 
-def addOpenTypeFeatures(font, featurefile):
+log = logging.getLogger(__name__)
+
+
+def addOpenTypeFeatures(font, featurefile, tables=None):
     builder = Builder(font, featurefile)
-    builder.build()
+    builder.build(tables=tables)
 
 
-def addOpenTypeFeaturesFromString(font, features, filename=None):
+def addOpenTypeFeaturesFromString(font, features, filename=None, tables=None):
     featurefile = UnicodeIO(tounicode(features))
     if filename:
         # the directory containing 'filename' is used as the root of relative
         # include paths; if None is provided, the current directory is assumed
         featurefile.name = filename
-    addOpenTypeFeatures(font, featurefile)
+    addOpenTypeFeatures(font, featurefile, tables=tables)
 
 
 class Builder(object):
+
+    supportedTables = frozenset(Tag(tag) for tag in [
+        "BASE",
+        "GDEF",
+        "GPOS",
+        "GSUB",
+        "OS/2",
+        "head",
+        "hhea",
+        "name",
+        "vhea",
+    ])
+
     def __init__(self, font, featurefile):
         self.font = font
-        self.file = featurefile
+        # 'featurefile' can be either a path or file object (in which case we
+        # parse it into an AST), or a pre-parsed AST instance
+        if isinstance(featurefile, FeatureFile):
+            self.parseTree, self.file = featurefile, None
+        else:
+            self.parseTree, self.file = None, featurefile
         self.glyphMap = font.getReverseGlyphMap()
         self.default_language_systems_ = set()
         self.script_ = None
@@ -41,15 +65,19 @@ class Builder(object):
         self.cur_feature_name_ = None
         self.lookups_ = []
         self.features_ = {}  # ('latn', 'DEU ', 'smcp') --> [LookupBuilder*]
-        self.parseTree = None
         self.required_features_ = {}  # ('latn', 'DEU ') --> 'scmp'
         # for feature 'aalt'
         self.aalt_features_ = []  # [(location, featureName)*], for 'aalt'
         self.aalt_location_ = None
         self.aalt_alternates_ = {}
         # for 'featureNames'
-        self.featureNames_ = []
+        self.featureNames_ = set()
         self.featureNames_ids_ = {}
+        # for 'cvParameters'
+        self.cv_parameters_ = set()
+        self.cv_parameters_ids_ = {}
+        self.cv_num_named_params_ = {}
+        self.cv_characters_ = defaultdict(list)
         # for feature 'size'
         self.size_parameters_ = None
         # for table 'head'
@@ -74,16 +102,32 @@ class Builder(object):
         # for table 'vhea'
         self.vhea_ = {}
 
-    def build(self):
-        self.parseTree = Parser(self.file, self.glyphMap).parse()
+    def build(self, tables=None):
+        if self.parseTree is None:
+            self.parseTree = Parser(self.file, self.glyphMap).parse()
         self.parseTree.build(self)
-        self.build_feature_aalt_()
-        self.build_head()
-        self.build_hhea()
-        self.build_vhea()
-        self.build_name()
-        self.build_OS_2()
+        # by default, build all the supported tables
+        if tables is None:
+            tables = self.supportedTables
+        else:
+            tables = frozenset(tables)
+            unsupported = tables - self.supportedTables
+            assert not unsupported, unsupported
+        if "GSUB" in tables:
+            self.build_feature_aalt_()
+        if "head" in tables:
+            self.build_head()
+        if "hhea" in tables:
+            self.build_hhea()
+        if "vhea" in tables:
+            self.build_vhea()
+        if "name" in tables:
+            self.build_name()
+        if "OS/2" in tables:
+            self.build_OS_2()
         for tag in ('GPOS', 'GSUB'):
+            if tag not in tables:
+                continue
             table = self.makeTable(tag)
             if (table.ScriptList.ScriptCount > 0 or
                     table.FeatureList.FeatureCount > 0 or
@@ -92,16 +136,18 @@ class Builder(object):
                 fontTable.table = table
             elif tag in self.font:
                 del self.font[tag]
-        gdef = self.buildGDEF()
-        if gdef:
-            self.font["GDEF"] = gdef
-        elif "GDEF" in self.font:
-            del self.font["GDEF"]
-        base = self.buildBASE()
-        if base:
-            self.font["BASE"] = base
-        elif "BASE" in self.font:
-            del self.font["BASE"]
+        if "GDEF" in tables:
+            gdef = self.buildGDEF()
+            if gdef:
+                self.font["GDEF"] = gdef
+            elif "GDEF" in self.font:
+                del self.font["GDEF"]
+        if "BASE" in tables:
+            base = self.buildBASE()
+            if base:
+                self.font["BASE"] = base
+            elif "BASE" in self.font:
+                del self.font["BASE"]
 
     def get_chained_lookup_(self, location, builder_class):
         result = builder_class(self.font, location)
@@ -247,6 +293,20 @@ class Builder(object):
             params = otTables.FeatureParamsStylisticSet()
             params.Version = 0
             params.UINameID = self.featureNames_ids_[tag]
+        elif tag in self.cv_parameters_:
+            params = otTables.FeatureParamsCharacterVariants()
+            params.Format = 0
+            params.FeatUILabelNameID = self.cv_parameters_ids_.get(
+                (tag, 'FeatUILabelNameID'), 0)
+            params.FeatUITooltipTextNameID = self.cv_parameters_ids_.get(
+                (tag, 'FeatUITooltipTextNameID'), 0)
+            params.SampleTextNameID = self.cv_parameters_ids_.get(
+                (tag, 'SampleTextNameID'), 0)
+            params.NumNamedParameters = self.cv_num_named_params_.get(tag, 0)
+            params.FirstParamUILabelNameID = self.cv_parameters_ids_.get(
+                (tag, 'ParamUILabelNameID_0'), 0)
+            params.CharCount = len(self.cv_characters_[tag])
+            params.Character = self.cv_characters_[tag]
         return params
 
     def build_name(self):
@@ -258,13 +318,20 @@ class Builder(object):
             table.names = []
         for name in self.names_:
             nameID, platformID, platEncID, langID, string = name
+            # For featureNames block, nameID is 'feature tag'
+            # For cvParameters blocks, nameID is ('feature tag', 'block name')
             if not isinstance(nameID, int):
-                # A featureNames name and nameID is actually the tag
                 tag = nameID
-                if tag not in self.featureNames_ids_:
-                    self.featureNames_ids_[tag] = self.get_user_name_id(table)
-                    assert self.featureNames_ids_[tag] is not None
-                nameID = self.featureNames_ids_[tag]
+                if tag in self.featureNames_:
+                    if tag not in self.featureNames_ids_:
+                        self.featureNames_ids_[tag] = self.get_user_name_id(table)
+                        assert self.featureNames_ids_[tag] is not None
+                    nameID = self.featureNames_ids_[tag]
+                elif tag[0] in self.cv_parameters_:
+                    if tag not in self.cv_parameters_ids_:
+                        self.cv_parameters_ids_[tag] = self.get_user_name_id(table)
+                        assert self.cv_parameters_ids_[tag] is not None
+                    nameID = self.cv_parameters_ids_[tag]
             table.setName(string, nameID, platformID, platEncID, langID)
 
     def build_OS_2(self):
@@ -496,7 +563,7 @@ class Builder(object):
                 frec.Feature = otTables.Feature()
                 frec.Feature.FeatureParams = self.buildFeatureParams(
                                                 feature_tag)
-                frec.Feature.LookupListIndex = lookup_indices
+                frec.Feature.LookupListIndex = list(lookup_indices)
                 frec.Feature.LookupCount = len(lookup_indices)
                 table.FeatureList.FeatureRecord.append(frec)
                 feature_indices[feature_key] = feature_index
@@ -764,8 +831,22 @@ class Builder(object):
                 location)
         self.aalt_features_.append((location, featureName))
 
-    def add_featureName(self, location, tag):
-        self.featureNames_.append(tag)
+    def add_featureName(self, tag):
+        self.featureNames_.add(tag)
+
+    def add_cv_parameter(self, tag):
+        self.cv_parameters_.add(tag)
+
+    def add_to_cv_num_named_params(self, tag):
+        """Adds new items to self.cv_num_named_params_
+        or increments the count of existing items."""
+        if tag in self.cv_num_named_params_:
+            self.cv_num_named_params_[tag] += 1
+        else:
+            self.cv_num_named_params_[tag] = 1
+
+    def add_cv_character(self, character, tag):
+        self.cv_characters_[tag].append(character)
 
     def set_base_axis(self, bases, scripts, vertical):
         if vertical:
@@ -1424,15 +1505,19 @@ class PairPosBuilder(LookupBuilder):
         key = (glyph1, glyph2)
         oldValue = self.glyphPairs.get(key, None)
         if oldValue is not None:
+            # the Feature File spec explicitly allows specific pairs generated
+            # by an 'enum' rule to be overridden by preceding single pairs;
+            # we emit a warning and use the previously defined value
             otherLoc = self.locations[key]
-            raise FeatureLibError(
-                'Already defined position for pair %s %s at %s:%d:%d'
-                % (glyph1, glyph2, otherLoc[0], otherLoc[1], otherLoc[2]),
-                location)
-        val1, _ = makeOpenTypeValueRecord(value1, pairPosContext=True)
-        val2, _ = makeOpenTypeValueRecord(value2, pairPosContext=True)
-        self.glyphPairs[key] = (val1, val2)
-        self.locations[key] = location
+            log.warning(
+                'Already defined position for pair %s %s at %s:%d:%d; '
+                'choosing the first value',
+                glyph1, glyph2, otherLoc[0], otherLoc[1], otherLoc[2])
+        else:
+            val1, _ = makeOpenTypeValueRecord(value1, pairPosContext=True)
+            val2, _ = makeOpenTypeValueRecord(value2, pairPosContext=True)
+            self.glyphPairs[key] = (val1, val2)
+            self.locations[key] = location
 
     def add_subtable_break(self, location):
         self.pairs.append((self.SUBTABLE_BREAK_, self.SUBTABLE_BREAK_,

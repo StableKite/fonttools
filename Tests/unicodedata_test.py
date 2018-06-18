@@ -203,6 +203,52 @@ def test_block():
     assert unicodedata.block("\u1c90") == "No_Block"
 
 
+def test_ot_tags_from_script():
+    # simple
+    assert unicodedata.ot_tags_from_script("Latn") == ["latn"]
+    # script mapped to multiple new and old script tags
+    assert unicodedata.ot_tags_from_script("Deva") == ["dev2", "deva"]
+    # exceptions
+    assert unicodedata.ot_tags_from_script("Hira") == ["kana"]
+    # special script codes map to DFLT
+    assert unicodedata.ot_tags_from_script("Zinh") == ["DFLT"]
+    assert unicodedata.ot_tags_from_script("Zyyy") == ["DFLT"]
+    assert unicodedata.ot_tags_from_script("Zzzz") == ["DFLT"]
+    # this is invalid or unknown
+    assert unicodedata.ot_tags_from_script("Aaaa") == ["DFLT"]
+
+
+def test_ot_tag_to_script():
+    assert unicodedata.ot_tag_to_script("latn") == "Latn"
+    assert unicodedata.ot_tag_to_script("kana") == "Kana"
+    assert unicodedata.ot_tag_to_script("DFLT") == None
+    assert unicodedata.ot_tag_to_script("aaaa") == None
+    assert unicodedata.ot_tag_to_script("beng") == "Beng"
+    assert unicodedata.ot_tag_to_script("bng2") == "Beng"
+    assert unicodedata.ot_tag_to_script("dev2") == "Deva"
+    assert unicodedata.ot_tag_to_script("gjr2") == "Gujr"
+    assert unicodedata.ot_tag_to_script("yi  ") == "Yiii"
+    assert unicodedata.ot_tag_to_script("nko ") == "Nkoo"
+    assert unicodedata.ot_tag_to_script("vai ") == "Vaii"
+    assert unicodedata.ot_tag_to_script("lao ") == "Laoo"
+    assert unicodedata.ot_tag_to_script("yi") == "Yiii"
+
+    for invalid_value in ("", " ", "z zz", "zzzzz"):
+        with pytest.raises(ValueError, match="invalid OpenType tag"):
+            unicodedata.ot_tag_to_script(invalid_value)
+
+
+def test_script_horizontal_direction():
+    assert unicodedata.script_horizontal_direction("Latn") == "LTR"
+    assert unicodedata.script_horizontal_direction("Arab") == "RTL"
+    assert unicodedata.script_horizontal_direction("Thaa") == "RTL"
+
+    with pytest.raises(KeyError):
+        unicodedata.script_horizontal_direction("Azzz")
+    assert unicodedata.script_horizontal_direction("Azzz",
+                                                   default="LTR") == "LTR"
+
+
 if __name__ == "__main__":
     import sys
     sys.exit(pytest.main(sys.argv))

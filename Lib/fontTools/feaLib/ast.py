@@ -8,6 +8,76 @@ import itertools
 
 SHIFT = " " * 4
 
+__all__ = [
+    'AlternateSubstStatement',
+    'Anchor',
+    'AnchorDefinition',
+    'AnonymousBlock',
+    'AttachStatement',
+    'BaseAxis',
+    'Block',
+    'BytesIO',
+    'CVParametersNameStatement',
+    'ChainContextPosStatement',
+    'ChainContextSubstStatement',
+    'CharacterStatement',
+    'Comment',
+    'CursivePosStatement',
+    'Element',
+    'Expression',
+    'FeatureBlock',
+    'FeatureFile',
+    'FeatureLibError',
+    'FeatureNameStatement',
+    'FeatureReferenceStatement',
+    'FontRevisionStatement',
+    'GlyphClass',
+    'GlyphClassDefStatement',
+    'GlyphClassDefinition',
+    'GlyphClassName',
+    'GlyphName',
+    'HheaField',
+    'IgnorePosStatement',
+    'IgnoreSubstStatement',
+    'IncludeStatement',
+    'LanguageStatement',
+    'LanguageSystemStatement',
+    'LigatureCaretByIndexStatement',
+    'LigatureCaretByPosStatement',
+    'LigatureSubstStatement',
+    'LookupBlock',
+    'LookupFlagStatement',
+    'LookupReferenceStatement',
+    'MarkBasePosStatement',
+    'MarkClass',
+    'MarkClassDefinition',
+    'MarkClassName',
+    'MarkLigPosStatement',
+    'MarkMarkPosStatement',
+    'MultipleSubstStatement',
+    'NameRecord',
+    'NestedBlock',
+    'OS2Field',
+    'OrderedDict',
+    'PairPosStatement',
+    'Py23Error',
+    'ReverseChainSingleSubstStatement',
+    'ScriptStatement',
+    'SimpleNamespace',
+    'SinglePosStatement',
+    'SingleSubstStatement',
+    'SizeParameters',
+    'Statement',
+    'StringIO',
+    'SubtableStatement',
+    'TableBlock',
+    'Tag',
+    'UnicodeIO',
+    'ValueRecord',
+    'ValueRecordDefinition',
+    'VheaField',
+]
+
 
 def deviceToString(device):
     if device is None:
@@ -49,7 +119,7 @@ def asFea(g):
 
 class Element(object):
 
-    def __init__(self, location):
+    def __init__(self, location=None):
         self.location = location
 
     def build(self, builder):
@@ -71,7 +141,7 @@ class Expression(Element):
 
 
 class Comment(Element):
-    def __init__(self, location, text):
+    def __init__(self, text, location=None):
         super(Comment, self).__init__(location)
         self.text = text
 
@@ -81,7 +151,7 @@ class Comment(Element):
 
 class GlyphName(Expression):
     """A single glyph name, such as cedilla."""
-    def __init__(self, location, glyph):
+    def __init__(self, glyph, location=None):
         Expression.__init__(self, location)
         self.glyph = glyph
 
@@ -94,7 +164,7 @@ class GlyphName(Expression):
 
 class GlyphClass(Expression):
     """A glyph class, such as [acute cedilla grave]."""
-    def __init__(self, location, glyphs=None):
+    def __init__(self, glyphs=None, location=None):
         Expression.__init__(self, location)
         self.glyphs = glyphs if glyphs is not None else []
         self.original = []
@@ -142,7 +212,7 @@ class GlyphClass(Expression):
 
 class GlyphClassName(Expression):
     """A glyph class name, such as @FRENCH_MARKS."""
-    def __init__(self, location, glyphclass):
+    def __init__(self, glyphclass, location=None):
         Expression.__init__(self, location)
         assert isinstance(glyphclass, GlyphClassDefinition)
         self.glyphclass = glyphclass
@@ -156,7 +226,7 @@ class GlyphClassName(Expression):
 
 class MarkClassName(Expression):
     """A mark class name, such as @FRENCH_MARKS defined with markClass."""
-    def __init__(self, location, markClass):
+    def __init__(self, markClass, location=None):
         Expression.__init__(self, location)
         assert isinstance(markClass, MarkClass)
         self.markClass = markClass
@@ -169,7 +239,7 @@ class MarkClassName(Expression):
 
 
 class AnonymousBlock(Statement):
-    def __init__(self, tag, content, location):
+    def __init__(self, tag, content, location=None):
         Statement.__init__(self, location)
         self.tag, self.content = tag, content
 
@@ -181,7 +251,7 @@ class AnonymousBlock(Statement):
 
 
 class Block(Statement):
-    def __init__(self, location):
+    def __init__(self, location=None):
         Statement.__init__(self, location)
         self.statements = []
 
@@ -205,7 +275,7 @@ class FeatureFile(Block):
 
 
 class FeatureBlock(Block):
-    def __init__(self, location, name, use_extension):
+    def __init__(self, name, use_extension=False, location=None):
         Block.__init__(self, location)
         self.name, self.use_extension = name, use_extension
 
@@ -229,19 +299,26 @@ class FeatureBlock(Block):
         return res
 
 
-class FeatureNamesBlock(Block):
-    def __init__(self, location):
+class NestedBlock(Block):
+    def __init__(self, tag, block_name, location=None):
         Block.__init__(self, location)
+        self.tag = tag
+        self.block_name = block_name
+
+    def build(self, builder):
+        Block.build(self, builder)
+        if self.block_name == "ParamUILabelNameID":
+            builder.add_to_cv_num_named_params(self.tag)
 
     def asFea(self, indent=""):
-        res = indent + "featureNames {\n"
+        res = "{}{} {{\n".format(indent, self.block_name)
         res += Block.asFea(self, indent=indent)
-        res += indent + "};\n"
+        res += "{}}};\n".format(indent)
         return res
 
 
 class LookupBlock(Block):
-    def __init__(self, location, name, use_extension):
+    def __init__(self, name, use_extension=False, location=None):
         Block.__init__(self, location)
         self.name, self.use_extension = name, use_extension
 
@@ -259,7 +336,7 @@ class LookupBlock(Block):
 
 
 class TableBlock(Block):
-    def __init__(self, location, name):
+    def __init__(self, name, location=None):
         Block.__init__(self, location)
         self.name = name
 
@@ -272,7 +349,7 @@ class TableBlock(Block):
 
 class GlyphClassDefinition(Statement):
     """Example: @UPPERCASE = [A-Z];"""
-    def __init__(self, location, name, glyphs):
+    def __init__(self, name, glyphs, location=None):
         Statement.__init__(self, location)
         self.name = name
         self.glyphs = glyphs
@@ -286,8 +363,8 @@ class GlyphClassDefinition(Statement):
 
 class GlyphClassDefStatement(Statement):
     """Example: GlyphClassDef @UPPERCASE, [B], [C], [D];"""
-    def __init__(self, location, baseGlyphs, markGlyphs,
-                 ligatureGlyphs, componentGlyphs):
+    def __init__(self, baseGlyphs, markGlyphs, ligatureGlyphs,
+                 componentGlyphs, location=None):
         Statement.__init__(self, location)
         self.baseGlyphs, self.markGlyphs = (baseGlyphs, markGlyphs)
         self.ligatureGlyphs = ligatureGlyphs
@@ -328,9 +405,13 @@ class MarkClass(object):
         for glyph in definition.glyphSet():
             if glyph in self.glyphs:
                 otherLoc = self.glyphs[glyph].location
+                if otherLoc is None:
+                    end = ""
+                else:
+                    end = " at %s:%d:%d" % (
+                        otherLoc[0], otherLoc[1], otherLoc[2])
                 raise FeatureLibError(
-                    "Glyph %s already defined at %s:%d:%d" % (
-                        glyph, otherLoc[0], otherLoc[1], otherLoc[2]),
+                    "Glyph %s already defined%s" % (glyph, end),
                     definition.location)
             self.glyphs[glyph] = definition
 
@@ -343,7 +424,7 @@ class MarkClass(object):
 
 
 class MarkClassDefinition(Statement):
-    def __init__(self, location, markClass, anchor, glyphs):
+    def __init__(self, markClass, anchor, glyphs, location=None):
         Statement.__init__(self, location)
         assert isinstance(markClass, MarkClass)
         assert isinstance(anchor, Anchor) and isinstance(glyphs, Expression)
@@ -359,7 +440,7 @@ class MarkClassDefinition(Statement):
 
 
 class AlternateSubstStatement(Statement):
-    def __init__(self, location, prefix, glyph, suffix, replacement):
+    def __init__(self, prefix, glyph, suffix, replacement, location=None):
         Statement.__init__(self, location)
         self.prefix, self.glyph, self.suffix = (prefix, glyph, suffix)
         self.replacement = replacement
@@ -391,8 +472,8 @@ class AlternateSubstStatement(Statement):
 
 
 class Anchor(Expression):
-    def __init__(self, location, name, x, y, contourpoint,
-                 xDeviceTable, yDeviceTable):
+    def __init__(self, x, y, name=None, contourpoint=None,
+                 xDeviceTable=None, yDeviceTable=None, location=None):
         Expression.__init__(self, location)
         self.name = name
         self.x, self.y, self.contourpoint = x, y, contourpoint
@@ -414,7 +495,7 @@ class Anchor(Expression):
 
 
 class AnchorDefinition(Statement):
-    def __init__(self, location, name, x, y, contourpoint):
+    def __init__(self, name, x, y, contourpoint=None, location=None):
         Statement.__init__(self, location)
         self.name, self.x, self.y, self.contourpoint = name, x, y, contourpoint
 
@@ -427,7 +508,7 @@ class AnchorDefinition(Statement):
 
 
 class AttachStatement(Statement):
-    def __init__(self, location, glyphs, contourPoints):
+    def __init__(self, glyphs, contourPoints, location=None):
         Statement.__init__(self, location)
         self.glyphs, self.contourPoints = (glyphs, contourPoints)
 
@@ -441,7 +522,7 @@ class AttachStatement(Statement):
 
 
 class ChainContextPosStatement(Statement):
-    def __init__(self, location, prefix, glyphs, suffix, lookups):
+    def __init__(self, prefix, glyphs, suffix, lookups, location=None):
         Statement.__init__(self, location)
         self.prefix, self.glyphs, self.suffix = prefix, glyphs, suffix
         self.lookups = lookups
@@ -473,7 +554,7 @@ class ChainContextPosStatement(Statement):
 
 
 class ChainContextSubstStatement(Statement):
-    def __init__(self, location, prefix, glyphs, suffix, lookups):
+    def __init__(self, prefix, glyphs, suffix, lookups, location=None):
         Statement.__init__(self, location)
         self.prefix, self.glyphs, self.suffix = prefix, glyphs, suffix
         self.lookups = lookups
@@ -505,7 +586,7 @@ class ChainContextSubstStatement(Statement):
 
 
 class CursivePosStatement(Statement):
-    def __init__(self, location, glyphclass, entryAnchor, exitAnchor):
+    def __init__(self, glyphclass, entryAnchor, exitAnchor, location=None):
         Statement.__init__(self, location)
         self.glyphclass = glyphclass
         self.entryAnchor, self.exitAnchor = entryAnchor, exitAnchor
@@ -522,7 +603,7 @@ class CursivePosStatement(Statement):
 
 class FeatureReferenceStatement(Statement):
     """Example: feature salt;"""
-    def __init__(self, location, featureName):
+    def __init__(self, featureName, location=None):
         Statement.__init__(self, location)
         self.location, self.featureName = (location, featureName)
 
@@ -534,7 +615,7 @@ class FeatureReferenceStatement(Statement):
 
 
 class IgnorePosStatement(Statement):
-    def __init__(self, location, chainContexts):
+    def __init__(self, chainContexts, location=None):
         Statement.__init__(self, location)
         self.chainContexts = chainContexts
 
@@ -563,7 +644,7 @@ class IgnorePosStatement(Statement):
 
 
 class IgnoreSubstStatement(Statement):
-    def __init__(self, location, chainContexts):
+    def __init__(self, chainContexts, location=None):
         Statement.__init__(self, location)
         self.chainContexts = chainContexts
 
@@ -591,8 +672,25 @@ class IgnoreSubstStatement(Statement):
         return "ignore sub " + ", ".join(contexts) + ";"
 
 
+class IncludeStatement(Statement):
+    def __init__(self, filename, location=None):
+        super(IncludeStatement, self).__init__(location)
+        self.filename = filename
+
+    def build(self):
+        # TODO: consider lazy-loading the including parser/lexer?
+        raise FeatureLibError(
+            "Building an include statement is not implemented yet. "
+            "Instead, use Parser(..., followIncludes=True) for building.",
+            self.location)
+
+    def asFea(self, indent=""):
+        return indent + "include(%s);" % self.filename
+
+
 class LanguageStatement(Statement):
-    def __init__(self, location, language, include_default, required):
+    def __init__(self, language, include_default=True, required=False,
+                 location=None):
         Statement.__init__(self, location)
         assert(len(language) == 4)
         self.language = language
@@ -615,7 +713,7 @@ class LanguageStatement(Statement):
 
 
 class LanguageSystemStatement(Statement):
-    def __init__(self, location, script, language):
+    def __init__(self, script, language, location=None):
         Statement.__init__(self, location)
         self.script, self.language = (script, language)
 
@@ -627,7 +725,7 @@ class LanguageSystemStatement(Statement):
 
 
 class FontRevisionStatement(Statement):
-    def __init__(self, location, revision):
+    def __init__(self, revision, location=None):
         Statement.__init__(self, location)
         self.revision = revision
 
@@ -639,7 +737,7 @@ class FontRevisionStatement(Statement):
 
 
 class LigatureCaretByIndexStatement(Statement):
-    def __init__(self, location, glyphs, carets):
+    def __init__(self, glyphs, carets, location=None):
         Statement.__init__(self, location)
         self.glyphs, self.carets = (glyphs, carets)
 
@@ -653,7 +751,7 @@ class LigatureCaretByIndexStatement(Statement):
 
 
 class LigatureCaretByPosStatement(Statement):
-    def __init__(self, location, glyphs, carets):
+    def __init__(self, glyphs, carets, location=None):
         Statement.__init__(self, location)
         self.glyphs, self.carets = (glyphs, carets)
 
@@ -667,8 +765,8 @@ class LigatureCaretByPosStatement(Statement):
 
 
 class LigatureSubstStatement(Statement):
-    def __init__(self, location, prefix, glyphs, suffix, replacement,
-                 forceChain):
+    def __init__(self, prefix, glyphs, suffix, replacement,
+                 forceChain, location=None):
         Statement.__init__(self, location)
         self.prefix, self.glyphs, self.suffix = (prefix, glyphs, suffix)
         self.replacement, self.forceChain = replacement, forceChain
@@ -698,7 +796,8 @@ class LigatureSubstStatement(Statement):
 
 
 class LookupFlagStatement(Statement):
-    def __init__(self, location, value, markAttachment, markFilteringSet):
+    def __init__(self, value=0, markAttachment=None, markFilteringSet=None,
+                 location=None):
         Statement.__init__(self, location)
         self.value = value
         self.markAttachment = markAttachment
@@ -731,7 +830,7 @@ class LookupFlagStatement(Statement):
 
 
 class LookupReferenceStatement(Statement):
-    def __init__(self, location, lookup):
+    def __init__(self, lookup, location=None):
         Statement.__init__(self, location)
         self.location, self.lookup = (location, lookup)
 
@@ -743,7 +842,7 @@ class LookupReferenceStatement(Statement):
 
 
 class MarkBasePosStatement(Statement):
-    def __init__(self, location, base, marks):
+    def __init__(self, base, marks, location=None):
         Statement.__init__(self, location)
         self.base, self.marks = base, marks
 
@@ -759,7 +858,7 @@ class MarkBasePosStatement(Statement):
 
 
 class MarkLigPosStatement(Statement):
-    def __init__(self, location, ligatures, marks):
+    def __init__(self, ligatures, marks, location=None):
         Statement.__init__(self, location)
         self.ligatures, self.marks = ligatures, marks
 
@@ -783,7 +882,7 @@ class MarkLigPosStatement(Statement):
 
 
 class MarkMarkPosStatement(Statement):
-    def __init__(self, location, baseMarks, marks):
+    def __init__(self, baseMarks, marks, location=None):
         Statement.__init__(self, location)
         self.baseMarks, self.marks = baseMarks, marks
 
@@ -799,7 +898,7 @@ class MarkMarkPosStatement(Statement):
 
 
 class MultipleSubstStatement(Statement):
-    def __init__(self, location, prefix, glyph, suffix, replacement):
+    def __init__(self, prefix, glyph, suffix, replacement, location=None):
         Statement.__init__(self, location)
         self.prefix, self.glyph, self.suffix = prefix, glyph, suffix
         self.replacement = replacement
@@ -827,8 +926,8 @@ class MultipleSubstStatement(Statement):
 
 
 class PairPosStatement(Statement):
-    def __init__(self, location, enumerated,
-                 glyphs1, valuerecord1, glyphs2, valuerecord2):
+    def __init__(self, glyphs1, valuerecord1, glyphs2, valuerecord2,
+                 enumerated=False, location=None):
         Statement.__init__(self, location)
         self.enumerated = enumerated
         self.glyphs1, self.valuerecord1 = glyphs1, valuerecord1
@@ -868,7 +967,8 @@ class PairPosStatement(Statement):
 
 
 class ReverseChainSingleSubstStatement(Statement):
-    def __init__(self, location, old_prefix, old_suffix, glyphs, replacements):
+    def __init__(self, old_prefix, old_suffix, glyphs, replacements,
+                 location=None):
         Statement.__init__(self, location)
         self.old_prefix, self.old_suffix = old_prefix, old_suffix
         self.glyphs = glyphs
@@ -899,7 +999,8 @@ class ReverseChainSingleSubstStatement(Statement):
 
 
 class SingleSubstStatement(Statement):
-    def __init__(self, location, glyphs, replace, prefix, suffix, forceChain):
+    def __init__(self, glyphs, replace, prefix, suffix, forceChain,
+                 location=None):
         Statement.__init__(self, location)
         self.prefix, self.suffix = prefix, suffix
         self.forceChain = forceChain
@@ -932,7 +1033,7 @@ class SingleSubstStatement(Statement):
 
 
 class ScriptStatement(Statement):
-    def __init__(self, location, script):
+    def __init__(self, script, location=None):
         Statement.__init__(self, location)
         self.script = script
 
@@ -944,7 +1045,7 @@ class ScriptStatement(Statement):
 
 
 class SinglePosStatement(Statement):
-    def __init__(self, location, pos, prefix, suffix, forceChain):
+    def __init__(self, pos, prefix, suffix, forceChain, location=None):
         Statement.__init__(self, location)
         self.pos, self.prefix, self.suffix = pos, prefix, suffix
         self.forceChain = forceChain
@@ -973,14 +1074,16 @@ class SinglePosStatement(Statement):
 
 
 class SubtableStatement(Statement):
-    def __init__(self, location):
+    def __init__(self, location=None):
         Statement.__init__(self, location)
 
 
 class ValueRecord(Expression):
-    def __init__(self, location, vertical,
-                 xPlacement, yPlacement, xAdvance, yAdvance,
-                 xPlaDevice, yPlaDevice, xAdvDevice, yAdvDevice):
+    def __init__(self, xPlacement=None, yPlacement=None,
+                 xAdvance=None, yAdvance=None,
+                 xPlaDevice=None, yPlaDevice=None,
+                 xAdvDevice=None, yAdvDevice=None,
+                 vertical=False, location=None):
         Expression.__init__(self, location)
         self.xPlacement, self.yPlacement = (xPlacement, yPlacement)
         self.xAdvance, self.yAdvance = (xAdvance, yAdvance)
@@ -1033,7 +1136,7 @@ class ValueRecord(Expression):
 
 
 class ValueRecordDefinition(Statement):
-    def __init__(self, location, name, value):
+    def __init__(self, name, value, location=None):
         Statement.__init__(self, location)
         self.name = name
         self.value = value
@@ -1052,8 +1155,8 @@ def simplify_name_attributes(pid, eid, lid):
 
 
 class NameRecord(Statement):
-    def __init__(self, location, nameID, platformID,
-                 platEncID, langID, string):
+    def __init__(self, nameID, platformID, platEncID, langID, string,
+                 location=None):
         Statement.__init__(self, location)
         self.nameID = nameID
         self.platformID = platformID
@@ -1093,7 +1196,7 @@ class NameRecord(Statement):
 class FeatureNameStatement(NameRecord):
     def build(self, builder):
         NameRecord.build(self, builder)
-        builder.add_featureName(self.location, self.nameID)
+        builder.add_featureName(self.nameID)
 
     def asFea(self, indent=""):
         if self.nameID == "size":
@@ -1107,8 +1210,8 @@ class FeatureNameStatement(NameRecord):
 
 
 class SizeParameters(Statement):
-    def __init__(self, location, DesignSize, SubfamilyID, RangeStart,
-                 RangeEnd):
+    def __init__(self, DesignSize, SubfamilyID, RangeStart, RangeEnd,
+                 location=None):
         Statement.__init__(self, location)
         self.DesignSize = DesignSize
         self.SubfamilyID = SubfamilyID
@@ -1126,8 +1229,50 @@ class SizeParameters(Statement):
         return res + ";"
 
 
+class CVParametersNameStatement(NameRecord):
+    def __init__(self, nameID, platformID, platEncID, langID, string,
+                 block_name, location=None):
+        NameRecord.__init__(self, nameID, platformID, platEncID, langID,
+                            string, location=location)
+        self.block_name = block_name
+
+    def build(self, builder):
+        item = ""
+        if self.block_name == "ParamUILabelNameID":
+            item = "_{}".format(builder.cv_num_named_params_.get(self.nameID, 0))
+        builder.add_cv_parameter(self.nameID)
+        self.nameID = (self.nameID, self.block_name + item)
+        NameRecord.build(self, builder)
+
+    def asFea(self, indent=""):
+        plat = simplify_name_attributes(self.platformID, self.platEncID,
+                                        self.langID)
+        if plat != "":
+            plat += " "
+        return "name {}\"{}\";".format(plat, self.string)
+
+
+class CharacterStatement(Statement):
+    """
+    Statement used in cvParameters blocks of Character Variant features (cvXX).
+    The Unicode value may be written with either decimal or hexadecimal
+    notation. The value must be preceded by '0x' if it is a hexadecimal value.
+    The largest Unicode value allowed is 0xFFFFFF.
+    """
+    def __init__(self, character, tag, location=None):
+        Statement.__init__(self, location)
+        self.character = character
+        self.tag = tag
+
+    def build(self, builder):
+        builder.add_cv_character(self.character, self.tag)
+
+    def asFea(self, indent=""):
+        return "Character {:#x};".format(self.character)
+
+
 class BaseAxis(Statement):
-    def __init__(self, location, bases, scripts, vertical):
+    def __init__(self, bases, scripts, vertical, location=None):
         Statement.__init__(self, location)
         self.bases = bases
         self.scripts = scripts
@@ -1144,7 +1289,7 @@ class BaseAxis(Statement):
 
 
 class OS2Field(Statement):
-    def __init__(self, location, key, value):
+    def __init__(self, key, value, location=None):
         Statement.__init__(self, location)
         self.key = key
         self.value = value
@@ -1169,7 +1314,7 @@ class OS2Field(Statement):
 
 
 class HheaField(Statement):
-    def __init__(self, location, key, value):
+    def __init__(self, key, value, location=None):
         Statement.__init__(self, location)
         self.key = key
         self.value = value
@@ -1184,7 +1329,7 @@ class HheaField(Statement):
 
 
 class VheaField(Statement):
-    def __init__(self, location, key, value):
+    def __init__(self, key, value, location=None):
         Statement.__init__(self, location)
         self.key = key
         self.value = value

@@ -29,6 +29,7 @@ from fontTools.ttLib.tables._g_l_y_f import GlyphCoordinates
 from fontTools.ttLib.tables.ttProgram import Program
 from fontTools.ttLib.tables.TupleVariation import TupleVariation
 from fontTools.ttLib.tables import otTables as ot
+from fontTools.ttLib.tables.otBase import OTTableWriter
 from fontTools.varLib import builder, designspace, models, varStore
 from fontTools.varLib.merger import VariationMerger, _all_equal
 from fontTools.varLib.mvar import MVAR_ENTRIES
@@ -168,20 +169,25 @@ def _add_avar(font, axes):
 	return avar
 
 def _add_stat(font, axes):
+	# for now we just get the axis tags and nameIDs from the fvar,
+	# so we can reuse the same nameIDs which were defined in there.
+	# TODO make use of 'axes' once it adds style attributes info:
+	# https://github.com/LettError/designSpaceDocument/issues/8
 
-	nameTable = font['name']
+	if "STAT" in font:
+            return
 
-	assert "STAT" not in font
+	fvarTable = font['fvar']
+
 	STAT = font["STAT"] = newTable('STAT')
 	stat = STAT.table = ot.STAT()
-	stat.Version = 0x00010000
+	stat.Version = 0x00010002
 
 	axisRecords = []
-	for i,a in enumerate(axes.values()):
+	for i, a in enumerate(fvarTable.axes):
 		axis = ot.AxisRecord()
-		axis.AxisTag = Tag(a.tag)
-		# Meh. Reuse fvar nameID!
-		axis.AxisNameID = nameTable.addName(tounicode(a.labelname['en']))
+		axis.AxisTag = Tag(a.axisTag)
+		axis.AxisNameID = a.axisNameID
 		axis.AxisOrdering = i
 		axisRecords.append(axis)
 
@@ -191,6 +197,10 @@ def _add_stat(font, axes):
 	stat.DesignAxisRecordSize = 8
 	stat.DesignAxisCount = len(axisRecords)
 	stat.DesignAxisRecord = axisRecordArray
+
+	# for the elided fallback name, we default to the base style name.
+	# TODO make this user-configurable via designspace document
+	stat.ElidedFallbackNameID = 2
 
 # TODO Move to glyf or gvar table proper
 def _GetCoordinates(font, glyphName):
@@ -259,6 +269,10 @@ def _SetCoordinates(font, glyphName, coord):
 	glyph.recalcBounds(glyf)
 
 	horizontalAdvanceWidth = round(rightSideX - leftSideX)
+	if horizontalAdvanceWidth < 0:
+		# unlikely, but it can happen, see:
+		# https://github.com/fonttools/fonttools/pull/1198
+		horizontalAdvanceWidth = 0
 	leftSideBearing = round(glyph.xMin - leftSideX)
 	# XXX Handle vertical
 	font["hmtx"].metrics[glyphName] = horizontalAdvanceWidth, leftSideBearing
@@ -414,44 +428,56 @@ def _add_HVAR(font, model, master_ttfs, axisTags):
 		# TODO move round somewhere else?
 		hAdvanceDeltas[glyph] = tuple(round(d) for d in model.getDeltas(hAdvances)[1:])
 
-	# We only support the direct mapping right now.
-
+	# Direct mapping
 	supports = model.supports[1:]
 	varTupleList = builder.buildVarRegionList(supports, axisTags)
 	varTupleIndexes = list(range(len(supports)))
 	n = len(supports)
 	items = []
-	zeroes = [0]*n
 	for glyphName in font.getGlyphOrder():
-		items.append(hAdvanceDeltas.get(glyphName, zeroes))
-	while items and items[-1] is zeroes:
-		del items[-1]
+		items.append(hAdvanceDeltas[glyphName])
 
-	advanceMapping = None
-	# Add indirect mapping to save on duplicates
-	uniq = set(items)
-	# TODO Improve heuristic
-	if (len(items) - len(uniq)) * len(varTupleIndexes) > len(items):
-		newItems = sorted(uniq)
-		mapper = {v:i for i,v in enumerate(newItems)}
-		mapping = [mapper[item] for item in items]
-		while len(mapping) > 1 and mapping[-1] == mapping[-2]:
-			del mapping[-1]
-		advanceMapping = builder.buildVarIdxMap(mapping)
-		items = newItems
-		del mapper, mapping, newItems
-	del uniq
+	# Build indirect mapping to save on duplicates, compare both sizes
+	uniq = list(set(items))
+	mapper = {v:i for i,v in enumerate(uniq)}
+	mapping = [mapper[item] for item in items]
+	advanceMapping = builder.buildVarIdxMap(mapping, font.getGlyphOrder())
 
+	# Direct
 	varData = builder.buildVarData(varTupleIndexes, items)
-	varstore = builder.buildVarStore(varTupleList, [varData])
+	directStore = builder.buildVarStore(varTupleList, [varData])
 
+	# Indirect
+	varData = builder.buildVarData(varTupleIndexes, uniq)
+	indirectStore = builder.buildVarStore(varTupleList, [varData])
+	mapping = indirectStore.optimize()
+	advanceMapping.mapping = {k:mapping[v] for k,v in advanceMapping.mapping.items()}
+
+	# Compile both, see which is more compact
+
+	writer = OTTableWriter()
+	directStore.compile(writer, font)
+	directSize = len(writer.getAllData())
+
+	writer = OTTableWriter()
+	indirectStore.compile(writer, font)
+	advanceMapping.compile(writer, font)
+	indirectSize = len(writer.getAllData())
+
+	use_direct = directSize < indirectSize
+
+	# Done; put it all together.
 	assert "HVAR" not in font
 	HVAR = font["HVAR"] = newTable('HVAR')
 	hvar = HVAR.table = ot.HVAR()
 	hvar.Version = 0x00010000
-	hvar.VarStore = varstore
-	hvar.AdvWidthMap = advanceMapping
 	hvar.LsbMap = hvar.RsbMap = None
+	if use_direct:
+		hvar.VarStore = directStore
+		hvar.AdvWidthMap = None
+	else:
+		hvar.VarStore = indirectStore
+		hvar.AdvWidthMap = advanceMapping
 
 def _add_MVAR(font, model, master_ttfs, axisTags):
 
@@ -494,11 +520,17 @@ def _add_MVAR(font, model, master_ttfs, axisTags):
 
 	assert "MVAR" not in font
 	if records:
+		store = store_builder.finish()
+		# Optimize
+		mapping = store.optimize()
+		for rec in records:
+			rec.VarIdx = mapping[rec.VarIdx]
+
 		MVAR = font["MVAR"] = newTable('MVAR')
 		mvar = MVAR.table = ot.MVAR()
 		mvar.Version = 0x00010000
 		mvar.Reserved = 0
-		mvar.VarStore = store_builder.finish()
+		mvar.VarStore = store
 		# XXX these should not be hard-coded but computed automatically
 		mvar.ValueRecordSize = 8
 		mvar.ValueRecordCount = len(records)
@@ -511,7 +543,11 @@ def _merge_OTL(font, model, master_fonts, axisTags):
 	merger = VariationMerger(model, axisTags, font)
 
 	merger.mergeTables(font, master_fonts, ['GPOS'])
+	# TODO Merge GSUB
+	# TODO Merge GDEF itself!
 	store = merger.store_builder.finish()
+	if not store.VarData:
+		return
 	try:
 		GDEF = font['GDEF'].table
 		assert GDEF.Version <= 0x00010002
@@ -521,6 +557,12 @@ def _merge_OTL(font, model, master_fonts, axisTags):
 		GDEF = GDEFTable.table = ot.GDEF()
 	GDEF.Version = 0x00010003
 	GDEF.VarStore = store
+
+	# Optimize
+	varidx_map = store.optimize()
+	GDEF.remap_device_varidxes(varidx_map)
+	if 'GPOS' in font:
+		font['GPOS'].table.remap_device_varidxes(varidx_map)
 
 
 
@@ -679,7 +721,7 @@ def load_designspace(designspace_filename):
 	return axes, internal_axis_supports, base_idx, normalized_master_locs, masters, instances
 
 
-def build(designspace_filename, master_finder=lambda s:s):
+def build(designspace_filename, master_finder=lambda s:s, exclude=[], optimize=True):
 	"""
 	Build variation font from a designspace file.
 
@@ -700,8 +742,10 @@ def build(designspace_filename, master_finder=lambda s:s):
 
 	# TODO append masters as named-instances as well; needs .designspace change.
 	fvar = _add_fvar(vf, axes, instances)
-	_add_stat(vf, axes)
-	_add_avar(vf, axes)
+	if 'STAT' not in exclude:
+		_add_stat(vf, axes)
+	if 'avar' not in exclude:
+		_add_avar(vf, axes)
 	del instances
 
 	# Map from axis names to axis tags...
@@ -715,14 +759,41 @@ def build(designspace_filename, master_finder=lambda s:s):
 	assert 0 == model.mapping[base_idx]
 
 	log.info("Building variations tables")
-	_add_MVAR(vf, model, master_fonts, axisTags)
-	_add_HVAR(vf, model, master_fonts, axisTags)
-	_merge_OTL(vf, model, master_fonts, axisTags)
-	if 'glyf' in vf:
-		_add_gvar(vf, model, master_fonts)
+	if 'MVAR' not in exclude:
+		_add_MVAR(vf, model, master_fonts, axisTags)
+	if 'HVAR' not in exclude:
+		_add_HVAR(vf, model, master_fonts, axisTags)
+	if 'GDEF' not in exclude or 'GPOS' not in exclude:
+		_merge_OTL(vf, model, master_fonts, axisTags)
+	if 'gvar' not in exclude and 'glyf' in vf:
+		_add_gvar(vf, model, master_fonts, optimize=optimize)
+	if 'cvar' not in exclude and 'glyf' in vf:
 		_merge_TTHinting(vf, model, master_fonts)
 
+	for tag in exclude:
+		if tag in vf:
+			del vf[tag]
+
 	return vf, model, master_ttfs
+
+
+class MasterFinder(object):
+
+	def __init__(self, template):
+		self.template = template
+
+	def __call__(self, src_path):
+		fullname = os.path.abspath(src_path)
+		dirname, basename = os.path.split(fullname)
+		stem, ext = os.path.splitext(basename)
+		path = self.template.format(
+			fullname=fullname,
+			dirname=dirname,
+			basename=basename,
+			stem=stem,
+			ext=ext,
+		)
+		return os.path.normpath(path)
 
 
 def main(args=None):
@@ -731,16 +802,59 @@ def main(args=None):
 
 	parser = ArgumentParser(prog='varLib')
 	parser.add_argument('designspace')
+	parser.add_argument(
+		'-o',
+		metavar='OUTPUTFILE',
+		dest='outfile',
+		default=None,
+		help='output file'
+	)
+	parser.add_argument(
+		'-x',
+		metavar='TAG',
+		dest='exclude',
+		action='append',
+		default=[],
+		help='exclude table'
+	)
+	parser.add_argument(
+		'--disable-iup',
+		dest='optimize',
+		action='store_false',
+		help='do not perform IUP optimization'
+	)
+	parser.add_argument(
+		'--master-finder',
+		default='master_ttf_interpolatable/{stem}.ttf',
+		help=(
+			'templated string used for finding binary font '
+			'files given the source file names defined in the '
+			'designspace document. The following special strings '
+			'are defined: {fullname} is the absolute source file '
+			'name; {basename} is the file name without its '
+			'directory; {stem} is the basename without the file '
+			'extension; {ext} is the source file extension; '
+			'{dirname} is the directory of the absolute file '
+			'name. The default value is "%(default)s".'
+		)
+	)
 	options = parser.parse_args(args)
 
 	# TODO: allow user to configure logging via command-line options
 	configLogger(level="INFO")
 
 	designspace_filename = options.designspace
-	finder = lambda s: s.replace('master_ufo', 'master_ttf_interpolatable').replace('.ufo', '.ttf')
-	outfile = os.path.splitext(designspace_filename)[0] + '-VF.ttf'
+	finder = MasterFinder(options.master_finder)
+	outfile = options.outfile
+	if outfile is None:
+		outfile = os.path.splitext(designspace_filename)[0] + '-VF.ttf'
 
-	vf, model, master_ttfs = build(designspace_filename, finder)
+	vf, model, master_ttfs = build(
+		designspace_filename,
+		finder,
+		exclude=options.exclude,
+		optimize=options.optimize
+	)
 
 	log.info("Saving variation font %s", outfile)
 	vf.save(outfile)

@@ -42,7 +42,7 @@ class BaseTTXConverter(DefaultTable):
 		self.table.decompile(reader, font)
 
 	def compile(self, font):
-		""" Create a top-level OTFWriter for the GPOS/GSUB table.
+		""" Create a top-level OTTableWriter for the GPOS/GSUB table.
 			Call the compile method for the the table
 				for each 'converter' record in the table converter list
 					call converter's write method for each item in the value.
@@ -283,7 +283,7 @@ class OTTableWriter(object):
 	def __eq__(self, other):
 		if type(self) != type(other):
 			return NotImplemented
-		return self.items == other.items
+		return self.longOffset == other.longOffset and self.items == other.items
 
 	def _doneWriting(self, internedTables):
 		# Convert CountData references to data string items
@@ -610,22 +610,27 @@ class BaseTable(object):
 			if conv.name == "SubStruct":
 				conv = conv.getConverter(reader.tableTag,
 				                         table["MorphType"])
-			if conv.repeat:
-				if isinstance(conv.repeat, int):
-					countValue = conv.repeat
-				elif conv.repeat in table:
-					countValue = table[conv.repeat]
+			try:
+				if conv.repeat:
+					if isinstance(conv.repeat, int):
+						countValue = conv.repeat
+					elif conv.repeat in table:
+						countValue = table[conv.repeat]
+					else:
+						# conv.repeat is a propagated count
+						countValue = reader[conv.repeat]
+					countValue += conv.aux
+					table[conv.name] = conv.readArray(reader, font, table, countValue)
 				else:
-					# conv.repeat is a propagated count
-					countValue = reader[conv.repeat]
-				countValue += conv.aux
-				table[conv.name] = conv.readArray(reader, font, table, countValue)
-			else:
-				if conv.aux and not eval(conv.aux, None, table):
-					continue
-				table[conv.name] = conv.read(reader, font, table)
-				if conv.isPropagated:
-					reader[conv.name] = table[conv.name]
+					if conv.aux and not eval(conv.aux, None, table):
+						continue
+					table[conv.name] = conv.read(reader, font, table)
+					if conv.isPropagated:
+						reader[conv.name] = table[conv.name]
+			except Exception as e:
+				name = conv.name
+				e.args = e.args + (name,)
+				raise
 
 		if hasattr(self, 'postRead'):
 			self.postRead(table, font)
@@ -894,7 +899,8 @@ class ValueRecord(object):
 					setattr(self, name, None if isDevice else 0)
 			if src is not None:
 				for key,val in src.__dict__.items():
-					assert hasattr(self, key)
+					if not hasattr(self, key):
+						continue
 					setattr(self, key, val)
 		elif src is not None:
 			self.__dict__ = src.__dict__.copy()
