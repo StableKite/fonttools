@@ -1,7 +1,7 @@
 Source: fonttools
 Section: devel
 Priority: optional
-Maintainer: Debian Fonts Task Force <pkg-fonts-devel@lists.alioth.debian.org>
+Maintainer: Debian Fonts Task Force <debian-fonts@lists.debian.org>
 Uploaders:
  Luke Faraone <lfaraone@debian.org>,
  Yao Wei (魏銘廷) <mwei@lxde.org>

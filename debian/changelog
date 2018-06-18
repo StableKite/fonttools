@@ -5,6 +5,7 @@ fonttools (3.27.1-1) UNRELEASED; urgency=medium
     - Add Yao Wei (魏銘廷) as uploader
     - Remove deprecated X-Python-Version field
     - Change descriptions of binary packages
+    - Update mailing list address
 
  -- Yao Wei (魏銘廷) <mwei@lxde.org>  Mon, 18 Jun 2018 11:11:59 +0800
 
