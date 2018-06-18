@@ -467,7 +467,7 @@ class CapturingLogHandler(logging.Handler):
 		import re
 		pattern = re.compile(regexp)
 		for r in self.records:
-			if pattern.search(r.msg):
+			if pattern.search(r.getMessage()):
 				return True
 		assert 0, "Pattern '%s' not found in logger records" % regexp
 
@@ -500,8 +500,12 @@ class LogMixin(object):
 
 	@property
 	def log(self):
-		name = ".".join([self.__class__.__module__, self.__class__.__name__])
-		return logging.getLogger(name)
+		if not hasattr(self, "_log"):
+			name = ".".join(
+				(self.__class__.__module__, self.__class__.__name__)
+			)
+			self._log = logging.getLogger(name)
+		return self._log
 
 
 def deprecateArgument(name, msg, category=UserWarning):

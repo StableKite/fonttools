@@ -8,7 +8,7 @@ converter objects from otConverters.py.
 from __future__ import print_function, division, absolute_import, unicode_literals
 from fontTools.misc.py23 import *
 from fontTools.misc.textTools import safeEval
-from .otBase import BaseTable, FormatSwitchingBaseTable
+from .otBase import BaseTable, FormatSwitchingBaseTable, ValueRecord
 import operator
 import logging
 import struct
@@ -482,7 +482,7 @@ class Coverage(FormatSwitchingBaseTable):
 				glyphs.extend(glyphOrder[glyphID] for glyphID in range(startID, endID))
 		else:
 			self.glyphs = []
-			log.warning("Unknown Coverage format: %s" % self.Format)
+			log.warning("Unknown Coverage format: %s", self.Format)
 
 	def preWrite(self, font):
 		glyphs = getattr(self, "glyphs", None)
@@ -546,20 +546,27 @@ class VarIdxMap(BaseTable):
 
 	def populateDefaults(self, propagator=None):
 		if not hasattr(self, 'mapping'):
-			self.mapping = []
+			self.mapping = {}
 
 	def postRead(self, rawTable, font):
 		assert (rawTable['EntryFormat'] & 0xFFC0) == 0
-		self.mapping = rawTable['mapping']
+		glyphOrder = font.getGlyphOrder()
+		mapList = rawTable['mapping']
+		mapList.extend([mapList[-1]] * (len(glyphOrder) - len(mapList)))
+		self.mapping = dict(zip(glyphOrder, mapList))
 
 	def preWrite(self, font):
 		mapping = getattr(self, "mapping", None)
 		if mapping is None:
-			mapping = self.mapping = []
+			mapping = self.mapping = {}
+
+		glyphOrder = font.getGlyphOrder()
+		mapping = [mapping[g] for g in glyphOrder]
+		while len(mapping) > 1 and mapping[-2] == mapping[-1]:
+			del mapping[-1]
+
 		rawTable = { 'mapping': mapping }
 		rawTable['MappingCount'] = len(mapping)
-
-		# TODO Remove this abstraction/optimization and move it varLib.builder?
 
 		ored = 0
 		for idx in mapping:
@@ -589,9 +596,9 @@ class VarIdxMap(BaseTable):
 		return rawTable
 
 	def toXML2(self, xmlWriter, font):
-		for i, value in enumerate(getattr(self, "mapping", [])):
+		for glyph, value in sorted(getattr(self, "mapping", {}).items()):
 			attrs = (
-				('index', i),
+				('glyph', glyph),
 				('outer', value >> 16),
 				('inner', value & 0xFFFF),
 			)
@@ -601,12 +608,16 @@ class VarIdxMap(BaseTable):
 	def fromXML(self, name, attrs, content, font):
 		mapping = getattr(self, "mapping", None)
 		if mapping is None:
-			mapping = []
+			mapping = {}
 			self.mapping = mapping
+		try:
+			glyph = attrs['glyph']
+		except: # https://github.com/fonttools/fonttools/commit/21cbab8ce9ded3356fef3745122da64dcaf314e9#commitcomment-27649836
+			glyph = font.getGlyphOrder()[attrs['index']]
 		outer = safeEval(attrs['outer'])
 		inner = safeEval(attrs['inner'])
 		assert inner <= 0xFFFF
-		mapping.append((outer << 16) | inner)
+		mapping[glyph] = (outer << 16) | inner
 
 
 class SingleSubst(FormatSwitchingBaseTable):
@@ -819,7 +830,7 @@ class ClassDef(FormatSwitchingBaseTable):
 					if cls:
 						classDefs[glyphOrder[glyphID]] = cls
 		else:
-			assert 0, "unknown format: %s" % self.Format
+			log.warning("Unknown ClassDef format: %s", self.Format)
 		self.classDefs = classDefs
 
 	def _getClassRanges(self, font):

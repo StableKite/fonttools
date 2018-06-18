@@ -4,6 +4,7 @@ from fontTools.misc.py23 import *
 
 __all__ = ['normalizeValue', 'normalizeLocation', 'supportScalar', 'VariationModel']
 
+
 def normalizeValue(v, triple):
 	"""Normalizes value based on a min/default/max triple.
 	>>> normalizeValue(400, (100, 400, 900))
@@ -152,12 +153,12 @@ class VariationModel(object):
 	 {0: 1.0},
 	 {0: 1.0},
 	 {0: 1.0, 4: 1.0, 5: 1.0},
-	 {0: 1.0, 3: 0.75, 4: 0.25, 5: 1.0, 6: 0.25},
+	 {0: 1.0, 3: 0.75, 4: 0.25, 5: 1.0, 6: 0.6666666666666666},
 	 {0: 1.0,
 	  3: 0.75,
 	  4: 0.25,
 	  5: 0.6666666666666667,
-	  6: 0.16666666666666669,
+	  6: 0.4444444444444445,
 	  7: 0.6666666666666667}]
 	"""
 
@@ -170,7 +171,7 @@ class VariationModel(object):
 		self.mapping = [self.locations.index(l) for l in locations] # Mapping from user's master order to our master order
 		self.reverseMapping = [locations.index(l) for l in self.locations] # Reverse of above
 
-		self._computeMasterSupports(axisPoints)
+		self._computeMasterSupports(axisPoints, axisOrder)
 
 	@staticmethod
 	def getMasterLocationsSortKeyFunc(locations, axisOrder=[]):
@@ -221,7 +222,7 @@ class VariationModel(object):
 		else:
 			return value
 
-	def _computeMasterSupports(self, axisPoints):
+	def _computeMasterSupports(self, axisPoints, axisOrder):
 		supports = []
 		deltaWeights = []
 		locations = self.locations
@@ -233,7 +234,10 @@ class VariationModel(object):
 				if not axis in loc:
 					continue
 				locV = loc[axis]
-				box[axis] = (self.lowerBound(locV, values), locV, self.upperBound(locV, values))
+				if locV > 0:
+					box[axis] = (0, locV, max({locV}|values))
+				else:
+					box[axis] = (min({locV}|values), locV, 0)
 
 			locAxes = set(loc.keys())
 			# Walk over previous masters now
@@ -244,20 +248,38 @@ class VariationModel(object):
 				# If it's NOT in the current box, it does not participate
 				relevant = True
 				for axis, (lower,_,upper) in box.items():
-					if axis in m and not (lower < m[axis] < upper):
+					if axis not in m or not (lower < m[axis] < upper):
 						relevant = False
 						break
 				if not relevant:
 					continue
-				# Split the box for new master
-				for axis,val in m.items():
+
+				# Split the box for new master; split in whatever direction
+				# that has largest range ratio.  See commit for details.
+				orderedAxes = [axis for axis in axisOrder if axis in m.keys()]
+				orderedAxes.extend([axis for axis in sorted(m.keys()) if axis not in axisOrder])
+				bestAxis = None
+				bestPercentage = -1
+				for axis in orderedAxes:
+					val = m[axis]
 					assert axis in box
 					lower,locV,upper = box[axis]
+					newLower, newUpper = lower, upper
 					if val < locV:
-						lower = val
+						newLower = val
+						percentage = (val - locV) / (lower - locV)
 					elif locV < val:
-						upper = val
-					box[axis] = (lower,locV,upper)
+						newUpper = val
+						percentage = (val - locV) / (upper - locV)
+					if percentage > bestPercentage:
+						bestPercentage = percentage
+						bestAxis = axis
+						bestLower = newLower
+						bestUpper = newUpper
+						bestLocV = locV
+
+				if bestAxis:
+					box[bestAxis] = (bestLower,bestLocV,bestUpper)
 			supports.append(box)
 
 			deltaWeight = {}
@@ -311,6 +333,28 @@ class VariationModel(object):
 		return self.interpolateFromDeltasAndScalars(deltas, scalars)
 
 
+def main(args):
+	from fontTools import configLogger
+
+	args = args[1:]
+
+	# TODO: allow user to configure logging via command-line options
+	configLogger(level="INFO")
+
+	axes = [chr(c) for c in range(ord('A'), ord('Z')+1)]
+
+	locs = [dict(zip(axes, (float(v) for v in s.split(',')))) for s in args]
+	model = VariationModel(locs)
+	from pprint import pprint
+	print("Sorted locations:")
+	pprint(model.locations)
+	print("Supports:")
+	pprint(model.supports)
+
 if __name__ == "__main__":
 	import doctest, sys
+
+	if len(sys.argv) > 1:
+		sys.exit(main(sys.argv))
+
 	sys.exit(doctest.testmod().failed)

@@ -1,6 +1,7 @@
 from __future__ import print_function, division, absolute_import
 from __future__ import unicode_literals
 from fontTools.misc.py23 import *
+from fontTools.misc.loggingTools import CapturingLogHandler
 from fontTools.feaLib.builder import Builder, addOpenTypeFeatures, \
         addOpenTypeFeaturesFromString
 from fontTools.feaLib.error import FeatureLibError
@@ -13,6 +14,7 @@ import os
 import shutil
 import sys
 import tempfile
+import logging
 import unittest
 
 
@@ -59,7 +61,7 @@ class BuilderTest(unittest.TestCase):
         spec4h1 spec4h2 spec5d1 spec5d2 spec5fi1 spec5fi2 spec5fi3 spec5fi4
         spec5f_ii_1 spec5f_ii_2 spec5f_ii_3 spec5f_ii_4
         spec5h1 spec6b_ii spec6d2 spec6e spec6f
-        spec6h_ii spec6h_iii_1 spec6h_iii_3d spec8a spec8b spec8c
+        spec6h_ii spec6h_iii_1 spec6h_iii_3d spec8a spec8b spec8c spec8d
         spec9a spec9b spec9c1 spec9c2 spec9c3 spec9d spec9e spec9f spec9g
         spec10
         bug453 bug457 bug463 bug501 bug502 bug504 bug505 bug506 bug509
@@ -121,9 +123,9 @@ class BuilderTest(unittest.TestCase):
                 sys.stderr.write(line)
             self.fail("TTX output is different from expected")
 
-    def build(self, featureFile):
+    def build(self, featureFile, tables=None):
         font = makeTTFont()
-        addOpenTypeFeaturesFromString(font, featureFile)
+        addOpenTypeFeaturesFromString(font, featureFile, tables=tables)
         return font
 
     def check_feature_file(self, name):
@@ -196,16 +198,29 @@ class BuilderTest(unittest.TestCase):
             "    sub f_f_i by f f i;"
             "} test;")
 
-    def test_pairPos_redefinition(self):
-        self.assertRaisesRegex(
-            FeatureLibError,
-            r"Already defined position for pair A B "
-            "at .*:2:[0-9]+",  # :2: = line 2
-            self.build,
-            "feature test {\n"
-            "    pos A B 123;\n"  # line 2
-            "    pos A B 456;\n"
-            "} test;\n")
+    def test_pairPos_redefinition_warning(self):
+        # https://github.com/fonttools/fonttools/issues/1147
+        logger = logging.getLogger("fontTools.feaLib.builder")
+        with CapturingLogHandler(logger, "WARNING") as captor:
+            # the pair "yacute semicolon" is redefined in the enum pos
+            font = self.build(
+                "@Y_LC = [y yacute ydieresis];"
+                "@SMALL_PUNC = [comma semicolon period];"
+                "feature kern {"
+                "  pos yacute semicolon -70;"
+                "  enum pos @Y_LC semicolon -80;"
+                "  pos @Y_LC @SMALL_PUNC -100;"
+                "} kern;")
+
+        captor.assertRegex("Already defined position for pair yacute semicolon")
+
+        # the first definition prevails: yacute semicolon -70
+        st = font["GPOS"].table.LookupList.Lookup[0].SubTable[0]
+        self.assertEqual(st.Coverage.glyphs[2], "yacute")
+        self.assertEqual(st.PairSet[2].PairValueRecord[0].SecondGlyph,
+                         "semicolon")
+        self.assertEqual(vars(st.PairSet[2].PairValueRecord[0].Value1),
+                         {"XAdvance": -70})
 
     def test_singleSubst_multipleSubstitutionsForSameGlyph(self):
         self.assertRaisesRegex(
@@ -423,7 +438,8 @@ class BuilderTest(unittest.TestCase):
                         m = self.expect_markClass_reference_()
                         marks.append(m)
                 self.expect_symbol_(";")
-                return self.ast.MarkBasePosStatement(location, base, marks)
+                return self.ast.MarkBasePosStatement(base, marks,
+                                                     location=location)
 
             def parseBaseClass(self):
                 if not hasattr(self.doc_, 'baseClasses'):
@@ -438,7 +454,8 @@ class BuilderTest(unittest.TestCase):
                     baseClass = ast_BaseClass(name)
                     self.doc_.baseClasses[name] = baseClass
                     self.glyphclasses_.define(name, baseClass)
-                bcdef = ast_BaseClassDefinition(location, baseClass, anchor, glyphs)
+                bcdef = ast_BaseClassDefinition(baseClass, anchor, glyphs,
+                                                location=location)
                 baseClass.addDefinition(bcdef)
                 return bcdef
 
@@ -468,6 +485,24 @@ class BuilderTest(unittest.TestCase):
             "    markClass [uni0327] <anchor 0 0> @cedilla;"
             "    pos base [a] <anchor 244 0> mark @cedilla;"
             "} mark;")
+
+    def test_build_specific_tables(self):
+        features = "feature liga {sub f i by f_i;} liga;"
+        font = self.build(features)
+        assert "GSUB" in font
+
+        font2 = self.build(features, tables=set())
+        assert "GSUB" not in font2
+
+    def test_build_unsupported_tables(self):
+        self.assertRaises(AssertionError, self.build, "", tables={"FOO"})
+
+    def test_build_pre_parsed_ast_featurefile(self):
+        f = UnicodeIO("feature liga {sub f i by f_i;} liga;")
+        tree = Parser(f).parse()
+        font = makeTTFont()
+        addOpenTypeFeatures(font, tree)
+        assert "GSUB" in font
 
 
 def generate_feature_file_test(name):

@@ -38,6 +38,10 @@ usage: ttx [options] inputfile1 [... inputfileN]
        to the individual table dumps. This file can be used as
        input to ttx, as long as the table files are in the
        same directory.
+    -g Split glyf table: Save the glyf data into separate TTX files
+       per glyph and write a small TTX for the glyf table which
+       contains references to the individual TTGlyph elements.
+       NOTE: specifying -g implies -s (no need for -s together with -g)
     -i Do NOT disassemble TT instructions: when this option is given,
        all TrueType programs (glyph programs, the font program and the
        pre-program) will be written to the TTX file as hex data
@@ -110,6 +114,7 @@ class Options(object):
 	verbose = False
 	quiet = False
 	splitTables = False
+	splitGlyphs = False
 	disassembleInstructions = True
 	mergeFile = None
 	recalcBBoxes = True
@@ -160,6 +165,10 @@ class Options(object):
 				self.skipTables.append(value)
 			elif option == "-s":
 				self.splitTables = True
+			elif option == "-g":
+				# -g implies (and forces) splitTables
+				self.splitGlyphs = True
+				self.splitTables = True
 			elif option == "-i":
 				self.disassembleInstructions = False
 			elif option == "-z":
@@ -209,7 +218,6 @@ class Options(object):
 			self.logLevel = logging.INFO
 		if self.mergeFile and self.flavor:
 			raise getopt.GetoptError("-m and --flavor options are mutually exclusive")
-			sys.exit(2)
 		if self.onlyTables and self.skipTables:
 			raise getopt.GetoptError("-t and -x options are mutually exclusive")
 		if self.mergeFile and numFiles > 1:
@@ -223,9 +231,9 @@ def ttList(input, output, options):
 	reader = ttf.reader
 	tags = sorted(reader.keys())
 	print('Listing table info for "%s":' % input)
-	format = "    %4s  %10s  %7s  %7s"
-	print(format % ("tag ", "  checksum", " length", " offset"))
-	print(format % ("----", "----------", "-------", "-------"))
+	format = "    %4s  %10s  %8s  %8s"
+	print(format % ("tag ", "  checksum", "  length", "  offset"))
+	print(format % ("----", "----------", "--------", "--------"))
 	for tag in tags:
 		entry = reader.tables[tag]
 		if ttf.flavor == "woff2":
@@ -255,6 +263,7 @@ def ttDump(input, output, options):
 			tables=options.onlyTables,
 			skipTables=options.skipTables,
 			splitTables=options.splitTables,
+			splitGlyphs=options.splitGlyphs,
 			disassembleInstructions=options.disassembleInstructions,
 			bitmapGlyphDataFormat=options.bitmapGlyphDataFormat,
 			newlinestr=options.newlinestr)
@@ -318,7 +327,7 @@ def guessFileType(fileName):
 
 
 def parseOptions(args):
-	rawOptions, files = getopt.getopt(args, "ld:o:fvqht:x:sim:z:baey:",
+	rawOptions, files = getopt.getopt(args, "ld:o:fvqht:x:sgim:z:baey:",
 			['unicodedata=', "recalc-timestamp", 'flavor=', 'version',
 			 'with-zopfli', 'newline='])
 

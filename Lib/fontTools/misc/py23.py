@@ -6,7 +6,8 @@ import sys
 
 __all__ = ['basestring', 'unicode', 'unichr', 'byteord', 'bytechr', 'BytesIO',
 		'StringIO', 'UnicodeIO', 'strjoin', 'bytesjoin', 'tobytes', 'tostr',
-		'tounicode', 'Tag', 'open', 'range', 'xrange', 'round', 'Py23Error']
+		'tounicode', 'Tag', 'open', 'range', 'xrange', 'round', 'Py23Error',
+		'SimpleNamespace']
 
 
 class Py23Error(NotImplementedError):
@@ -147,7 +148,7 @@ else:
 
 		@staticmethod
 		def transcode(blob):
-			if not isinstance(blob, str):
+			if isinstance(blob, bytes):
 				blob = blob.decode('latin-1')
 			return blob
 
@@ -249,7 +250,7 @@ def open(file, mode='r', buffering=-1, encoding=None, errors=None,
 			file, mode, buffering, encoding, errors, newline, closefd)
 
 
-# always use iterator for 'range' on both py 2 and 3
+# always use iterator for 'range' and 'zip' on both py 2 and 3
 try:
 	range = xrange
 except NameError:
@@ -257,6 +258,11 @@ except NameError:
 
 def xrange(*args, **kwargs):
 	raise Py23Error("'xrange' is not defined. Use 'range' instead.")
+
+try:
+	from itertools import izip as zip
+except ImportError:
+	zip = zip
 
 
 import math as _math
