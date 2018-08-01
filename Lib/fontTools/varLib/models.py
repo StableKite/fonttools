@@ -184,7 +184,9 @@ class VariationModel(object):
 			value = loc[axis]
 			if axis not in axisPoints:
 				axisPoints[axis] = {0.}
-			assert value not in axisPoints[axis]
+			assert value not in axisPoints[axis], (
+				'Value "%s" in axisPoints["%s"] -->  %s' % (value, axis, axisPoints)
+			)
 			axisPoints[axis].add(value)
 
 		def getKey(axisPoints, axisOrder):
@@ -230,6 +232,7 @@ class VariationModel(object):
 			box = {}
 
 			# Account for axisPoints first
+			# TODO Use axis min/max instead? Isn't that always -1/+1?
 			for axis,values in axisPoints.items():
 				if not axis in loc:
 					continue
@@ -247,8 +250,8 @@ class VariationModel(object):
 					continue
 				# If it's NOT in the current box, it does not participate
 				relevant = True
-				for axis, (lower,_,upper) in box.items():
-					if axis not in m or not (lower < m[axis] < upper):
+				for axis, (lower,peak,upper) in box.items():
+					if axis not in m or not (m[axis] == peak or lower < m[axis] < upper):
 						relevant = False
 						break
 				if not relevant:
@@ -259,7 +262,7 @@ class VariationModel(object):
 				orderedAxes = [axis for axis in axisOrder if axis in m.keys()]
 				orderedAxes.extend([axis for axis in sorted(m.keys()) if axis not in axisOrder])
 				bestAxis = None
-				bestPercentage = -1
+				bestRatio = -1
 				for axis in orderedAxes:
 					val = m[axis]
 					assert axis in box
@@ -267,12 +270,15 @@ class VariationModel(object):
 					newLower, newUpper = lower, upper
 					if val < locV:
 						newLower = val
-						percentage = (val - locV) / (lower - locV)
+						ratio = (val - locV) / (lower - locV)
 					elif locV < val:
 						newUpper = val
-						percentage = (val - locV) / (upper - locV)
-					if percentage > bestPercentage:
-						bestPercentage = percentage
+						ratio = (val - locV) / (upper - locV)
+					else: # val == locV
+						# Can't split box in this direction.
+						continue
+					if ratio > bestRatio:
+						bestRatio = ratio
 						bestAxis = axis
 						bestLower = newLower
 						bestUpper = newUpper
@@ -341,11 +347,29 @@ def main(args):
 	# TODO: allow user to configure logging via command-line options
 	configLogger(level="INFO")
 
-	axes = [chr(c) for c in range(ord('A'), ord('Z')+1)]
+	if len(args) < 1:
+		print("usage: fonttools varLib.models source.designspace", file=sys.stderr)
+		print("  or")
+		print("usage: fonttools varLib.models location1 location2 ...", file=sys.stderr)
+		sys.exit(1)
 
-	locs = [dict(zip(axes, (float(v) for v in s.split(',')))) for s in args]
-	model = VariationModel(locs)
 	from pprint import pprint
+
+	if len(args) == 1 and args[0].endswith('.designspace'):
+		from fontTools.designspaceLib import DesignSpaceDocument
+		doc = DesignSpaceDocument()
+		doc.read(args[0])
+		locs = [s.location for s in doc.sources]
+		print("Original locations:")
+		pprint(locs)
+		doc.normalize()
+		print("Normalized locations:")
+		pprint(locs)
+	else:
+		axes = [chr(c) for c in range(ord('A'), ord('Z')+1)]
+		locs = [dict(zip(axes, (float(v) for v in s.split(',')))) for s in args]
+
+	model = VariationModel(locs)
 	print("Sorted locations:")
 	pprint(model.locations)
 	print("Supports:")

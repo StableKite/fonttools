@@ -59,6 +59,7 @@ class Builder(object):
         self.lookupflag_ = 0
         self.lookupflag_markFilterSet_ = None
         self.language_systems = set()
+        self.seen_non_DFLT_script_ = False
         self.named_lookups_ = {}
         self.cur_lookup_ = None
         self.cur_lookup_name_ = None
@@ -289,10 +290,14 @@ class Builder(object):
             else:
                 params.SubfamilyNameID = 0
         elif tag in self.featureNames_:
-            assert tag in self.featureNames_ids_
-            params = otTables.FeatureParamsStylisticSet()
-            params.Version = 0
-            params.UINameID = self.featureNames_ids_[tag]
+            if not self.featureNames_ids_:
+                # name table wasn't selected among the tables to build; skip
+                pass
+            else:
+                assert tag in self.featureNames_ids_
+                params = otTables.FeatureParamsStylisticSet()
+                params.Version = 0
+                params.UINameID = self.featureNames_ids_[tag]
         elif tag in self.cv_parameters_:
             params = otTables.FeatureParamsCharacterVariants()
             params.Format = 0
@@ -616,6 +621,15 @@ class Builder(object):
             raise FeatureLibError(
                 'If "languagesystem DFLT dflt" is present, it must be '
                 'the first of the languagesystem statements', location)
+        if script == "DFLT":
+            if self.seen_non_DFLT_script_:
+                raise FeatureLibError(
+                    'languagesystems using the "DFLT" script tag must '
+                    "precede all other languagesystems",
+                    location
+                )
+        else:
+            self.seen_non_DFLT_script_ = True
         if (script, language) in self.default_language_systems_:
             raise FeatureLibError(
                 '"languagesystem %s %s" has already been specified' %
@@ -688,9 +702,6 @@ class Builder(object):
             raise FeatureLibError(
                 "Language statements are not allowed "
                 "within \"feature %s\"" % self.cur_feature_name_, location)
-        if language != 'dflt' and self.script_ == 'DFLT':
-            raise FeatureLibError("Need non-DFLT script when using non-dflt "
-                                  "language (was: \"%s\")" % language, location)
         self.cur_lookup_ = None
 
         key = (self.script_, language, self.cur_feature_name_)
@@ -707,12 +718,7 @@ class Builder(object):
                 if key[:2] in self.get_default_language_systems_():
                     lookups = [l for l in lookups if l not in dflt_lookups]
                 self.features_.setdefault(key, []).extend(lookups)
-        if self.script_ == 'DFLT':
-            langsys = set(self.get_default_language_systems_())
-        else:
-            langsys = set()
-        langsys.add((self.script_, language))
-        self.language_systems = frozenset(langsys)
+        self.language_systems = frozenset([(self.script_, language)])
 
         if required:
             key = (self.script_, language)
@@ -996,6 +1002,16 @@ class Builder(object):
                            glyphclass2, value2):
         lookup = self.get_lookup_(location, PairPosBuilder)
         lookup.addClassPair(location, glyphclass1, value1, glyphclass2, value2)
+
+    def add_subtable_break(self, location):
+        if type(self.cur_lookup_) is not PairPosBuilder:
+            raise FeatureLibError(
+                'explicit "subtable" statement is intended for use with only '
+                "Pair Adjustment Positioning Format 2 (i.e. pair class kerning)",
+                location
+            )
+        lookup = self.get_lookup_(location, PairPosBuilder)
+        lookup.add_subtable_break(location)
 
     def add_specific_pair_pos(self, location, glyph1, value1, glyph2, value2):
         lookup = self.get_lookup_(location, PairPosBuilder)
@@ -1487,6 +1503,7 @@ class ClassPairPosSubtableBuilder(object):
         st = otl.buildPairPosClassesSubtable(self.values_,
                                              self.builder_.glyphMap)
         self.subtables_.append(st)
+        self.forceSubtableBreak_ = False
 
 
 class PairPosBuilder(LookupBuilder):

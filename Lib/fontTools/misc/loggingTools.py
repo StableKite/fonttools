@@ -431,8 +431,8 @@ class ChannelsFilter(logging.Filter):
 
 class CapturingLogHandler(logging.Handler):
 	def __init__(self, logger, level):
+		super(CapturingLogHandler, self).__init__(level=level)
 		self.records = []
-		self.level = logging._checkLevel(level)
 		if isinstance(logger, basestring):
 			self.logger = logging.getLogger(logger)
 		else:
@@ -441,27 +441,25 @@ class CapturingLogHandler(logging.Handler):
 	def __enter__(self):
 		self.original_disabled = self.logger.disabled
 		self.original_level = self.logger.level
+		self.original_propagate = self.logger.propagate
 
 		self.logger.addHandler(self)
-		self.logger.level = self.level
+		self.logger.setLevel(self.level)
 		self.logger.disabled = False
+		self.logger.propagate = False
 
 		return self
 
 	def __exit__(self, type, value, traceback):
 		self.logger.removeHandler(self)
-		self.logger.level = self.original_level
-		self.logger.disabled = self.logger.disabled
+		self.logger.setLevel(self.original_level)
+		self.logger.disabled = self.original_disabled
+		self.logger.propagate = self.original_propagate
+
 		return self
 
-	def handle(self, record):
-		self.records.append(record)
-
 	def emit(self, record):
-		pass
-
-	def createLock(self):
-		self.lock = None
+		self.records.append(record)
 
 	def assertRegex(self, regexp):
 		import re
@@ -525,6 +523,67 @@ def deprecateFunction(msg, category=UserWarning):
 			return func(*args, **kwargs)
 		return wrapper
 	return decorator
+
+
+class LastResortLogger(logging.Logger):
+	""" Adds support for 'lastResort' handler introduced in Python 3.2.
+	It allows to print messages to sys.stderr even when no explicit handler
+	was configured.
+	To enable it, you can do:
+
+		import logging
+		logging.lastResort = StderrHandler(logging.WARNING)
+		logging.setLoggerClass(LastResortLogger)
+	"""
+
+	def callHandlers(self, record):
+		# this is the same as Python 3.5's logging.Logger.callHandlers
+		c = self
+		found = 0
+		while c:
+			for hdlr in c.handlers:
+				found = found + 1
+				if record.levelno >= hdlr.level:
+					hdlr.handle(record)
+			if not c.propagate:
+				c = None  # break out
+			else:
+				c = c.parent
+		if found == 0:
+			if logging.lastResort:
+				if record.levelno >= logging.lastResort.level:
+					logging.lastResort.handle(record)
+			elif (
+				logging.raiseExceptions
+				and not self.manager.emittedNoHandlerWarning
+			):
+				sys.stderr.write(
+					"No handlers could be found for logger"
+					' "%s"\n' % self.name
+				)
+				self.manager.emittedNoHandlerWarning = True
+
+
+class StderrHandler(logging.StreamHandler):
+	""" This class is like a StreamHandler using sys.stderr, but always uses
+	whateve sys.stderr is currently set to rather than the value of
+	sys.stderr at handler construction time.
+	"""
+
+	def __init__(self, level=logging.NOTSET):
+		"""
+		Initialize the handler.
+		"""
+		logging.Handler.__init__(self, level)
+
+	@property
+	def stream(self):
+		# the try/execept avoids failures during interpreter shutdown, when
+		# globals are set to None
+		try:
+			return sys.stderr
+		except AttributeError:
+			return __import__("sys").stderr
 
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@
 
 from __future__ import print_function, division, absolute_import
 from fontTools.misc.py23 import *
+from fontTools.misc.fixedTools import otRound
 from fontTools import ttLib
 from fontTools.ttLib.tables import otTables
 from fontTools.misc import psCharStrings
@@ -1153,18 +1154,18 @@ def closure_glyphs(self, s, cur_glyphs=None):
 		cur_glyphs = frozenset(s.glyphs)
 
 	# Memoize
-	if (id(self), cur_glyphs) in s._doneLookups:
+	key = id(self)
+	doneLookups = s._doneLookups
+	count,covered = doneLookups.get(key, (0, None))
+	if count != len(s.glyphs):
+		count,covered = doneLookups[key] = (len(s.glyphs), set())
+	if cur_glyphs.issubset(covered):
 		return
-	s._doneLookups.add((id(self), cur_glyphs))
+	covered.update(cur_glyphs)
 
-	if self in s._activeLookups:
-		raise Exception("Circular loop in lookup recursion")
-	s._activeLookups.append(self)
 	for st in self.SubTable:
 		if not st: continue
 		st.closure_glyphs(s, cur_glyphs)
-	assert(s._activeLookups[-1] == self)
-	del s._activeLookups[-1]
 
 @_add_method(otTables.Lookup)
 def subset_glyphs(self, s):
@@ -1394,17 +1395,16 @@ def closure_glyphs(self, s):
 		lookup_indices += self.table.FeatureVariations.collect_lookups(feature_indices)
 	lookup_indices = _uniq_sort(lookup_indices)
 	if self.table.LookupList:
+		s._doneLookups = {}
 		while True:
 			orig_glyphs = frozenset(s.glyphs)
-			s._activeLookups = []
-			s._doneLookups = set()
 			for i in lookup_indices:
 				if i >= self.table.LookupList.LookupCount: continue
 				if not self.table.LookupList.Lookup[i]: continue
 				self.table.LookupList.Lookup[i].closure_glyphs(s)
-			del s._activeLookups, s._doneLookups
 			if orig_glyphs == s.glyphs:
 				break
+		del s._doneLookups
 	del s.table
 
 @_add_method(ttLib.getTableClass('GSUB'),
@@ -3071,7 +3071,7 @@ class Subsetter(object):
 					log.info("%s Unicode ranges pruned: %s", tag, sorted(new_uniranges))
 				if self.options.recalc_average_width:
 					widths = [m[0] for m in font["hmtx"].metrics.values() if m[0] > 0]
-					avg_width = round(sum(widths) / len(widths))
+					avg_width = otRound(sum(widths) / len(widths))
 					if avg_width != font[tag].xAvgCharWidth:
 						font[tag].xAvgCharWidth = avg_width
 						log.info("%s xAvgCharWidth updated: %d", tag, avg_width)
@@ -3137,8 +3137,6 @@ def load_font(fontFile,
 
 @timer("compile and save font")
 def save_font(font, outfile, options):
-	if options.flavor and not hasattr(font, 'flavor'):
-		raise Exception("fonttools version does not support flavors.")
 	if options.with_zopfli and options.flavor == "woff":
 		from fontTools.ttLib import sfnt
 		sfnt.USE_ZOPFLI = True
@@ -3215,8 +3213,7 @@ def main(args=None):
 	args = args[1:]
 
 	subsetter = Subsetter(options=options)
-	basename, extension = splitext(fontfile)
-	outfile = basename + '.subset' + extension
+	outfile = None
 	glyphs = []
 	gids = []
 	unicodes = []
@@ -3267,6 +3264,14 @@ def main(args=None):
 
 	dontLoadGlyphNames = not options.glyph_names and not glyphs
 	font = load_font(fontfile, options, dontLoadGlyphNames=dontLoadGlyphNames)
+
+	if outfile is None:
+		basename, _ = splitext(fontfile)
+		if options.flavor is not None:
+			ext = "." + options.flavor.lower()
+		else:
+			ext = ".ttf" if font.sfntVersion == "\0\1\0\0" else ".otf"
+		outfile = basename + ".subset" + ext
 
 	with timer("compile glyph list"):
 		if wildcard_glyphs:
