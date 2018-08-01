@@ -1,3 +1,49 @@
+3.29.0 (released 2018-07-26)
+----------------------------
+
+- [feaLib] In the OTL table builder, when the ``name`` table is excluded
+  from the list of tables to be build, skip compiling ``featureNames`` blocks,
+  as the records referenced in ``FeatureParams`` table don't exist (68951b7).
+- [otBase] Try ``ExtensionLookup`` if other offset-overflow methods fail
+  (05f95f0).
+- [feaLib] Added support for explicit ``subtable;`` break statements in
+  PairPos lookups; previously these were ignored (#1279, #1300, #1302).
+- [cffLib.specializer] Make sure the stack depth does not exceed maxstack - 1,
+  so that a subroutinizer can insert subroutine calls (#1301,
+  https://github.com/googlei18n/ufo2ft/issues/266).
+- [otTables] Added support for fixing offset overflow errors occurring inside
+  ``MarkBasePos`` subtables (#1297).
+- [subset] Write the default output file extension based on ``--flavor`` option,
+  or the value of ``TTFont.sfntVersion`` (d7ac0ad).
+- [unicodedata] Updated Blocks, Scripts and ScriptExtensions for Unicode 11
+  (452c85e).
+- [xmlWriter] Added context manager to XMLWriter class to autoclose file
+  descriptor on exit (#1290).
+- [psCharStrings] Optimize the charstring's bytecode by encoding as integers
+  all float values that have no decimal portion (8d7774a).
+- [ttFont] Fixed missing import of ``TTLibError`` exception (#1285).
+- [feaLib] Allow any languages other than ``dflt`` under ``DFLT`` script
+  (#1278, #1292).
+
+3.28.0 (released 2018-06-19)
+----------------------------
+
+- [featureVars] Added experimental module to build ``FeatureVariations``
+  tables. Still needs to be hooked up to ``varLib.build`` (#1240).
+- [fixedTools] Added ``otRound`` to round floats to nearest integer towards
+  positive Infinity. This is now used where we deal with visual data like X/Y
+  coordinates, advance widths/heights, variation deltas, and similar (#1274,
+  #1248).
+- [subset] Improved GSUB closure memoize algorithm.
+- [varLib.models] Fixed regression in model resolution (180124, #1269).
+- [feaLib.ast] Fixed error when converting ``SubtableStatement`` to string
+  (#1275).
+- [varLib.mutator] Set ``OS/2.usWeightClass`` and ``usWidthClass``, and
+  ``post.italicAngle`` based on the 'wght', 'wdth' and 'slnt' axis values
+  (#1276, #1264).
+- [py23/loggingTools] Don't automatically set ``logging.lastResort`` handler
+  on py27. Moved ``LastResortLogger`` to the ``loggingTools`` module (#1277).
+
 3.27.1 (released 2018-06-11)
 ----------------------------
 
