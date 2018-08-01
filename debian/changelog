@@ -1,6 +1,6 @@
-fonttools (3.27.1-1) UNRELEASED; urgency=medium
+fonttools (3.29.0-1) UNRELEASED; urgency=medium
 
-  * New upstream release 3.27.1
+  * New upstream release 3.29.0
   * debian/control:
     - Add Yao Wei (魏銘廷) as uploader
     - Remove deprecated X-Python-Version field
