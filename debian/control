@@ -6,7 +6,7 @@ Uploaders:
  Luke Faraone <lfaraone@debian.org>,
  Yao Wei (魏銘廷) <mwei@lxde.org>
 Build-Depends:
- debhelper (>= 10),
+ debhelper (>= 11),
  dh-python,
  gir1.2-atk-1.0 <!nocheck>,
  gir1.2-gtk-3.0 <!nocheck>,

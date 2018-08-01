@@ -6,8 +6,11 @@ fonttools (3.29.0-1) UNRELEASED; urgency=medium
     - Remove deprecated X-Python-Version field
     - Change descriptions of binary packages
     - Update mailing list address
+    - Bump debhelper to 11
   * debian/rules:
     - Bump Standards-Version to 4.1.5
+  * debian/compat:
+    - Bump debhelper to 11
 
  -- Yao Wei (魏銘廷) <mwei@lxde.org>  Mon, 18 Jun 2018 11:11:59 +0800
 
