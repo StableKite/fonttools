@@ -65,7 +65,7 @@ class BuilderTest(unittest.TestCase):
         spec9a spec9b spec9c1 spec9c2 spec9c3 spec9d spec9e spec9f spec9g
         spec10
         bug453 bug457 bug463 bug501 bug502 bug504 bug505 bug506 bug509
-        bug512 bug514 bug568 bug633
+        bug512 bug514 bug568 bug633 bug1307
         name size size2 multiple_feature_blocks omitted_GlyphClassDef
         ZeroValue_SinglePos_horizontal ZeroValue_SinglePos_vertical
         ZeroValue_PairPos_horizontal ZeroValue_PairPos_vertical
@@ -202,7 +202,7 @@ class BuilderTest(unittest.TestCase):
     def test_pairPos_redefinition_warning(self):
         # https://github.com/fonttools/fonttools/issues/1147
         logger = logging.getLogger("fontTools.feaLib.builder")
-        with CapturingLogHandler(logger, "WARNING") as captor:
+        with CapturingLogHandler(logger, "DEBUG") as captor:
             # the pair "yacute semicolon" is redefined in the enum pos
             font = self.build(
                 "@Y_LC = [y yacute ydieresis];"

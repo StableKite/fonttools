@@ -7,7 +7,7 @@ converter objects from otConverters.py.
 """
 from __future__ import print_function, division, absolute_import, unicode_literals
 from fontTools.misc.py23 import *
-from fontTools.misc.textTools import safeEval
+from fontTools.misc.textTools import pad, safeEval
 from .otBase import BaseTable, FormatSwitchingBaseTable, ValueRecord
 import operator
 import logging
@@ -32,6 +32,10 @@ class AATState(object):
 class AATAction(object):
 	_FLAGS = None
 
+	@staticmethod
+	def compileActions(font, states):
+		return (None, None)
+
 	def _writeFlagsToXML(self, xmlWriter):
 		flags = [f for f in self._FLAGS if self.__dict__[f]]
 		if flags:
@@ -50,6 +54,7 @@ class AATAction(object):
 
 class RearrangementMorphAction(AATAction):
 	staticSize = 4
+	actionHeaderSize = 0
 	_FLAGS = ["MarkFirst", "DontAdvance", "MarkLast"]
 
 	_VERBS = {
@@ -131,6 +136,7 @@ class RearrangementMorphAction(AATAction):
 
 class ContextualMorphAction(AATAction):
 	staticSize = 8
+	actionHeaderSize = 0
 	_FLAGS = ["SetMark", "DontAdvance"]
 
 	def __init__(self):
@@ -209,6 +215,10 @@ class LigAction(object):
 
 class LigatureMorphAction(AATAction):
 	staticSize = 6
+
+	# 4 bytes for each of {action,ligComponents,ligatures}Offset
+	actionHeaderSize = 12
+
 	_FLAGS = ["SetComponent", "DontAdvance"]
 
 	def __init__(self):
@@ -250,6 +260,34 @@ class LigatureMorphAction(AATAction):
 				actionReader, actionIndex)
 		else:
 			self.Actions = []
+
+	@staticmethod
+	def compileActions(font, states):
+		result, actions, actionIndex = b"", set(), {}
+		for state in states:
+			for _glyphClass, trans in state.Transitions.items():
+				actions.add(trans.compileLigActions())
+		# Sort the compiled actions in decreasing order of
+		# length, so that the longer sequence come before the
+		# shorter ones.  For each compiled action ABCD, its
+		# suffixes BCD, CD, and D do not be encoded separately
+		# (in case they occur); instead, we can just store an
+		# index that points into the middle of the longer
+		# sequence. Every compiled AAT ligature sequence is
+		# terminated with an end-of-sequence flag, which can
+		# only be set on the last element of the sequence.
+		# Therefore, it is sufficient to consider just the
+		# suffixes.
+		for a in sorted(actions, key=lambda x:(-len(x), x)):
+			if a not in actionIndex:
+				for i in range(0, len(a), 4):
+					suffix = a[i:]
+					suffixIndex = (len(result) + i) // 4
+					actionIndex.setdefault(
+						suffix, suffixIndex)
+				result += a
+		result = pad(result, 4)
+		return (result, actionIndex)
 
 	def compileLigActions(self):
 		result = []
@@ -319,7 +357,7 @@ class LigatureMorphAction(AATAction):
 
 class InsertionMorphAction(AATAction):
 	staticSize = 8
-
+	actionHeaderSize = 4  # 4 bytes for actionOffset
 	_FLAGS = ["SetMark", "DontAdvance",
 	          "CurrentIsKashidaLike", "MarkedIsKashidaLike",
 	          "CurrentInsertBefore", "MarkedInsertBefore"]
@@ -416,6 +454,37 @@ class InsertionMorphAction(AATAction):
 					eltAttrs["glyph"])
 			else:
 				assert False, eltName
+
+	@staticmethod
+	def compileActions(font, states):
+		actions, actionIndex, result = set(), {}, b""
+		for state in states:
+			for _glyphClass, trans in state.Transitions.items():
+				if trans.CurrentInsertionAction is not None:
+					actions.add(tuple(trans.CurrentInsertionAction))
+				if trans.MarkedInsertionAction is not None:
+					actions.add(tuple(trans.MarkedInsertionAction))
+		# Sort the compiled actions in decreasing order of
+		# length, so that the longer sequence come before the
+		# shorter ones.
+		for action in sorted(actions, key=lambda x:(-len(x), x)):
+			# We insert all sub-sequences of the action glyph sequence
+			# into actionIndex. For example, if one action triggers on
+			# glyph sequence [A, B, C, D, E] and another action triggers
+			# on [C, D], we return result=[A, B, C, D, E] (as list of
+			# encoded glyph IDs), and actionIndex={('A','B','C','D','E'): 0,
+			# ('C','D'): 2}.
+			if action in actionIndex:
+				continue
+			for start in range(0, len(action)):
+				startIndex = (len(result) // 2) + start
+				for limit in range(start, len(action)):
+					glyphs = action[start : limit + 1]
+					actionIndex.setdefault(glyphs, startIndex)
+			for glyph in action:
+				glyphID = font.getGlyphID(glyph)
+				result += struct.pack(">H", glyphID)
+		return result, actionIndex
 
 
 class FeatureParams(BaseTable):
@@ -1481,7 +1550,7 @@ def _buildClasses():
 			2: LigatureMorph,
 			# 3: Reserved,
 			4: NoncontextualMorph,
-			# 5: InsertionMorph,
+			5: InsertionMorph,
 		},
 	}
 	lookupTypes['JSTF'] = lookupTypes['GPOS']  # JSTF contains GPOS
