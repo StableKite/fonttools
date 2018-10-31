@@ -1,3 +1,56 @@
+3.31.0 (released 2018-10-21)
+----------------------------
+
+- [ufoLib] Merged the `ufoLib <https://github.com/unified-font-objects/ufoLib>`__
+  master branch into a new ``fontTools.ufoLib`` package (#1335, #1095).
+  Moved ``ufoLib.pointPen`` module to ``fontTools.pens.pointPen``.
+  Moved ``ufoLib.etree`` module to ``fontTools.misc.etree``.
+  Moved ``ufoLib.plistlib`` module to ``fontTools.misc.plistlib``.
+  To use the new ``fontTools.ufoLib`` module you need to install fonttools
+  with the ``[ufo]`` extra, or you can manually install the required additional
+  dependencies (cf. README.rst).
+- [morx] Support AAT action type to insert glyphs and clean up compilation
+  of AAT action tables (4a1871f, 2011ccf).
+- [subset] The ``--no-hinting`` on a CFF font now also drops the optional
+  hinting keys in Private dict: ``ForceBold``, ``LanguageGroup``, and
+  ``ExpansionFactor`` (#1322).
+- [subset] Include nameIDs referenced by STAT table (#1327).
+- [loggingTools] Added ``msg=None`` argument to
+  ``CapturingLogHandler.assertRegex`` (0245f2c).
+- [varLib.mutator] Implemented ``FeatureVariations`` instantiation (#1244).
+- [g_l_y_f] Added PointPen support to ``_TTGlyph`` objects (#1334).
+
+3.30.0 (released 2018-09-18)
+----------------------------
+
+- [feaLib] Skip building noop class PairPos subtables when Coverage is NULL
+  (#1318).
+- [ttx] Expose the previously reserved bit flag ``OVERLAP_SIMPLE`` of
+  glyf table's contour points in the TTX dump. This is used in some
+  implementations to specify a non-zero fill with overlapping contours (#1316).
+- [ttLib] Added support for decompiling/compiling ``TS1C`` tables containing
+  VTT sources for ``cvar`` variation table (#1310).
+- [varLib] Use ``fontTools.designspaceLib`` to read DesignSpaceDocument. The
+  ``fontTools.varLib.designspace`` module is now deprecated and will be removed
+  in future versions. The presence of an explicit ``axes`` element is now
+  required in order to build a variable font (#1224, #1313).
+- [varLib] Implemented building GSUB FeatureVariations table from the ``rules``
+  element of DesignSpace document (#1240, #713, #1314).
+- [subset] Added ``--no-layout-closure`` option to not expand the subset with
+  the glyphs produced by OpenType layout features. Instead, OpenType features
+  will be subset to only rules that are relevant to the otherwise-specified
+  glyph set (#43, #1121).
+
+3.29.1 (released 2018-09-10)
+----------------------------
+
+- [feaLib] Fixed issue whereby lookups from DFLT/dflt were not included in the
+  DFLT/non-dflt language systems (#1307).
+- [graphite] Fixed issue on big-endian architectures (e.g. ppc64) (#1311).
+- [subset] Added ``--layout-scripts`` option to add/exclude set of OpenType
+  layout scripts that will be preserved. By default all scripts are retained
+  (``'*'``) (#1303).
+
 3.29.0 (released 2018-07-26)
 ----------------------------
 
