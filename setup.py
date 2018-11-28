@@ -65,6 +65,12 @@ extras_require = {
 		"scipy; platform_python_implementation != 'PyPy'",
 		"munkres; platform_python_implementation == 'PyPy'",
 	],
+	# for fontTools.varLib.plot, to visualize DesignSpaceDocument and resulting
+	# VariationModel
+	"plot": [
+		# TODO: figure out the minimum version of matplotlib that we need
+		"matplotlib",
+	],
 	# for fontTools.misc.symfont, module for symbolic font statistics analysis
 	"symfont": [
 		"sympy",
@@ -337,7 +343,7 @@ def find_data_files(manpath="share/man"):
 
 setup(
 	name="fonttools",
-	version="3.31.0",
+	version="3.32.0",
 	description="Tools to manipulate font files",
 	author="Just van Rossum",
 	author_email="just@letterror.com",
