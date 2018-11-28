@@ -1,3 +1,13 @@
+fonttools (3.32.0-1) UNRELEASED; urgency=medium
+
+  * New upstream release 3.32.0
+  * debian/control:
+    - Update dependencies
+    - Change maintainer address
+    - Bump Standards-Version to 4.2.1
+
+ -- Yao Wei (魏銘廷) <mwei@debian.org>  Wed, 31 Oct 2018 23:20:56 +0800
+
 fonttools (3.29.0-1) unstable; urgency=medium
 
   * New upstream release 3.29.0 (Closes: #903378)

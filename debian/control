@@ -4,31 +4,35 @@ Priority: optional
 Maintainer: Debian Fonts Task Force <debian-fonts@lists.debian.org>
 Uploaders:
  Luke Faraone <lfaraone@debian.org>,
- Yao Wei (魏銘廷) <mwei@lxde.org>
+ Yao Wei (魏銘廷) <mwei@debian.org>
 Build-Depends:
  debhelper (>= 11),
  dh-python,
  gir1.2-atk-1.0 <!nocheck>,
  gir1.2-gtk-3.0 <!nocheck>,
  python-all,
- python-brotli (>= 1.0.1) <!nocheck>,
+ python-brotli (>= 1.0.7) <!nocheck>,
  python-gi <!nocheck>,
  python-numpy,
  python-pytest <!nocheck>,
  python-reportlab <!nocheck>,
+ python-scipy (>= 1.1.0),
  python-setuptools,
  python-sympy <!nocheck>,
+ python-fs (>= 2.1.1),
  python3-all,
- python3-brotli (>= 1.0.1) <!nocheck>,
+ python3-brotli (>= 1.0.7) <!nocheck>,
  python3-gi <!nocheck>,
  python3-numpy,
  python3-pytest <!nocheck>,
  python3-reportlab <!nocheck>,
+ python3-scipy (>= 1.1.0),
  python3-setuptools,
  python3-sympy <!nocheck>,
+ python3-fs (>= 2.1.1),
  python3-sphinx,
  unicode-data
-Standards-Version: 4.1.5
+Standards-Version: 4.2.1
 Homepage: https://github.com/fonttools/fonttools
 Vcs-Git: https://salsa.debian.org/fonts-team/fonttools.git
 Vcs-Browser: https://salsa.debian.org/fonts-team/fonttools
@@ -39,12 +43,14 @@ Architecture: all
 Depends:
  gir1.2-atk-1.0,
  gir1.2-gtk-3.0,
- python3-brotli (>= 1.0.1),
+ python3-brotli (>= 1.0.7),
  python3-gi,
  python3-numpy,
  python3-pkg-resources,
  python3-reportlab,
+ python3-scipy (>= 1.1.0),
  python3-sympy,
+ python3-fs (>= 2.1.1),
  ${misc:Depends},
  ${sphinxdoc:Depends},
  ${python3:Depends}
@@ -65,12 +71,14 @@ Architecture: all
 Depends:
  gir1.2-atk-1.0,
  gir1.2-gtk-3.0,
- python-brotli (>= 1.0.1),
+ python-brotli (>= 1.0.7),
  python-gi,
  python-numpy,
  python-pkg-resources,
  python-reportlab,
+ python-scipy (>= 1.1.0),
  python-sympy,
+ python-fs (>= 2.1.1),
  ${misc:Depends},
  ${python:Depends}
 Replaces: fonttools (<< 3.15.1-1)
