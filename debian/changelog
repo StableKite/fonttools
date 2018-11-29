@@ -3,6 +3,7 @@ fonttools (3.32.0-1) UNRELEASED; urgency=medium
   * New upstream release 3.32.0
   * debian/control:
     - Update dependencies
+    - Fix fonttools binary package dependency
     - Change maintainer address
     - Bump Standards-Version to 4.2.1
 
