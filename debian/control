@@ -19,7 +19,7 @@ Build-Depends:
  python-scipy (>= 1.1.0),
  python-setuptools,
  python-sympy <!nocheck>,
- python-fs (>= 2.1.1),
+ python-fs (>= 2.1.2),
  python3-all,
  python3-brotli (>= 1.0.7) <!nocheck>,
  python3-gi <!nocheck>,
@@ -29,7 +29,7 @@ Build-Depends:
  python3-scipy (>= 1.1.0),
  python3-setuptools,
  python3-sympy <!nocheck>,
- python3-fs (>= 2.1.1),
+ python3-fs (>= 2.1.2),
  python3-sphinx,
  unicode-data
 Standards-Version: 4.2.1
@@ -50,7 +50,7 @@ Depends:
  python3-reportlab,
  python3-scipy (>= 1.1.0),
  python3-sympy,
- python3-fs (>= 2.1.1),
+ python3-fs (>= 2.1.2),
  ${misc:Depends},
  ${sphinxdoc:Depends},
  ${python3:Depends}
@@ -78,7 +78,7 @@ Depends:
  python-reportlab,
  python-scipy (>= 1.1.0),
  python-sympy,
- python-fs (>= 2.1.1),
+ python-fs (>= 2.1.2),
  ${misc:Depends},
  ${python:Depends}
 Replaces: fonttools (<< 3.15.1-1)
