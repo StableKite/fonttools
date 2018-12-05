@@ -994,7 +994,7 @@ class T2CharString(object):
 				assert self.program[-1] not in ("seac",), "illegal CFF2 CharString Termination"
 		else:
 			assert self.program, "illegal CharString: decompiled to empty program"
-			assert self.program[-1] in ("endchar", "return", "callsubr", "callgsubr", "seac"), "illegal CharString"
+			assert self.program[-1] in ("endchar", "return", "callsubr", "callgsubr", "seac"), ("illegal CharString ending: %s" % self.program[-1])
 
 	def compile(self, isCFF2=False):
 		if self.bytecode is not None:
@@ -1150,6 +1150,13 @@ class T2CharString(object):
 
 class CFF2Subr(T2CharString):
 	isCFF2 = True
+
+	def draw(self, pen):
+		subrs = getattr(self.private, "Subrs", [])
+		extractor = self.outlineExtractor(pen, subrs, self.globalSubrs,
+				0, 0)
+		extractor.execute(self)
+		self.width = 0
 
 class T1CharString(T2CharString):
 
