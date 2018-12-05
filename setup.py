@@ -58,6 +58,10 @@ extras_require = {
 			"python_version < '3.7' and platform_python_implementation != 'PyPy'"
 		),
 	],
+	# for graphite type tables in ttLib/tables (Silf, Glat, Gloc)
+	"graphite": [
+		"lz4 >= 1.7.4.2"
+	],
 	# for fontTools.interpolatable: to solve the "minimum weight perfect
 	# matching problem in bipartite graphs" (aka Assignment problem)
 	"interpolatable": [
@@ -343,7 +347,7 @@ def find_data_files(manpath="share/man"):
 
 setup(
 	name="fonttools",
-	version="3.32.0",
+	version="3.33.0",
 	description="Tools to manipulate font files",
 	author="Just van Rossum",
 	author_email="just@letterror.com",
