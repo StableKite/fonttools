@@ -1,6 +1,5 @@
-fonttools (3.34.0-1) UNRELEASED; urgency=medium
+fonttools (3.34.2-1) UNRELEASED; urgency=medium
 
-  * New upstream release 3.34.0
   * New upstream version 3.34.2
 
  -- Yao Wei (魏銘廷) <mwei@debian.org>  Sat, 22 Dec 2018 20:34:43 +0800
