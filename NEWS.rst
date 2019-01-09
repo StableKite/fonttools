@@ -1,3 +1,32 @@
+3.35.1 (released 2019-01-09)
+----------------------------
+
+- [_m_a_x_p] Include ``maxComponentElements`` in ``maxp`` table's recalculation.
+
+3.35.0 (released 2019-01-07)
+----------------------------
+
+- [psCharStrings] In ``encodeFloat`` function, use float's "general format" with
+  8 digits of precision (i.e. ``%8g``) instead of ``str()``. This works around
+  a macOS rendering issue when real numbers in CFF table are too long, and
+  also makes sure that floats are encoded with the same precision in python 2.7
+  and 3.x (#1430, googlei18n/ufo2ft#306).
+- [_n_a_m_e/fontBuilder] Make ``_n_a_m_e_table.addMultilingualName`` also add
+  Macintosh (platformID=1) names by default. Added options to ``FontBuilder``
+  ``setupNameTable`` method to optionally disable Macintosh or Windows names.
+  (#1359, #1431).
+- [varLib] Make ``build`` optionally accept a ``DesignSpaceDocument`` object,
+  instead of a designspace file path. The caller can now set the ``font``
+  attribute of designspace's sources to a TTFont object, thus allowing to
+  skip filenames manipulation altogether (#1416, #1425).
+- [sfnt] Allow SFNTReader objects to be deep-copied.
+- Require typing>=3.6.4 on py27 to fix issue with singledispatch (#1423).
+- [designspaceLib/t1Lib/macRes] Fixed some cases where pathlib.Path objects were
+  not accepted (#1421).
+- [varLib] Fixed merging of multiple PairPosFormat2 subtables (#1411).
+- [varLib] The default STAT table version is now set to 1.1, to improve
+  compatibility with legacy applications (#1413).
+
 3.34.2 (released 2018-12-17)
 ----------------------------
 
