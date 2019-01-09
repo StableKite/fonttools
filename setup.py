@@ -39,6 +39,11 @@ extras_require = {
 	"lxml": [
 		"lxml >= 4.0, < 5",
 		"singledispatch >= 3.4.0.3; python_version < '3.4'",
+		# typing >= 3.6.4 is required when using ABC collections with the
+		# singledispatch backport, see:
+		# https://github.com/fonttools/fonttools/issues/1423
+		# https://github.com/python/typing/issues/484
+		"typing >= 3.6.4; python_version < '3.4'",
 	],
 	# for fontTools.sfnt and fontTools.woff2: to compress/uncompress
 	# WOFF 1.0 and WOFF 2.0 webfonts.
@@ -347,7 +352,7 @@ def find_data_files(manpath="share/man"):
 
 setup(
 	name="fonttools",
-	version="3.34.2",
+	version="3.35.1",
 	description="Tools to manipulate font files",
 	author="Just van Rossum",
 	author_email="just@letterror.com",
