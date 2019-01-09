@@ -110,7 +110,7 @@ Description: Converts OpenType and TrueType fonts to and from XML (Documentation
  This is the sphinx documentation of the fontTools package.
 
 Package: fonttools
-Depends: 
+Depends:
  ${python3:Depends},
  python3-fonttools (= ${source:Version}),
  ${misc:Depends}

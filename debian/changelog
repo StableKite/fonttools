@@ -1,4 +1,4 @@
-fonttools (3.35.1-1) UNRELEASED; urgency=medium
+fonttools (3.35.1-1) unstable; urgency=medium
 
   * New upstream version 3.35.1
   * debian/control:
@@ -327,4 +327,3 @@ fonttools (1.99+2.0b1+cvs20030125-1) unstable; urgency=low
   * Patched _n_a_m_e.py to handle fonts with wrong stringOffset.
 
  -- Anthony Fok <foka@debian.org>  Sat, 25 Jan 2003 13:54:31 +0800
-
