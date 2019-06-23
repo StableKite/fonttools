@@ -50,7 +50,7 @@ Depends:
  python3-reportlab,
  python3-scipy (>= 1.1.0),
  python3-sympy,
- python3-fs (>= 2.4.4),
+ python3-fs (>= 2.4.8),
  ${misc:Depends},
  ${sphinxdoc:Depends},
  ${python3:Depends}
