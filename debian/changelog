@@ -1,6 +1,6 @@
-fonttools (3.39.0-1) UNRELEASED; urgency=medium
+fonttools (3.43.1-1) UNRELEASED; urgency=medium
 
-  * New upstream version 3.39.0
+  * New upstream version 3.43.1
   * debian/control: Update dependencies
   * debian/copyright: Remove .gitattributes from release tarball because it
     interferes with git-buildpackage
