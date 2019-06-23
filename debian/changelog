@@ -4,6 +4,7 @@ fonttools (3.43.1-1) UNRELEASED; urgency=medium
   * debian/control: Update dependencies
   * debian/copyright: Remove .gitattributes from release tarball because it
     interferes with git-buildpackage
+  * Remove unused lintian overrides
 
  -- Yao Wei (魏銘廷) <mwei@debian.org>  Thu, 07 Feb 2019 16:09:10 +0800
 

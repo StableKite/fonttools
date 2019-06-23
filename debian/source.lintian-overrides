@@ -1,7 +1,0 @@
-# The copyright paragraph is for a file generated during build time. The
-# license is from another package but the distribution of the file requires the
-# license to be included:
-fonttools source: wildcard-matches-nothing-in-dep5-copyright Lib/fontTools/unicodedata/Blocks.py (paragraph at line 65)
-fonttools source: wildcard-matches-nothing-in-dep5-copyright Lib/fontTools/unicodedata/ScriptExtensions.py (paragraph at line 65)
-fonttools source: wildcard-matches-nothing-in-dep5-copyright Lib/fontTools/unicodedata/Scripts.py (paragraph at line 65)
-fonttools source: unused-file-paragraph-in-dep5-copyright paragraph at line 65
