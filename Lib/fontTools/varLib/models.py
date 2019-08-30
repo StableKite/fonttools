@@ -1,6 +1,4 @@
 """Variation fonts interpolation models."""
-from __future__ import print_function, division, absolute_import
-from fontTools.misc.py23 import *
 
 __all__ = ['nonNone', 'allNone', 'allEqual', 'allEqualTo', 'subList',
 	   'normalizeValue', 'normalizeLocation',
@@ -139,7 +137,7 @@ def supportScalar(location, support, ot=True):
 			continue
 		if v <= lower or upper <= v:
 			scalar = 0.
-			break;
+			break
 		if v < peak:
 			scalar *= (v - lower) / (peak - lower)
 		else: # v > peak
@@ -241,7 +239,11 @@ class VariationModel(object):
 				return -1 if v < 0 else +1 if v > 0 else 0
 			def key(loc):
 				rank = len(loc)
-				onPointAxes = [axis for axis,value in loc.items() if value in axisPoints[axis]]
+				onPointAxes = [
+					axis for axis, value in loc.items()
+					if axis in axisPoints
+					and value in axisPoints[axis]
+				]
 				orderedAxes = [axis for axis in axisOrder if axis in loc]
 				orderedAxes.extend([axis for axis in sorted(loc.keys()) if axis not in axisOrder])
 				return (
@@ -371,7 +373,7 @@ class VariationModel(object):
 	def interpolateFromDeltasAndScalars(deltas, scalars):
 		v = None
 		assert len(deltas) == len(scalars)
-		for i,(delta,scalar) in enumerate(zip(deltas, scalars)):
+		for delta, scalar in zip(deltas, scalars):
 			if not scalar: continue
 			contribution = delta * scalar
 			if v is None:

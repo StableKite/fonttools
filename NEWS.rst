@@ -1,3 +1,36 @@
+4.0.0 (released 2019-08-22)
+---------------------------
+
+- NOTE: The v4.x version series only supports Python 3.6 or greater. You can keep
+  using fonttools 3.x if you need support for Python 2.
+- [py23] Removed all the python2-only code since it is no longer reachable, thus
+  unused; only the Python3 symbols were kept, but these are no-op. The module is now
+  DEPRECATED and will removed in the future.
+- [ttLib] Fixed UnboundLocalError for empty loca/glyph tables (#1680). Also, allow
+  the glyf table to be incomplete when dumping to XML (#1681).
+- [varLib.models] Fixed KeyError while sorting masters and there are no on-axis for
+  a given axis (38a8eb0e).
+- [cffLib] Make sure glyph names are unique (#1699).
+- [feaLib] Fix feature parser to correctly handle octal numbers (#1700).
+
+3.44.0 (released 2019-08-02)
+----------------------------
+
+- NOTE: This is the last scheduled release to support Python 2.7. The upcoming fonttools
+  v4.x series is going to require Python 3.6 or greater.
+- [varLib] Added new ``varLib.instancer`` module for partially instantiating variable
+  fonts. This extends (and will eventually replace) ``varLib.mutator`` module, as
+  it allows to create not just full static instances from a variable font, but also
+  "partial" or "less variable" fonts where some of the axes are dropped or
+  instantiated at a particular value.
+  Also available from the command-line as `fonttools varLib.instancer --help`
+  (#1537, #1628).
+- [cffLib] Added support for ``FDSelect`` format 4 (#1677).
+- [subset] Added support for subsetting ``sbix`` (Apple bitmap color font) table.
+- [t1Lib] Fixed issue parsing ``eexec`` section in Type1 fonts when whitespace
+  characters are interspersed among the trailing zeros (#1676).
+- [cffLib.specializer] Fixed bug in ``programToCommands`` with CFF2 charstrings (#1669).
+
 3.43.2 (released 2019-07-10)
 ----------------------------
 
