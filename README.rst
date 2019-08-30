@@ -14,13 +14,13 @@ What is this?
 Installation
 ~~~~~~~~~~~~
 
-FontTools requires `Python <http://www.python.org/download/>`__ 2.7, 3.4
-or later.
+FontTools 4.x requires `Python <http://www.python.org/download/>`__ 3.6
+or later. FontTools 3.x requires Python 2.7 or later.
 
-**NOTE** After January 1 2019, until no later than June 30 2019, the support
-for *Python 2.7* will be limited to only bug fixes, and no new features will
-be added to the ``py27`` branch. The upcoming FontTools 4.x series will require
-*Python 3.5* or above. You can read more `here <https://python3statement.org>`__
+**NOTE** From August 2019, until no later than January 1 2020, the support
+for *Python 2.7* will be limited to only critical bug fixes, and no new features
+will be added to the ``py27`` branch. The upcoming FontTools 4.x series will require
+*Python 3.6* or above. You can read more `here <https://python3statement.org>`__
 and `here <https://github.com/fonttools/fonttools/issues/765>`__ for the
 reasons behind this decision.
 
@@ -317,7 +317,7 @@ environments.
 
 Note that when you run ``tox`` without arguments, the tests are executed
 for all the environments listed in tox.ini's ``envlist``. In our case,
-this includes Python 2.7 and 3.7, so for this to work the ``python2.7``
+this includes Python 3.6 and 3.7, so for this to work the ``python3.6``
 and ``python3.7`` executables must be available in your ``PATH``.
 
 You can specify an alternative environment list via the ``-e`` option,
@@ -325,7 +325,7 @@ or the ``TOXENV`` environment variable:
 
 .. code:: sh
 
-    tox -e py27
+    tox -e py36
     TOXENV="py36-cov,htmlcov" tox
 
 Development Community

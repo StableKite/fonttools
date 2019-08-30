@@ -3,14 +3,11 @@ Instantiate a variation font.  Run, eg:
 
 $ fonttools varLib.mutator ./NotoSansArabic-VF.ttf wght=140 wdth=85
 """
-from __future__ import print_function, division, absolute_import
-from fontTools.misc.py23 import *
 from fontTools.misc.fixedTools import floatToFixedToFloat, otRound, floatToFixed
 from fontTools.pens.boundsPen import BoundsPen
 from fontTools.ttLib import TTFont, newTable
 from fontTools.ttLib.tables import ttProgram
 from fontTools.ttLib.tables._g_l_y_f import GlyphCoordinates, flagOverlapSimple, OVERLAP_COMPOUND
-from fontTools.varLib import _GetCoordinates, _SetCoordinates
 from fontTools.varLib.models import (
 	supportScalar,
 	normalizeLocation,
@@ -23,6 +20,7 @@ from fontTools.varLib.iup import iup_delta
 import fontTools.subset.cff
 import os.path
 import logging
+from io import BytesIO
 
 
 log = logging.getLogger("fontTools.varlib.mutator")
@@ -195,7 +193,7 @@ def instantiateVariableFont(varfont, location, inplace=False, overlap=True):
 				name))
 		for glyphname in glyphnames:
 			variations = gvar.variations[glyphname]
-			coordinates,_ = _GetCoordinates(varfont, glyphname)
+			coordinates, _ = glyf.getCoordinatesAndControls(glyphname, varfont)
 			origCoords, endPts = None, None
 			for var in variations:
 				scalar = supportScalar(loc, var.axes)
@@ -203,11 +201,10 @@ def instantiateVariableFont(varfont, location, inplace=False, overlap=True):
 				delta = var.coordinates
 				if None in delta:
 					if origCoords is None:
-						origCoords,control = _GetCoordinates(varfont, glyphname)
-						endPts = control[1] if control[0] >= 1 else list(range(len(control[1])))
-					delta = iup_delta(delta, origCoords, endPts)
+						origCoords, g = glyf.getCoordinatesAndControls(glyphname, varfont)
+					delta = iup_delta(delta, origCoords, g.endPts)
 				coordinates += GlyphCoordinates(delta) * scalar
-			_SetCoordinates(varfont, glyphname, coordinates)
+			glyf.setCoordinates(glyphname, coordinates, varfont)
 	else:
 		glyf = None
 
@@ -291,7 +288,7 @@ def instantiateVariableFont(varfont, location, inplace=False, overlap=True):
 		gdef = varfont['GDEF'].table
 		instancer = VarStoreInstancer(gdef.VarStore, fvar.axes, loc)
 
-		merger = MutatorMerger(varfont, loc)
+		merger = MutatorMerger(varfont, instancer)
 		merger.mergeTables(varfont, [varfont], ['GDEF', 'GPOS'])
 
 		# Downgrade GDEF.

@@ -1,4 +1,3 @@
-from __future__ import print_function, division, absolute_import
 from fontTools.misc.py23 import *
 from fontTools import subset
 from fontTools.ttLib import TTFont, newTable
@@ -330,6 +329,14 @@ class SubsetTest(unittest.TestCase):
         subsetfont = TTFont(subsetpath)
         self.assertTrue("x" in subsetfont['CBDT'].strikeData[0])
         self.assertTrue("y" in subsetfont['CBDT'].strikeData[0])
+
+    def test_sbix(self):
+        _, fontpath = self.compile_font(self.getpath("sbix.ttx"), ".ttf")
+        subsetpath = self.temp_path(".ttf")
+        subset.main([fontpath, "--gids=0,1", "--output-file=%s" % subsetpath])
+        subsetfont = TTFont(subsetpath)
+        self.expect_ttx(subsetfont, self.getpath(
+            "expect_sbix.ttx"), ["sbix"])
 
     def test_timing_publishes_parts(self):
         _, fontpath = self.compile_font(self.getpath("TestTTF-Regular.ttx"), ".ttf")
