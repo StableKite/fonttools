@@ -1,3 +1,13 @@
+fonttools (4.0.0-1) UNRELEASED; urgency=medium
+
+  * New upstream version 4.0.0
+  * Remove python2 package (Closes: #936542)
+  * Bump debhelper compatibility to 12
+  * debian/control: Update dependencies
+  * debian/copyright: Add test case copyright information
+
+ -- Yao Wei (魏銘廷) <mwei@debian.org>  Fri, 30 Aug 2019 20:20:29 +0800
+
 fonttools (3.43.2-1) unstable; urgency=medium
 
   * New upstream version 3.43.2
