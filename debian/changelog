@@ -1,7 +1,7 @@
 fonttools (4.0.0-1) unstable; urgency=medium
 
   * New upstream version 4.0.0
-  * Remove python2 package (Closes: #936542)
+  * Remove python2 package
   * Bump debhelper compatibility to 12
   * debian/control: Update dependencies
   * debian/copyright: Add test case copyright information
