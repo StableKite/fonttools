@@ -1,3 +1,4 @@
 Test-Command: pytest-3
 Depends: python3-all,
+         python3-fonttools,
          python3-pytest
