@@ -75,6 +75,55 @@ class NameTableTest(unittest.TestCase):
 		with self.assertRaises(TypeError):
 			table.addName(b"abc")  # must be unicode string
 
+	def test_removeNames(self):
+		table = table__n_a_m_e()
+		table.setName("Regular", 2, 1, 0, 0)
+		table.setName("Regular", 2, 3, 1, 0x409)
+		table.removeNames(nameID=2)
+		self.assertEqual(table.names, [])
+
+		table = table__n_a_m_e()
+		table.setName("FamilyName", 1, 1, 0, 0)
+		table.setName("Regular", 2, 1, 0, 0)
+		table.setName("FamilyName", 1, 3, 1, 0x409)
+		table.setName("Regular", 2, 3, 1, 0x409)
+		table.removeNames(platformID=1)
+		self.assertEqual(len(table.names), 2)
+		self.assertIsNone(table.getName(1, 1, 0, 0))
+		self.assertIsNone(table.getName(2, 1, 0, 0))
+		rec1 = table.getName(1, 3, 1, 0x409)
+		self.assertEqual(str(rec1), "FamilyName")
+		rec2 = table.getName(2, 3, 1, 0x409)
+		self.assertEqual(str(rec2), "Regular")
+
+		table = table__n_a_m_e()
+		table.setName("FamilyName", 1, 1, 0, 0)
+		table.setName("Regular", 2, 1, 0, 0)
+		table.removeNames(nameID=1)
+		self.assertEqual(len(table.names), 1)
+		self.assertIsNone(table.getName(1, 1, 0, 0))
+		rec = table.getName(2, 1, 0, 0)
+		self.assertEqual(str(rec), "Regular")
+
+		table = table__n_a_m_e()
+		table.setName("FamilyName", 1, 1, 0, 0)
+		table.setName("Regular", 2, 1, 0, 0)
+		table.removeNames(2, 1, 0, 0)
+		self.assertEqual(len(table.names), 1)
+		self.assertIsNone(table.getName(2, 1, 0, 0))
+		rec = table.getName(1, 1, 0, 0)
+		self.assertEqual(str(rec), "FamilyName")
+
+		table = table__n_a_m_e()
+		table.setName("FamilyName", 1, 1, 0, 0)
+		table.setName("Regular", 2, 1, 0, 0)
+		table.removeNames()
+		self.assertEqual(len(table.names), 2)
+		rec1 = table.getName(1, 1, 0, 0)
+		self.assertEqual(str(rec1), "FamilyName")
+		rec2 = table.getName(2, 1, 0, 0)
+		self.assertEqual(str(rec2), "Regular")
+
 	def test_addMultilingualName(self):
 		# Microsoft Windows has language codes for “English” (en)
 		# and for “Standard German as used in Switzerland” (de-CH).
