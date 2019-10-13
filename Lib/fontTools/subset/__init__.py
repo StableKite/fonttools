@@ -1386,9 +1386,14 @@ def subset_glyphs(self, s):
 # CBDT will inherit it
 @_add_method(ttLib.getTableClass('EBDT'))
 def subset_glyphs(self, s):
-  self.strikeData = [{g: strike[g] for g in s.glyphs if g in strike}
-					 for strike in self.strikeData]
-  return True
+	strikeData = [
+		{g: strike[g] for g in s.glyphs if g in strike}
+		for strike in self.strikeData
+	]
+	# Prune empty strikes
+	# https://github.com/fonttools/fonttools/issues/1633
+	self.strikeData = [strike for strike in strikeData if strike]
+	return True
 
 @_add_method(ttLib.getTableClass('sbix'))
 def subset_glyphs(self, s):
@@ -2075,7 +2080,7 @@ def remapComponentsFast(self, glyphidmap):
 		elif flags & 0x0080: i += 8	# WE_HAVE_A_TWO_BY_TWO
 		more = flags & 0x0020	# MORE_COMPONENTS
 
-	self.data = data.tostring()
+	self.data = data.tobytes()
 
 @_add_method(ttLib.getTableClass('glyf'))
 def closure_glyphs(self, s):
