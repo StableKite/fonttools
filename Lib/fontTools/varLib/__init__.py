@@ -213,15 +213,13 @@ def _add_gvar(font, masterModel, master_ttfs, tolerance=0.5, optimize=True):
 
 	log.info("Generating gvar")
 	assert "gvar" not in font
-	gvar = font["gvar"] = newTable('gvar')
-	gvar.version = 1
-	gvar.reserved = 0
-	gvar.variations = {}
 
 	glyf = font['glyf']
 
 	# use hhea.ascent of base master as default vertical origin when vmtx is missing
 	baseAscent = font['hhea'].ascent
+
+	variations = {}
 	for glyph in font.getGlyphOrder():
 
 		isComposite = glyf[glyph].isComposite()
@@ -241,7 +239,6 @@ def _add_gvar(font, masterModel, master_ttfs, tolerance=0.5, optimize=True):
 		del allControls
 
 		# Update gvar
-		gvar.variations[glyph] = []
 		deltas = model.getDeltas(allCoords)
 		supports = model.supports
 		assert len(deltas) == len(supports)
@@ -280,7 +277,14 @@ def _add_gvar(font, masterModel, master_ttfs, tolerance=0.5, optimize=True):
 					if optimized_len < unoptimized_len:
 						var = var_opt
 
-			gvar.variations[glyph].append(var)
+			variations.setdefault(glyph, []).append(var)
+
+	if variations:
+		gvar = font["gvar"] = newTable('gvar')
+		gvar.version = 1
+		gvar.reserved = 0
+		gvar.variations = {g: variations.get(g, []) for g in font.getGlyphOrder()}
+
 
 def _remove_TTHinting(font):
 	for tag in ("cvar", "cvt ", "fpgm", "prep"):
@@ -350,19 +354,21 @@ def _merge_TTHinting(font, masterModel, master_ttfs, tolerance=0.5):
 		_remove_TTHinting(font)
 		return
 
-	# We can build the cvar table now.
-
-	cvar = font["cvar"] = newTable('cvar')
-	cvar.version = 1
-	cvar.variations = []
-
+	variations = []
 	deltas, supports = masterModel.getDeltasAndSupports(all_cvs)
 	for i,(delta,support) in enumerate(zip(deltas[1:], supports[1:])):
 		delta = [otRound(d) for d in delta]
 		if all(abs(v) <= tolerance for v in delta):
 			continue
 		var = TupleVariation(support, delta)
-		cvar.variations.append(var)
+		variations.append(var)
+
+	# We can build the cvar table now.
+	if variations:
+		cvar = font["cvar"] = newTable('cvar')
+		cvar.version = 1
+		cvar.variations = variations
+
 
 _MetricsFields = namedtuple('_MetricsFields',
 	['tableTag', 'metricsTag', 'sb1', 'sb2', 'advMapping', 'vOrigMapping'])
@@ -613,7 +619,7 @@ def _merge_OTL(font, model, master_fonts, axisTags):
 		font['GPOS'].table.remap_device_varidxes(varidx_map)
 
 
-def _add_GSUB_feature_variations(font, axes, internal_axis_supports, rules):
+def _add_GSUB_feature_variations(font, axes, internal_axis_supports, rules, rulesProcessingLast):
 
 	def normalize(name, value):
 		return models.normalizeLocation(
@@ -648,7 +654,11 @@ def _add_GSUB_feature_variations(font, axes, internal_axis_supports, rules):
 
 		conditional_subs.append((region, subs))
 
-	addFeatureVariations(font, conditional_subs)
+	if rulesProcessingLast:
+		featureTag = 'rclt'
+	else:
+		featureTag = 'rvrn'
+	addFeatureVariations(font, conditional_subs, featureTag)
 
 
 _DesignSpaceData = namedtuple(
@@ -661,6 +671,7 @@ _DesignSpaceData = namedtuple(
 		"masters",
 		"instances",
 		"rules",
+		"rulesProcessingLast",
 	],
 )
 
@@ -761,6 +772,7 @@ def load_designspace(designspace):
 		masters,
 		instances,
 		ds.rules,
+		ds.rulesProcessingLast,
 	)
 
 
@@ -783,7 +795,7 @@ def set_default_weight_width_slant(font, location):
 		if "wght" in location:
 			weight_class = otRound(max(1, min(location["wght"], 1000)))
 			if font["OS/2"].usWeightClass != weight_class:
-				log.info("Setting OS/2.usWidthClass = %s", weight_class)
+				log.info("Setting OS/2.usWeightClass = %s", weight_class)
 				font["OS/2"].usWeightClass = weight_class
 
 		if "wdth" in location:
@@ -865,7 +877,7 @@ def build(designspace, master_finder=lambda s:s, exclude=[], optimize=True):
 	if 'cvar' not in exclude and 'glyf' in vf:
 		_merge_TTHinting(vf, model, master_fonts)
 	if 'GSUB' not in exclude and ds.rules:
-		_add_GSUB_feature_variations(vf, ds.axes, ds.internal_axis_supports, ds.rules)
+		_add_GSUB_feature_variations(vf, ds.axes, ds.internal_axis_supports, ds.rules, ds.rulesProcessingLast)
 	if 'CFF2' not in exclude and 'CFF ' in vf:
 		_add_CFF2(vf, model, master_fonts)
 		if "post" in vf:
