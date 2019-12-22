@@ -1,14 +1,33 @@
+4.2.2 (released 2019-12-12)
+---------------------------
+
+- [subset] Fixed issue with subsetting FeatureVariations table when the index
+  of features changes as features get dropped. The feature index need to be
+  remapped to point to index of the remaining features (#1777, #1782).
+- [fontBuilder] Added `addFeatureVariations` method to `FontBuilder` class. This
+  is a shorthand for calling `featureVars.addFeatureVariations` on the builder's
+  TTFont object (#1781).
+- [glyf] Fixed the flags bug in glyph.drawPoints() like we did for glyph.draw()
+  (#1771, #1774).
+
+4.2.1 (released 2019-12-06)
+---------------------------
+
+- [glyf] Use the ``flagOnCurve`` bit mask in ``glyph.draw()``, so that we ignore
+  the ``overlap`` flag that may be set when instantiating variable fonts (#1771).
+
 4.2.0 (released 2019-11-28)
 ---------------------------
 
 - [pens] Added the following pens:
+
   * ``roundingPen.RoundingPen``: filter pen that rounds coordinates and components'
-  offsets to integer;
+    offsets to integer;
   * ``roundingPen.RoundingPointPen``: like the above, but using PointPen protocol.
   * ``filterPen.FilterPointPen``: base class for filter point pens;
   * ``transformPen.TransformPointPen``: filter point pen to apply affine transform;
   * ``recordingPen.RecordingPointPen``: records and replays point-pen commands.
-  (in roundingPen module); filterPen.FilterPointPen, transform
+
 - [ttGlyphPen] Always round float coordinates and component offsets to integers
   (#1763).
 - [ufoLib] When converting kerning groups from UFO2 to UFO3, avoid confusing
