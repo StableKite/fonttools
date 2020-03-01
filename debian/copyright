@@ -22,6 +22,7 @@ License:   OFL-1.1
 
 Files:     Tests/varLib/data/master_ttx_interpolatable_ttf/TestFamily3-*
            Tests/varLib/data/master_ufo/TestFamily3-*
+           Tests/ttLib/tables/data/NotoColorEmoji.subset.index_format_3.ttx
 Copyright: 2015 Google Inc.
 License:   OFL-1.1
 
