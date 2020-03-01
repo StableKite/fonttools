@@ -1,3 +1,10 @@
+fonttools (4.4.1-1) unstable; urgency=medium
+
+  * New upstream version 4.4.1
+  * debian/copyright: add copyright to NotoColorEmoji used as test data
+
+ -- Yao Wei (魏銘廷) <mwei@debian.org>  Mon, 02 Mar 2020 00:00:11 +0800
+
 fonttools (4.2.4-1) unstable; urgency=medium
 
   * New upstream version 4.2.4
