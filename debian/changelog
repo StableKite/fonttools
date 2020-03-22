@@ -1,3 +1,12 @@
+fonttools (4.5.0-1) unstable; urgency=medium
+
+  * New upstream version 4.5.0
+  * debian/control: Update dependencies
+  * Fix test failure caused by newer unicode-data used in build
+    (Closes: #954642)
+
+ -- Yao Wei (魏銘廷) <mwei@debian.org>  Sun, 22 Mar 2020 17:40:59 +0800
+
 fonttools (4.4.1-1) unstable; urgency=medium
 
   * New upstream version 4.4.1
