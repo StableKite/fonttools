@@ -1,3 +1,11 @@
+fonttools (4.7.0-1) unstable; urgency=medium
+
+  * New upstream version 4.7.0
+  * Update dependencies for ufolib2 check, and allow test to be disabled to
+    avoid Build-Dep circular dependency
+
+ -- Yao Wei (魏銘廷) <mwei@debian.org>  Mon, 06 Apr 2020 00:26:32 +0800
+
 fonttools (4.5.0-1) unstable; urgency=medium
 
   * New upstream version 4.5.0
