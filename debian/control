@@ -17,7 +17,8 @@ Build-Depends:
  python3-fs (>= 2.4.11),
  python3-lxml (>= 4.5.0),
  python3-sphinx,
- unicode-data (>= 13.0.0)
+ python3-ufolib2 (>= 0.6.2) <!nocheck>,
+ unicode-data (>= 13.0.0),
 Standards-Version: 4.5.0
 Homepage: https://github.com/fonttools/fonttools
 Vcs-Git: https://salsa.debian.org/fonts-team/fonttools.git
