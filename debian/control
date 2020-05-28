@@ -17,6 +17,7 @@ Build-Depends:
  python3-fs (>= 2.4.11),
  python3-lxml (>= 4.5.0),
  python3-sphinx,
+ python3-sphinx-rtd-theme,
  unicode-data (>= 13.0.0),
 Standards-Version: 4.5.0
 Homepage: https://github.com/fonttools/fonttools
