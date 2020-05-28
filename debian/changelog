@@ -1,3 +1,9 @@
+fonttools (4.10.2-1) unstable; urgency=medium
+
+  * New upstream version 4.10.2
+
+ -- Yao Wei (魏銘廷) <mwei@debian.org>  Thu, 28 May 2020 22:07:49 +0800
+
 fonttools (4.7.0-2) unstable; urgency=medium
 
   * debian/control: Temporarily remove python3-ufolib2 dependency used in test
