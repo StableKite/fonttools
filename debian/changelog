@@ -1,8 +1,13 @@
-fonttools (4.11.0-1) UNRELEASED; urgency=medium
+fonttools (4.13.0-1) UNRELEASED; urgency=medium
 
-  * New upstream version 4.11.0
+  * New upstream version 4.13.0
+  * debian/gbp.conf: Change packaging salsa branch to debian/master in
+    compliance of Debian Python Policy
+  * debian/control:
+    - Use debhelper 13
+    - debian/control: Update dependencies, add ufolib2 for testing purposes
 
- -- Yao Wei (魏銘廷) <mwei@debian.org>  Fri, 29 May 2020 21:55:50 +0800
+ -- Yao Wei (魏銘廷) <mwei@debian.org>  Sat, 25 Jul 2020 12:17:47 +0800
 
 fonttools (4.10.2-1) unstable; urgency=medium
 
