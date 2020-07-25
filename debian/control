@@ -6,7 +6,7 @@ Uploaders:
  Luke Faraone <lfaraone@debian.org>,
  Yao Wei (魏銘廷) <mwei@debian.org>
 Build-Depends:
- debhelper-compat (= 12),
+ debhelper-compat (= 13),
  dh-python,
  python3-all,
  python3-brotli (>= 1.0.7),
