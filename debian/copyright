@@ -15,6 +15,10 @@ Copyright: 1996- Just van Rossum <just@letterror.com>
            1991-1995 Stichting Mathematisch Centrum, Amsterdam
 License:   Expat
 
+Files:     Lib/fontTools/cu2qu/*
+Copyright: 2016 Google Inc.
+License:   Apache-2.0
+
 Files:     Tests/subset/data/Lobster.subset.ttx
 Copyright: 2010 Pablo Impallari <impallari@gmail.com>
 Comment:   With Reserved Font Name Lobster
@@ -33,6 +37,10 @@ Copyright: 2009-2012 Khaled Hosny
            1998-2003 MicroPress, Inc.
            1990 Elsevier, Inc.
 Comment:   With Reserved Font Name STIX Fonts, TM Math
+License:   OFL-1.1
+
+Files:     Tests/subset/data/TestContextSubstFormat3.ttx
+Copyright: 2015-2020 Belleve Invis <belleve@typeof.net>
 License:   OFL-1.1
 
 Files:     Lib/fontTools/agl.py
@@ -109,7 +117,7 @@ Copyright: 2002- Anthony Fok <foka@debian.org>
            2017- Hideki Yamane <henrich@debian.org>
            2017- Rene Engelhard <rene@rene-engelhard.de>
            2017- Jeremy Bicha <jbicha@debian.org>
-           2017- Yao Wei (魏銘廷) <mwei@lxde.org>
+           2017- Yao Wei (魏銘廷) <mwei@debian.org>
 License:   Expat
 
 License:   Expat
@@ -244,3 +252,10 @@ License: GPL-2 with font exception
  .
  On Debian systems, the full text of the GNU General Public License version 2
  can be found in the file `/usr/share/common-licenses/GPL-2'.
+
+License:   Apache-2.0
+ Licensed under the Apache License, Version 2.0
+ https://www.apache.org/licenses/
+ .
+ On Debian systems, the complete text of the Apache License can be found in
+ /usr/share/common-licenses/Apache-2.0'.
