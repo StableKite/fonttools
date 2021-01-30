@@ -1,3 +1,17 @@
+fonttools (4.19.1-1) UNRELEASED; urgency=medium
+
+  * New upstream version 4.19.1
+  * debian/copyright: Update copyright information
+  * debian/control: Update build- and runtime- dependencies
+  * debian/control: Change python3-fonttools Architecture from all to any
+    due to cu2qu inclusion
+  * debian/control: Bump Debian Policy standard to 4.5.1
+    - Note that some files in Lib/fontTools/unicodedata are removed from
+      source packages and generated during build.  These are derived from
+      unicode-data and their copyright info are already documented.
+
+ -- Yao Wei (魏銘廷) <mwei@debian.org>  Sun, 31 Jan 2021 07:12:28 +0800
+
 fonttools (4.18.2-1) unstable; urgency=medium
 
   * New upstream version 4.18.2
