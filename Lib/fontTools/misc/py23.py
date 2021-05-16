@@ -9,7 +9,7 @@ from io import StringIO as UnicodeIO
 from types import SimpleNamespace
 
 warnings.warn(
-    "The py23 module has been deprecated and will be removed in the next release. "
+    "The py23 module has been deprecated and will be removed in a future release. "
     "Please update your code.",
     DeprecationWarning,
 )
@@ -71,10 +71,10 @@ def strjoin(iterable, joiner=""):
 
 
 def tobytes(s, encoding="ascii", errors="strict"):
-    if not isinstance(s, bytes):
+    if isinstance(s, str):
         return s.encode(encoding, errors)
     else:
-        return s
+        return bytes(s)
 
 
 def tounicode(s, encoding="ascii", errors="strict"):

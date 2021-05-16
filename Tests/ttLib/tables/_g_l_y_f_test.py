@@ -1,4 +1,3 @@
-from fontTools.misc.py23 import *
 from fontTools.misc.fixedTools import otRound
 from fontTools.misc.testTools import getXML, parseXML
 from fontTools.pens.ttGlyphPen import TTGlyphPen
@@ -19,6 +18,7 @@ from fontTools.ttLib.tables._g_l_y_f import (
 from fontTools.ttLib.tables import ttProgram
 import sys
 import array
+from io import StringIO
 import itertools
 import pytest
 import re
@@ -173,10 +173,9 @@ class GlyphCoordinatesTest(object):
         assert g[0][0] == otRound(afloat)
 
     def test__checkFloat_overflow(self):
-        g = GlyphCoordinates([(1, 1)], typecode="h")
+        g = GlyphCoordinates([(1, 1)])
         g.append((0x8000, 0))
-        assert g.array.typecode == "d"
-        assert g.array == array.array("d", [1.0, 1.0, 32768.0, 0.0])
+        assert list(g.array) == [1.0, 1.0, 32768.0, 0.0]
 
 
 CURR_DIR = os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
@@ -225,7 +224,7 @@ class GlyfTableTest(unittest.TestCase):
         font['head'].decompile(self.headData, font)
         font['loca'].decompile(self.locaData, font)
         glyfTable.decompile(self.glyfData, font)
-        out = UnicodeIO()
+        out = StringIO()
         font.saveXML(out)
         glyfXML = strip_ttLibVersion(out.getvalue()).splitlines()
         self.assertEqual(glyfXML, self.glyfXML)
@@ -363,6 +362,23 @@ class GlyfTableTest(unittest.TestCase):
         self.assertEqual(font["glyf"][".notdef"].numberOfContours, 0)
         self.assertEqual(font["glyf"]["space"].numberOfContours, 0)
 
+    def test_getPhantomPoints(self):
+        # https://github.com/fonttools/fonttools/issues/2295
+        font = TTFont()
+        glyphNames = [".notdef"]
+        font.setGlyphOrder(glyphNames)
+        font["loca"] = newTable("loca")
+        font["loca"].locations = [0] * (len(glyphNames) + 1)
+        font["glyf"] = newTable("glyf")
+        font["glyf"].decompile(b"\x00", font)
+        font["hmtx"] = newTable("hmtx")
+        font["hmtx"].metrics = {".notdef": (100,0)}
+        font["head"] = newTable("head")
+        font["head"].unitsPerEm = 1000
+        self.assertEqual(
+            font["glyf"].getPhantomPoints(".notdef", font, 0), 
+            [(0, 0), (100, 0), (0, 0), (0, -1000)]
+        )
 
 class GlyphTest:
 
