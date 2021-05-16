@@ -2,7 +2,6 @@
 #
 # Google Author(s): Behdad Esfahbod
 
-from fontTools.misc.py23 import *
 from fontTools.misc.textTools import safeEval
 from . import DefaultTable
 
@@ -14,9 +13,11 @@ class table_C_O_L_R_(DefaultTable.DefaultTable):
 	ttFont['COLR'][<glyphName>] = <value> will set the color layers for any glyph.
 	"""
 
-	def _fromOTTable(self, table):
-		self.version = 0
-		self.ColorLayers = colorLayerLists = {}
+	@staticmethod
+	def _decompileColorLayersV0(table):
+		if not table.LayerRecordArray:
+			return {}
+		colorLayerLists = {}
 		layerRecords = table.LayerRecordArray.LayerRecord
 		numLayerRecords = len(layerRecords)
 		for baseRec in table.BaseGlyphRecordArray.BaseGlyphRecord:
@@ -31,6 +32,7 @@ class table_C_O_L_R_(DefaultTable.DefaultTable):
 					LayerRecord(layerRec.LayerGlyph, layerRec.PaletteIndex)
 				)
 			colorLayerLists[baseGlyph] = layers
+		return colorLayerLists
 
 	def _toOTTable(self, ttFont):
 		from . import otTables
@@ -61,12 +63,12 @@ class table_C_O_L_R_(DefaultTable.DefaultTable):
 		table = tableClass()
 		table.decompile(reader, ttFont)
 
-		if table.Version == 0:
-			self._fromOTTable(table)
+		self.version = table.Version
+		if self.version == 0:
+			self.ColorLayers = self._decompileColorLayersV0(table)
 		else:
 			# for new versions, keep the raw otTables around
 			self.table = table
-			self.version = table.Version
 
 	def compile(self, ttFont):
 		from .otBase import OTTableWriter
@@ -102,11 +104,11 @@ class table_C_O_L_R_(DefaultTable.DefaultTable):
 				self.ColorLayers = {}
 			glyphName = attrs["name"]
 			for element in content:
-				if isinstance(element, basestring):
+				if isinstance(element, str):
 					continue
 			layers = []
 			for element in content:
-				if isinstance(element, basestring):
+				if isinstance(element, str):
 					continue
 				layer = LayerRecord()
 				layer.fromXML(element[0], element[1], element[2], ttFont)
@@ -120,6 +122,7 @@ class table_C_O_L_R_(DefaultTable.DefaultTable):
 				self.table = tableClass()
 			self.table.fromXML(name, attrs, content, ttFont)
 			self.table.populateDefaults()
+			self.version = self.table.Version
 
 	def __getitem__(self, glyphName):
 		if not isinstance(glyphName, str):

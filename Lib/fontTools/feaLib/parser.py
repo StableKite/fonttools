@@ -1,7 +1,7 @@
 from fontTools.feaLib.error import FeatureLibError
 from fontTools.feaLib.lexer import Lexer, IncludingLexer, NonIncludingLexer
 from fontTools.misc.encodingTools import getEncoding
-from fontTools.misc.py23 import *
+from fontTools.misc.py23 import bytechr, tobytes, tostr
 import fontTools.feaLib.ast as ast
 import logging
 import os
@@ -314,10 +314,15 @@ class Parser(object):
                 location,
             )
 
-    def parse_glyphclass_(self, accept_glyphname):
+    def parse_glyphclass_(self, accept_glyphname, accept_null=False):
         # Parses a glyph class, either named or anonymous, or (if
-        # ``bool(accept_glyphname)``) a glyph name.
+        # ``bool(accept_glyphname)``) a glyph name. If ``bool(accept_null)`` then
+        # also accept the special NULL glyph.
         if accept_glyphname and self.next_token_type_ in (Lexer.NAME, Lexer.CID):
+            if accept_null and self.next_token_ == "NULL":
+                # If you want a glyph called NULL, you should escape it.
+                self.advance_lexer_()
+                return self.ast.NullGlyph(location=self.cur_token_location_)
             glyph = self.expect_glyph_()
             self.check_glyph_name_in_glyph_set(glyph)
             return self.ast.GlyphName(glyph, location=self.cur_token_location_)
@@ -375,7 +380,8 @@ class Parser(object):
                     self.expect_symbol_("-")
                     range_end = self.expect_cid_()
                     self.check_glyph_name_in_glyph_set(
-                        f"cid{range_start:05d}", f"cid{range_end:05d}",
+                        f"cid{range_start:05d}",
+                        f"cid{range_end:05d}",
                     )
                     glyphs.add_cid_range(
                         range_start,
@@ -467,14 +473,38 @@ class Parser(object):
             assert lookups == []
             return ([], prefix, [None] * len(prefix), values, [], hasMarks)
         else:
-            assert not any(values[: len(prefix)]), values
-            format1 = values[len(prefix) :][: len(glyphs)]
-            format2 = values[(len(prefix) + len(glyphs)) :][: len(suffix)]
-            values = (
-                format2
-                if format2 and isinstance(format2[0], self.ast.ValueRecord)
-                else format1
-            )
+            if any(values[: len(prefix)]):
+                raise FeatureLibError(
+                    "Positioning cannot be applied in the bactrack glyph sequence, "
+                    "before the marked glyph sequence.",
+                    self.cur_token_location_
+                )
+            marked_values = values[len(prefix) : len(prefix) + len(glyphs)]
+            if any(marked_values):
+                if any(values[len(prefix) + len(glyphs) :]):
+                    raise FeatureLibError(
+                        "Positioning values are allowed only in the marked glyph "
+                        "sequence, or after the final glyph node when only one glyph "
+                        "node is marked.",
+                        self.cur_token_location_
+                    )
+                values = marked_values
+            elif values and values[-1]:
+                if len(glyphs) > 1 or any(values[:-1]):
+                    raise FeatureLibError(
+                        "Positioning values are allowed only in the marked glyph "
+                        "sequence, or after the final glyph node when only one glyph "
+                        "node is marked.",
+                        self.cur_token_location_
+                    )
+                values = values[-1:]
+            elif any(values):
+                raise FeatureLibError(
+                    "Positioning values are allowed only in the marked glyph "
+                    "sequence, or after the final glyph node when only one glyph "
+                    "node is marked.",
+                    self.cur_token_location_
+                )
             return (prefix, glyphs, lookups, values, suffix, hasMarks)
 
     def parse_chain_context_(self):
@@ -804,7 +834,7 @@ class Parser(object):
         if self.next_token_ == "by":
             keyword = self.expect_keyword_("by")
             while self.next_token_ != ";":
-                gc = self.parse_glyphclass_(accept_glyphname=True)
+                gc = self.parse_glyphclass_(accept_glyphname=True, accept_null=True)
                 new.append(gc)
         elif self.next_token_ == "from":
             keyword = self.expect_keyword_("from")
@@ -837,6 +867,11 @@ class Parser(object):
 
         num_lookups = len([l for l in lookups if l is not None])
 
+        is_deletion = False
+        if len(new) == 1 and len(new[0].glyphSet()) == 0:
+            new = []  # Deletion
+            is_deletion = True
+
         # GSUB lookup type 1: Single substitution.
         # Format A: "substitute a by a.sc;"
         # Format B: "substitute [one.fitted one.oldstyle] by one;"
@@ -855,6 +890,18 @@ class Parser(object):
                 )
             return self.ast.SingleSubstStatement(
                 old, new, old_prefix, old_suffix, forceChain=hasMarks, location=location
+            )
+
+        # Glyph deletion, built as GSUB lookup type 2: Multiple substitution
+        # with empty replacement.
+        if is_deletion and len(old) == 1 and num_lookups == 0:
+            return self.ast.MultipleSubstStatement(
+                old_prefix,
+                old[0],
+                old_suffix,
+                (),
+                forceChain=hasMarks,
+                location=location,
             )
 
         # GSUB lookup type 2: Multiple substitution.
@@ -936,7 +983,7 @@ class Parser(object):
             )
 
         # If there are remaining glyphs to parse, this is an invalid GSUB statement
-        if len(new) != 0:
+        if len(new) != 0 or is_deletion:
             raise FeatureLibError("Invalid substitution statement", location)
 
         # GSUB lookup type 6: Chaining contextual substitution.
@@ -958,8 +1005,8 @@ class Parser(object):
         location = self.cur_token_location_
         DesignSize = self.expect_decipoint_()
         SubfamilyID = self.expect_number_()
-        RangeStart = 0
-        RangeEnd = 0
+        RangeStart = 0.
+        RangeEnd = 0.
         if self.next_token_type_ in (Lexer.NUMBER, Lexer.FLOAT) or SubfamilyID != 0:
             RangeStart = self.expect_decipoint_()
             RangeEnd = self.expect_decipoint_()
@@ -990,6 +1037,7 @@ class Parser(object):
             "name": self.parse_table_name_,
             "BASE": self.parse_table_BASE_,
             "OS/2": self.parse_table_OS_2_,
+            "STAT": self.parse_table_STAT_,
         }.get(name)
         if handler:
             handler(table)
@@ -1149,6 +1197,35 @@ class Parser(object):
         unescaped = self.unescape_string_(string, encoding)
         return platformID, platEncID, langID, unescaped
 
+    def parse_stat_name_(self):
+        platEncID = None
+        langID = None
+        if self.next_token_type_ in Lexer.NUMBERS:
+            platformID = self.expect_any_number_()
+            location = self.cur_token_location_
+            if platformID not in (1, 3):
+                raise FeatureLibError("Expected platform id 1 or 3", location)
+            if self.next_token_type_ in Lexer.NUMBERS:
+                platEncID = self.expect_any_number_()
+                langID = self.expect_any_number_()
+        else:
+            platformID = 3
+            location = self.cur_token_location_
+
+        if platformID == 1:  # Macintosh
+            platEncID = platEncID or 0  # Roman
+            langID = langID or 0  # English
+        else:  # 3, Windows
+            platEncID = platEncID or 1  # Unicode
+            langID = langID or 0x0409  # English
+
+        string = self.expect_string_()
+        encoding = getEncoding(platformID, platEncID, langID)
+        if encoding is None:
+            raise FeatureLibError("Unsupported encoding", location)
+        unescaped = self.unescape_string_(string, encoding)
+        return platformID, platEncID, langID, unescaped
+
     def parse_nameid_(self):
         assert self.cur_token_ == "nameid", self.cur_token_
         location, nameID = self.cur_token_location_, self.expect_any_number_()
@@ -1179,12 +1256,12 @@ class Parser(object):
         # We convert surrogates to actual Unicode by round-tripping through
         # Python's UTF-16 codec in a special mode.
         utf16 = tobytes(s, "utf_16_be", "surrogatepass")
-        return tounicode(utf16, "utf_16_be")
+        return tostr(utf16, "utf_16_be")
 
     @staticmethod
     def unescape_unichr_(match):
         n = match.group(0)[1:]
-        return unichr(int(n, 16))
+        return chr(int(n, 16))
 
     @staticmethod
     def unescape_byte_(match, encoding):
@@ -1267,6 +1344,198 @@ class Parser(object):
                 statements.append(
                     self.ast.OS2Field(key, value, location=self.cur_token_location_)
                 )
+            elif self.cur_token_ == ";":
+                continue
+
+    def parse_STAT_ElidedFallbackName(self):
+        assert self.is_cur_keyword_("ElidedFallbackName")
+        self.expect_symbol_("{")
+        names = []
+        while self.next_token_ != "}" or self.cur_comments_:
+            self.advance_lexer_()
+            if self.is_cur_keyword_("name"):
+                platformID, platEncID, langID, string = self.parse_stat_name_()
+                nameRecord = self.ast.STATNameStatement(
+                    "stat",
+                    platformID,
+                    platEncID,
+                    langID,
+                    string,
+                    location=self.cur_token_location_,
+                )
+                names.append(nameRecord)
+            else:
+                if self.cur_token_ != ";":
+                    raise FeatureLibError(
+                        f"Unexpected token {self.cur_token_} " f"in ElidedFallbackName",
+                        self.cur_token_location_,
+                    )
+        self.expect_symbol_("}")
+        if not names:
+            raise FeatureLibError('Expected "name"', self.cur_token_location_)
+        return names
+
+    def parse_STAT_design_axis(self):
+        assert self.is_cur_keyword_("DesignAxis")
+        names = []
+        axisTag = self.expect_tag_()
+        if (
+            axisTag not in ("ital", "opsz", "slnt", "wdth", "wght")
+            and not axisTag.isupper()
+        ):
+            log.warning(f"Unregistered axis tag {axisTag} should be uppercase.")
+        axisOrder = self.expect_number_()
+        self.expect_symbol_("{")
+        while self.next_token_ != "}" or self.cur_comments_:
+            self.advance_lexer_()
+            if self.cur_token_type_ is Lexer.COMMENT:
+                continue
+            elif self.is_cur_keyword_("name"):
+                location = self.cur_token_location_
+                platformID, platEncID, langID, string = self.parse_stat_name_()
+                name = self.ast.STATNameStatement(
+                    "stat", platformID, platEncID, langID, string, location=location
+                )
+                names.append(name)
+            elif self.cur_token_ == ";":
+                continue
+            else:
+                raise FeatureLibError(
+                    f'Expected "name", got {self.cur_token_}', self.cur_token_location_
+                )
+
+        self.expect_symbol_("}")
+        return self.ast.STATDesignAxisStatement(
+            axisTag, axisOrder, names, self.cur_token_location_
+        )
+
+    def parse_STAT_axis_value_(self):
+        assert self.is_cur_keyword_("AxisValue")
+        self.expect_symbol_("{")
+        locations = []
+        names = []
+        flags = 0
+        while self.next_token_ != "}" or self.cur_comments_:
+            self.advance_lexer_(comments=True)
+            if self.cur_token_type_ is Lexer.COMMENT:
+                continue
+            elif self.is_cur_keyword_("name"):
+                location = self.cur_token_location_
+                platformID, platEncID, langID, string = self.parse_stat_name_()
+                name = self.ast.STATNameStatement(
+                    "stat", platformID, platEncID, langID, string, location=location
+                )
+                names.append(name)
+            elif self.is_cur_keyword_("location"):
+                location = self.parse_STAT_location()
+                locations.append(location)
+            elif self.is_cur_keyword_("flag"):
+                flags = self.expect_stat_flags()
+            elif self.cur_token_ == ";":
+                continue
+            else:
+                raise FeatureLibError(
+                    f"Unexpected token {self.cur_token_} " f"in AxisValue",
+                    self.cur_token_location_,
+                )
+        self.expect_symbol_("}")
+        if not names:
+            raise FeatureLibError('Expected "Axis Name"', self.cur_token_location_)
+        if not locations:
+            raise FeatureLibError('Expected "Axis location"', self.cur_token_location_)
+        if len(locations) > 1:
+            for location in locations:
+                if len(location.values) > 1:
+                    raise FeatureLibError(
+                        "Only one value is allowed in a "
+                        "Format 4 Axis Value Record, but "
+                        f"{len(location.values)} were found.",
+                        self.cur_token_location_,
+                    )
+            format4_tags = []
+            for location in locations:
+                tag = location.tag
+                if tag in format4_tags:
+                    raise FeatureLibError(
+                        f"Axis tag {tag} already " "defined.", self.cur_token_location_
+                    )
+                format4_tags.append(tag)
+
+        return self.ast.STATAxisValueStatement(
+            names, locations, flags, self.cur_token_location_
+        )
+
+    def parse_STAT_location(self):
+        values = []
+        tag = self.expect_tag_()
+        if len(tag.strip()) != 4:
+            raise FeatureLibError(
+                f"Axis tag {self.cur_token_} must be 4 " "characters",
+                self.cur_token_location_,
+            )
+
+        while self.next_token_ != ";":
+            if self.next_token_type_ is Lexer.FLOAT:
+                value = self.expect_float_()
+                values.append(value)
+            elif self.next_token_type_ is Lexer.NUMBER:
+                value = self.expect_number_()
+                values.append(value)
+            else:
+                raise FeatureLibError(
+                    f'Unexpected value "{self.next_token_}". '
+                    "Expected integer or float.",
+                    self.next_token_location_,
+                )
+        if len(values) == 3:
+            nominal, min_val, max_val = values
+            if nominal < min_val or nominal > max_val:
+                raise FeatureLibError(
+                    f"Default value {nominal} is outside "
+                    f"of specified range "
+                    f"{min_val}-{max_val}.",
+                    self.next_token_location_,
+                )
+        return self.ast.AxisValueLocationStatement(tag, values)
+
+    def parse_table_STAT_(self, table):
+        statements = table.statements
+        design_axes = []
+        while self.next_token_ != "}" or self.cur_comments_:
+            self.advance_lexer_(comments=True)
+            if self.cur_token_type_ is Lexer.COMMENT:
+                statements.append(
+                    self.ast.Comment(self.cur_token_, location=self.cur_token_location_)
+                )
+            elif self.cur_token_type_ is Lexer.NAME:
+                if self.is_cur_keyword_("ElidedFallbackName"):
+                    names = self.parse_STAT_ElidedFallbackName()
+                    statements.append(self.ast.ElidedFallbackName(names))
+                elif self.is_cur_keyword_("ElidedFallbackNameID"):
+                    value = self.expect_number_()
+                    statements.append(self.ast.ElidedFallbackNameID(value))
+                    self.expect_symbol_(";")
+                elif self.is_cur_keyword_("DesignAxis"):
+                    designAxis = self.parse_STAT_design_axis()
+                    design_axes.append(designAxis.tag)
+                    statements.append(designAxis)
+                    self.expect_symbol_(";")
+                elif self.is_cur_keyword_("AxisValue"):
+                    axisValueRecord = self.parse_STAT_axis_value_()
+                    for location in axisValueRecord.locations:
+                        if location.tag not in design_axes:
+                            # Tag must be defined in a DesignAxis before it
+                            # can be referenced
+                            raise FeatureLibError(
+                                "DesignAxis not defined for " f"{location.tag}.",
+                                self.cur_token_location_,
+                            )
+                    statements.append(axisValueRecord)
+                    self.expect_symbol_(";")
+                else:
+                    raise FeatureLibError(
+                        f"Unexpected token {self.cur_token_}", self.cur_token_location_
+                    )
             elif self.cur_token_ == ";":
                 continue
 
@@ -1771,7 +2040,7 @@ class Parser(object):
             raise FeatureLibError("Expected a tag", self.cur_token_location_)
         if len(self.cur_token_) > 4:
             raise FeatureLibError(
-                "Tags can not be longer than 4 characters", self.cur_token_location_
+                "Tags cannot be longer than 4 characters", self.cur_token_location_
             )
         return (self.cur_token_ + "    ")[:4]
 
@@ -1838,6 +2107,32 @@ class Parser(object):
             return self.expect_float_()
         elif self.next_token_type_ is Lexer.NUMBER:
             return self.expect_number_() / 10
+        else:
+            raise FeatureLibError(
+                "Expected an integer or floating-point number", self.cur_token_location_
+            )
+
+    def expect_stat_flags(self):
+        value = 0
+        flags = {
+            "OlderSiblingFontAttribute": 1,
+            "ElidableAxisValueName": 2,
+        }
+        while self.next_token_ != ";":
+            if self.next_token_ in flags:
+                name = self.expect_name_()
+                value = value | flags[name]
+            else:
+                raise FeatureLibError(
+                    f"Unexpected STAT flag {self.cur_token_}", self.cur_token_location_
+                )
+        return value
+
+    def expect_stat_values_(self):
+        if self.next_token_type_ == Lexer.FLOAT:
+            return self.expect_float_()
+        elif self.next_token_type_ is Lexer.NUMBER:
+            return self.expect_number_()
         else:
             raise FeatureLibError(
                 "Expected an integer or floating-point number", self.cur_token_location_

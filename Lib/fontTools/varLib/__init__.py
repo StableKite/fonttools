@@ -18,9 +18,9 @@ Then you can make a variable-font this way:
 
 API *will* change in near future.
 """
-from fontTools.misc.py23 import *
-from fontTools.misc.fixedTools import otRound
-from fontTools.misc.arrayTools import Vector
+from fontTools.misc.py23 import Tag, tostr
+from fontTools.misc.roundTools import noRound, otRound
+from fontTools.misc.vector import Vector
 from fontTools.ttLib import TTFont, newTable
 from fontTools.ttLib.tables._f_v_a_r import Axis, NamedInstance
 from fontTools.ttLib.tables._g_l_y_f import GlyphCoordinates
@@ -34,6 +34,7 @@ from fontTools.varLib.mvar import MVAR_ENTRIES
 from fontTools.varLib.iup import iup_delta_optimize
 from fontTools.varLib.featureVars import addFeatureVariations
 from fontTools.designspaceLib import DesignSpaceDocument
+from functools import partial
 from collections import OrderedDict, namedtuple
 import os.path
 import logging
@@ -90,7 +91,7 @@ def _add_fvar(font, axes, instances):
 					"stylename element with an 'xml:lang=\"en\"' attribute)."
 				)
 			localisedStyleName = dict(instance.localisedStyleName)
-			localisedStyleName["en"] = tounicode(instance.styleName)
+			localisedStyleName["en"] = tostr(instance.styleName)
 		else:
 			localisedStyleName = instance.localisedStyleName
 
@@ -99,7 +100,7 @@ def _add_fvar(font, axes, instances):
 		inst = NamedInstance()
 		inst.subfamilyNameID = nameTable.addMultilingualName(localisedStyleName)
 		if psname is not None:
-			psname = tounicode(psname)
+			psname = tostr(psname)
 			inst.postscriptNameID = nameTable.addName(psname)
 		inst.coordinates = {axes[k].tag:axes[k].map_backward(v) for k,v in coordinates.items()}
 		#inst.coordinates = {axes[k].tag:v for k,v in coordinates.items()}
@@ -211,6 +212,7 @@ def _add_stat(font, axes):
 	axes = [dict(tag=a.axisTag, name=a.axisNameID) for a in fvarTable.axes]
 	buildStatTable(font, axes)
 
+_MasterData = namedtuple('_MasterData', ['glyf', 'hMetrics', 'vMetrics'])
 
 def _add_gvar(font, masterModel, master_ttfs, tolerance=0.5, optimize=True):
 	if tolerance < 0:
@@ -222,15 +224,18 @@ def _add_gvar(font, masterModel, master_ttfs, tolerance=0.5, optimize=True):
 	glyf = font['glyf']
 	defaultMasterIndex = masterModel.reverseMapping[0]
 
-	# use hhea.ascent of base master as default vertical origin when vmtx is missing
-	baseAscent = font['hhea'].ascent
+	master_datas = [_MasterData(m['glyf'],
+				    m['hmtx'].metrics,
+				    getattr(m.get('vmtx'), 'metrics', None))
+			for m in master_ttfs]
+
 	for glyph in font.getGlyphOrder():
 
 		isComposite = glyf[glyph].isComposite()
 
 		allData = [
-			m["glyf"].getCoordinatesAndControls(glyph, m, defaultVerticalOrigin=baseAscent)
-			for m in master_ttfs
+			m.glyf._getCoordinatesAndControls(glyph, m.hMetrics, m.vMetrics)
+			for m in master_datas
 		]
 
 		if allData[defaultMasterIndex][1].numberOfContours != 0:
@@ -253,7 +258,7 @@ def _add_gvar(font, masterModel, master_ttfs, tolerance=0.5, optimize=True):
 
 		# Update gvar
 		gvar.variations[glyph] = []
-		deltas = model.getDeltas(allCoords)
+		deltas = model.getDeltas(allCoords, round=partial(GlyphCoordinates.__round__, round=round))
 		supports = model.supports
 		assert len(deltas) == len(supports)
 
@@ -262,7 +267,7 @@ def _add_gvar(font, masterModel, master_ttfs, tolerance=0.5, optimize=True):
 		endPts = control.endPts
 
 		for i,(delta,support) in enumerate(zip(deltas[1:], supports[1:])):
-			if all(abs(v) <= tolerance for v in delta.array) and not isComposite:
+			if all(v == 0 for v in delta.array) and not isComposite:
 				continue
 			var = TupleVariation(support, delta)
 			if optimize:
@@ -283,9 +288,9 @@ def _add_gvar(font, masterModel, master_ttfs, tolerance=0.5, optimize=True):
 					var_opt = TupleVariation(support, delta_opt)
 
 					axis_tags = sorted(support.keys()) # Shouldn't matter that this is different from fvar...?
-					tupleData, auxData, _ = var.compile(axis_tags, [], None)
+					tupleData, auxData = var.compile(axis_tags)
 					unoptimized_len = len(tupleData) + len(auxData)
-					tupleData, auxData, _ = var_opt.compile(axis_tags, [], None)
+					tupleData, auxData = var_opt.compile(axis_tags)
 					optimized_len = len(tupleData) + len(auxData)
 
 					if optimized_len < unoptimized_len:
@@ -298,13 +303,14 @@ def _remove_TTHinting(font):
 	for tag in ("cvar", "cvt ", "fpgm", "prep"):
 		if tag in font:
 			del font[tag]
+	maxp = font['maxp']
 	for attr in ("maxTwilightPoints", "maxStorage", "maxFunctionDefs", "maxInstructionDefs", "maxStackElements", "maxSizeOfInstructions"):
-		setattr(font["maxp"], attr, 0)
-	font["maxp"].maxZones = 1
+		setattr(maxp, attr, 0)
+	maxp.maxZones = 1
 	font["glyf"].removeHinting()
 	# TODO: Modify gasp table to deactivate gridfitting for all ranges?
 
-def _merge_TTHinting(font, masterModel, master_ttfs, tolerance=0.5):
+def _merge_TTHinting(font, masterModel, master_ttfs):
 
 	log.info("Merging TT hinting")
 	assert "cvar" not in font
@@ -315,12 +321,9 @@ def _merge_TTHinting(font, masterModel, master_ttfs, tolerance=0.5):
 
 	for tag in ("fpgm", "prep"):
 		all_pgms = [m[tag].program for m in master_ttfs if tag in m]
-		if len(all_pgms) == 0:
+		if not all_pgms:
 			continue
-		if tag in font:
-			font_pgm = font[tag].program
-		else:
-			font_pgm = Program()
+		font_pgm = getattr(font.get(tag), 'program', None)
 		if any(pgm != font_pgm for pgm in all_pgms):
 			log.warning("Masters have incompatible %s tables, hinting is discarded." % tag)
 			_remove_TTHinting(font)
@@ -328,19 +331,17 @@ def _merge_TTHinting(font, masterModel, master_ttfs, tolerance=0.5):
 
 	# glyf table
 
-	for name, glyph in font["glyf"].glyphs.items():
+	font_glyf = font['glyf']
+	master_glyfs = [m['glyf'] for m in master_ttfs]
+	for name, glyph in font_glyf.glyphs.items():
 		all_pgms = [
-			m["glyf"][name].program
-			for m in master_ttfs
-			if name in m['glyf'] and hasattr(m["glyf"][name], "program")
+			getattr(glyf.get(name), 'program', None)
+			for glyf in master_glyfs
 		]
 		if not any(all_pgms):
 			continue
-		glyph.expand(font["glyf"])
-		if hasattr(glyph, "program"):
-			font_pgm = glyph.program
-		else:
-			font_pgm = Program()
+		glyph.expand(font_glyf)
+		font_pgm = getattr(glyph, 'program', None)
 		if any(pgm != font_pgm for pgm in all_pgms if pgm):
 			log.warning("Masters have incompatible glyph programs in glyph '%s', hinting is discarded." % name)
 			# TODO Only drop hinting from this glyph.
@@ -363,10 +364,9 @@ def _merge_TTHinting(font, masterModel, master_ttfs, tolerance=0.5):
 		return
 
 	variations = []
-	deltas, supports = masterModel.getDeltasAndSupports(all_cvs)
+	deltas, supports = masterModel.getDeltasAndSupports(all_cvs, round=round) # builtin round calls into Vector.__round__, which uses builtin round as we like
 	for i,(delta,support) in enumerate(zip(deltas[1:], supports[1:])):
-		delta = [otRound(d) for d in delta]
-		if all(abs(v) <= tolerance for v in delta):
+		if all(v == 0 for v in delta):
 			continue
 		var = TupleVariation(support, delta)
 		variations.append(var)
@@ -441,7 +441,7 @@ def _get_advance_metrics(font, masterModel, master_ttfs,
 	vOrigDeltasAndSupports = {}
 	for glyph in glyphOrder:
 		vhAdvances = [metrics[glyph][0] if glyph in metrics else None for metrics in advMetricses]
-		vhAdvanceDeltasAndSupports[glyph] = masterModel.getDeltasAndSupports(vhAdvances)
+		vhAdvanceDeltasAndSupports[glyph] = masterModel.getDeltasAndSupports(vhAdvances, round=round)
 
 	singleModel = models.allEqual(id(v[1]) for v in vhAdvanceDeltasAndSupports.values())
 
@@ -453,7 +453,7 @@ def _get_advance_metrics(font, masterModel, master_ttfs,
 			# glyphs which have a non-default vOrig.
 			vOrigs = [metrics[glyph] if glyph in metrics else defaultVOrig
 				for metrics, defaultVOrig in vOrigMetricses]
-			vOrigDeltasAndSupports[glyph] = masterModel.getDeltasAndSupports(vOrigs)
+			vOrigDeltasAndSupports[glyph] = masterModel.getDeltasAndSupports(vOrigs, round=round)
 
 	directStore = None
 	if singleModel:
@@ -463,7 +463,7 @@ def _get_advance_metrics(font, masterModel, master_ttfs,
 		varTupleIndexes = list(range(len(supports)))
 		varData = builder.buildVarData(varTupleIndexes, [], optimize=False)
 		for glyphName in glyphOrder:
-			varData.addItem(vhAdvanceDeltasAndSupports[glyphName][0])
+			varData.addItem(vhAdvanceDeltasAndSupports[glyphName][0], round=noRound)
 		varData.optimize()
 		directStore = builder.buildVarStore(varTupleList, [varData])
 
@@ -473,14 +473,14 @@ def _get_advance_metrics(font, masterModel, master_ttfs,
 	for glyphName in glyphOrder:
 		deltas, supports = vhAdvanceDeltasAndSupports[glyphName]
 		storeBuilder.setSupports(supports)
-		advMapping[glyphName] = storeBuilder.storeDeltas(deltas)
+		advMapping[glyphName] = storeBuilder.storeDeltas(deltas, round=noRound)
 
 	if vOrigMetricses:
 		vOrigMap = {}
 		for glyphName in glyphOrder:
 			deltas, supports = vOrigDeltasAndSupports[glyphName]
 			storeBuilder.setSupports(supports)
-			vOrigMap[glyphName] = storeBuilder.storeDeltas(deltas)
+			vOrigMap[glyphName] = storeBuilder.storeDeltas(deltas, round=noRound)
 
 	indirectStore = storeBuilder.finish()
 	mapping2 = indirectStore.optimize()
@@ -751,7 +751,7 @@ def load_designspace(designspace):
 			if not axis.tag:
 				raise VarLibValidationError(f"Axis at index {axis_index} needs a tag.")
 			if not axis.labelNames:
-				axis.labelNames["en"] = tounicode(axis_name)
+				axis.labelNames["en"] = tostr(axis_name)
 
 		axes[axis_name] = axis
 	log.info("Axes:\n%s", pformat([axis.asdict() for axis in axes.values()]))

@@ -870,6 +870,41 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(glyphstr(pos.prefix), "[A B]")
         self.assertEqual(glyphstr(pos.suffix), "comma")
 
+    def test_gpos_type_1_chained_special_kern_format_valuerecord_format_b_bug2293(self):
+        # https://github.com/fonttools/fonttools/issues/2293
+        doc = self.parse("feature kern {pos [A B] [T Y]' comma a <0 0 0 0>;} kern;")
+        pos = doc.statements[0].statements[0]
+        self.assertIsInstance(pos, ast.SinglePosStatement)
+        [(glyphs, value)] = pos.pos
+        self.assertEqual(glyphstr([glyphs]), "[T Y]")
+        self.assertEqual(value.asFea(), "<0 0 0 0>")
+        self.assertEqual(glyphstr(pos.prefix), "[A B]")
+        self.assertEqual(glyphstr(pos.suffix), "comma a")
+
+    def test_gpos_type_1_chained_exception1(self):
+        with self.assertRaisesRegex(FeatureLibError, "Positioning values are allowed"):
+            doc = self.parse("feature kern {"
+                             "    pos [A B]' [T Y]' comma a <0 0 0 0>;"
+                             "} kern;")
+
+    def test_gpos_type_1_chained_exception2(self):
+        with self.assertRaisesRegex(FeatureLibError, "Positioning values are allowed"):
+            doc = self.parse("feature kern {"
+                             "    pos [A B]' <0 0 0 0> [T Y]' comma a <0 0 0 0>;"
+                             "} kern;")
+
+    def test_gpos_type_1_chained_exception3(self):
+        with self.assertRaisesRegex(FeatureLibError, "Positioning cannot be applied"):
+            doc = self.parse("feature kern {"
+                             "    pos [A B] <0 0 0 0> [T Y]' comma a <0 0 0 0>;"
+                             "} kern;")
+
+    def test_gpos_type_1_chained_exception4(self):
+        with self.assertRaisesRegex(FeatureLibError, "Positioning values are allowed"):
+            doc = self.parse("feature kern {"
+                             "    pos a' b c 123 d;"
+                             "} kern;")
+
     def test_gpos_type_2_format_a(self):
         doc = self.parse("feature kern {"
                          "    pos [T V] -60 [a b c] <1 2 3 4>;"
@@ -1279,6 +1314,76 @@ class ParserTest(unittest.TestCase):
             FeatureLibError,
             '"dflt" is not a valid script tag; use "DFLT" instead',
             self.parse, "feature test {script dflt;} test;")
+
+    def test_stat_design_axis(self):  # STAT DesignAxis
+        doc = self.parse('table STAT { DesignAxis opsz 0 '
+                         '{name "Optical Size";}; } STAT;')
+        da = doc.statements[0].statements[0]
+        self.assertIsInstance(da, ast.STATDesignAxisStatement)
+        self.assertEqual(da.tag, 'opsz')
+        self.assertEqual(da.axisOrder, 0)
+        self.assertEqual(da.names[0].string, 'Optical Size')
+
+    def test_stat_axis_value_format1(self):  # STAT AxisValue
+        doc = self.parse('table STAT { DesignAxis opsz 0 '
+                         '{name "Optical Size";}; '
+                         'AxisValue {location opsz 8; name "Caption";}; } '
+                         'STAT;')
+        avr = doc.statements[0].statements[1]
+        self.assertIsInstance(avr, ast.STATAxisValueStatement)
+        self.assertEqual(avr.locations[0].tag, 'opsz')
+        self.assertEqual(avr.locations[0].values[0], 8)
+        self.assertEqual(avr.names[0].string, 'Caption')
+
+    def test_stat_axis_value_format2(self):  # STAT AxisValue
+        doc = self.parse('table STAT { DesignAxis opsz 0 '
+                         '{name "Optical Size";}; '
+                         'AxisValue {location opsz 8 6 10; name "Caption";}; } '
+                         'STAT;')
+        avr = doc.statements[0].statements[1]
+        self.assertIsInstance(avr, ast.STATAxisValueStatement)
+        self.assertEqual(avr.locations[0].tag, 'opsz')
+        self.assertEqual(avr.locations[0].values, [8, 6, 10])
+        self.assertEqual(avr.names[0].string, 'Caption')
+
+    def test_stat_axis_value_format2_bad_range(self):  # STAT AxisValue
+        self.assertRaisesRegex(
+            FeatureLibError,
+            'Default value 5 is outside of specified range 6-10.',
+            self.parse, 'table STAT { DesignAxis opsz 0 '
+                        '{name "Optical Size";}; '
+                        'AxisValue {location opsz 5 6 10; name "Caption";}; } '
+                        'STAT;')
+
+    def test_stat_axis_value_format4(self):  # STAT AxisValue
+        self.assertRaisesRegex(
+            FeatureLibError,
+            'Only one value is allowed in a Format 4 Axis Value Record, but 3 were found.',
+            self.parse, 'table STAT { '
+                         'DesignAxis opsz 0 {name "Optical Size";}; '
+                         'DesignAxis wdth 0 {name "Width";}; '
+                         'AxisValue {'
+                         'location opsz 8 6 10; '
+                         'location wdth 400; '
+                         'name "Caption";}; } '
+                         'STAT;')
+
+    def test_stat_elidedfallbackname(self):  # STAT ElidedFallbackName
+        doc = self.parse('table STAT { ElidedFallbackName {name "Roman"; '
+                         'name 3 1 0x0411 "ローマン"; }; '
+                         '} STAT;')
+        nameRecord = doc.statements[0].statements[0]
+        self.assertIsInstance(nameRecord, ast.ElidedFallbackName)
+        self.assertEqual(nameRecord.names[0].string, 'Roman')
+        self.assertEqual(nameRecord.names[1].string, 'ローマン')
+
+    def test_stat_elidedfallbacknameid(self):  # STAT ElidedFallbackNameID
+        doc = self.parse('table name { nameid 278 "Roman"; } name; '
+                         'table STAT { ElidedFallbackNameID 278; '
+                         '} STAT;')
+        nameRecord = doc.statements[0].statements[0]
+        self.assertIsInstance(nameRecord, ast.NameRecord)
+        self.assertEqual(nameRecord.string, 'Roman')
 
     def test_sub_single_format_a(self):  # GSUB LookupType 1
         doc = self.parse("feature smcp {substitute a by a.sc;} smcp;")

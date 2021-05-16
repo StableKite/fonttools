@@ -1,5 +1,4 @@
 """Pen recording operations that can be accessed or replayed."""
-from fontTools.misc.py23 import *
 from fontTools.pens.basePen import AbstractPen, DecomposingPen
 from fontTools.pens.pointPen import AbstractPointPen
 
@@ -123,16 +122,22 @@ class RecordingPointPen(AbstractPointPen):
 	def __init__(self):
 		self.value = []
 
-	def beginPath(self, **kwargs):
+	def beginPath(self, identifier=None, **kwargs):
+		if identifier is not None:
+			kwargs["identifier"] = identifier
 		self.value.append(("beginPath", (), kwargs))
 
 	def endPath(self):
 		self.value.append(("endPath", (), {}))
 
-	def addPoint(self, pt, segmentType=None, smooth=False, name=None, **kwargs):
+	def addPoint(self, pt, segmentType=None, smooth=False, name=None, identifier=None, **kwargs):
+		if identifier is not None:
+			kwargs["identifier"] = identifier
 		self.value.append(("addPoint", (pt, segmentType, smooth, name), kwargs))
 
-	def addComponent(self, baseGlyphName, transformation, **kwargs):
+	def addComponent(self, baseGlyphName, transformation, identifier=None, **kwargs):
+		if identifier is not None:
+			kwargs["identifier"] = identifier
 		self.value.append(("addComponent", (baseGlyphName, transformation), kwargs))
 
 	def replay(self, pointPen):
@@ -141,7 +146,6 @@ class RecordingPointPen(AbstractPointPen):
 
 
 if __name__ == "__main__":
-	from fontTools.pens.basePen import _TestPen
 	pen = RecordingPen()
 	pen.moveTo((0, 0))
 	pen.lineTo((0, 100))

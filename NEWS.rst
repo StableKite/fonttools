@@ -1,3 +1,114 @@
+4.23.1 (released 2021-05-14)
+----------------------------
+
+- [subset] Fix ``KeyError`` after subsetting ``COLR`` table that initially contains
+  both v0 and v1 color glyphs when the subset only requested v1 glyphs; we were
+  not pruning the v0 portion of the table (#2308).
+- [colorLib] Set ``LayerV1List`` attribute to ``None`` when empty, it's optional
+  in CORLv1 (#2308).
+
+4.23.0 (released 2021-05-13)
+----------------------------
+
+- [designspaceLib] Allow to use ``\\UNC`` absolute paths on Windows (#2299, #2306).
+- [varLib.merger] Fixed bug where ``VarLibMergeError`` was raised with incorrect
+  parameters (#2300).
+- [feaLib] Allow substituting a glyph class with ``NULL`` to delete multiple glyphs
+  (#2303).
+- [glyf] Fixed ``NameError`` exception in ``getPhantomPoints`` (#2295, #2305).
+- [removeOverlaps] Retry pathops.simplify after rounding path coordinates to integers
+  if it fails the first time using floats, to work around a rare and hard to debug
+  Skia bug (#2288).
+- [varLib] Added support for building, reading, writing and optimizing 32-bit
+  ``ItemVariationStore`` as used in COLRv1 table (#2285).
+- [otBase/otConverters] Add array readers/writers for int types (#2285).
+- [feaLib] Allow more than one lookahead glyph/class in contextual positioning with
+  "value at end" (#2293, #2294).
+- [COLRv1] Default varIdx should be 0xFFFFFFFF (#2297, #2298).
+- [pens] Make RecordingPointPen actually pass on identifiers; replace asserts with
+  explicit ``PenError`` exception (#2284).
+- [mutator] Round lsb for CF2 fonts as well (#2286).
+
+4.22.1 (released 2021-04-26)
+----------------------------
+
+- [feaLib] Skip references to named lookups if the lookup block definition
+  is empty, similarly to makeotf. This also fixes an ``AttributeError`` while
+  generating ``aalt`` feature (#2276, #2277).
+- [subset] Fixed bug with ``--no-hinting`` implementation for Device tables (#2272,
+  #2275). The previous code was alwyas dropping Device tables if no-hinting was
+  requested, but some Device tables (DeltaFormat=0x8000) are also used to encode
+  variation indices and need to be retained.
+- [otBase] Fixed bug in getting the ValueRecordSize when decompiling ``MVAR``
+  table with ``lazy=True`` (#2273, #2274).
+- [varLib/glyf/gvar] Optimized and simplified ``GlyphCoordinates`` and
+  ``TupleVariation`` classes, use ``bytearray`` where possible, refactored
+  phantom-points calculations. We measured about 30% speedup in total time
+  of loading master ttfs, building gvar, and saving (#2261, #2266).
+- [subset] Fixed ``AssertionError`` while pruning unused CPAL palettes when
+  ``0xFFFF`` is present (#2257, #2259).
+
+4.22.0 (released 2021-04-01)
+----------------------------
+
+- [ttLib] Remove .Format from Coverage, ClassDef, SingleSubst, LigatureSubst,
+  AlternateSubst, MultipleSubst (#2238).
+  ATTENTION: This will change your TTX dumps!
+- [misc.arrayTools] move Vector to its own submodule, and rewrite as a tuple
+  subclass (#2201).
+- [docs] Added a terminology section for varLib (#2209).
+- [varLib] Move rounding to VariationModel, to avoid error accumulation from
+  multiple deltas (#2214)
+- [varLib] Explain merge errors in more human-friendly terms (#2223, #2226)
+- [otlLib] Correct some documentation (#2225)
+- [varLib/otlLib] Allow merging into VariationFont without first saving GPOS
+  PairPos2 (#2229)
+- [subset] Improve PairPosFormat2 subsetting (#2221)
+- [ttLib] TTFont.save: create file on disk as late as possible (#2253)
+- [cffLib] Add missing CFF2 dict operators LanguageGroup and ExpansionFactor
+  (#2249)
+  ATTENTION: This will change your TTX dumps!
+
+4.21.1 (released 2021-02-26)
+----------------------------
+
+- [pens] Reverted breaking change that turned ``AbstractPen`` and ``AbstractPointPen``
+  into abstract base classes (#2164, #2198).
+
+4.21.0 (released 2021-02-26)
+----------------------------
+
+- [feaLib] Indent anchor statements in ``asFea()`` to make them more legible and
+  diff-able (#2193).
+- [pens] Turn ``AbstractPen`` and ``AbstractPointPen`` into abstract base classes
+  (#2164).
+- [feaLib] Added support for parsing and building ``STAT`` table from AFDKO feature
+  files (#2039).
+- [instancer] Added option to update name table of generated instance using ``STAT``
+  table's axis values (#2189).
+- [bezierTools] Added functions to compute bezier point-at-time, as well as line-line,
+  curve-line and curve-curve intersections (#2192).
+
+4.20.0 (released 2021-02-15)
+----------------------------
+
+- [COLRv1] Added ``unbuildColrV1`` to deconstruct COLRv1 otTables to raw json-able
+  data structure; it does the reverse of ``buildColrV1`` (#2171).
+- [feaLib] Allow ``sub X by NULL`` sequence to delete a glyph (#2170).
+- [arrayTools] Fixed ``Vector`` division (#2173).
+- [COLRv1] Define new ``PaintSweepGradient`` (#2172).
+- [otTables] Moved ``Paint.Format`` enum class outside of ``Paint`` class definition,
+  now named ``PaintFormat``. It was clashing with paint instance ``Format`` attribute
+  and thus was breaking lazy load of COLR table which relies on magic ``__getattr__``
+  (#2175).
+- [COLRv1] Replace hand-coded builder functions with otData-driven dynamic
+  implementation (#2181).
+- [COLRv1] Define additional static (non-variable) Paint formats (#2181).
+- [subset] Added support for subsetting COLR v1 and CPAL tables (#2174, #2177).
+- [fontBuilder] Allow ``setupFvar`` to optionally take ``designspaceLib.AxisDescriptor``
+  objects. Added new ``setupAvar`` method. Support localised names for axes and
+  named instances (#2185).
+
 4.19.1 (released 2021-01-28)
 ----------------------------
 

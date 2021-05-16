@@ -8,8 +8,8 @@ converter objects from otConverters.py.
 from enum import IntEnum
 import itertools
 from collections import namedtuple
-from fontTools.misc.py23 import *
-from fontTools.misc.fixedTools import otRound
+from fontTools.misc.py23 import bytesjoin
+from fontTools.misc.roundTools import otRound
 from fontTools.misc.textTools import pad, safeEval
 from .otBase import (
 	BaseTable, FormatSwitchingBaseTable, ValueRecord, CountReference,
@@ -558,6 +558,7 @@ class Coverage(FormatSwitchingBaseTable):
 		else:
 			self.glyphs = []
 			log.warning("Unknown Coverage format: %s", self.Format)
+		del self.Format # Don't need this anymore
 
 	def preWrite(self, font):
 		glyphs = getattr(self, "glyphs", None)
@@ -739,6 +740,7 @@ class SingleSubst(FormatSwitchingBaseTable):
 		else:
 			assert 0, "unknown format: %s" % self.Format
 		self.mapping = mapping
+		del self.Format # Don't need this anymore
 
 	def preWrite(self, font):
 		mapping = getattr(self, "mapping", None)
@@ -809,6 +811,7 @@ class MultipleSubst(FormatSwitchingBaseTable):
 		else:
 			assert 0, "unknown format: %s" % self.Format
 		self.mapping = mapping
+		del self.Format # Don't need this anymore
 
 	def preWrite(self, font):
 		mapping = getattr(self, "mapping", None)
@@ -927,6 +930,7 @@ class ClassDef(FormatSwitchingBaseTable):
 		else:
 			log.warning("Unknown ClassDef format: %s", self.Format)
 		self.classDefs = classDefs
+		del self.Format # Don't need this anymore
 
 	def _getClassRanges(self, font):
 		classDefs = getattr(self, "classDefs", None)
@@ -1015,6 +1019,7 @@ class AlternateSubst(FormatSwitchingBaseTable):
 		else:
 			assert 0, "unknown format: %s" % self.Format
 		self.alternates = alternates
+		del self.Format # Don't need this anymore
 
 	def preWrite(self, font):
 		self.Format = 1
@@ -1085,6 +1090,7 @@ class LigatureSubst(FormatSwitchingBaseTable):
 		else:
 			assert 0, "unknown format: %s" % self.Format
 		self.ligatures = ligatures
+		del self.Format # Don't need this anymore
 
 	def preWrite(self, font):
 		self.Format = 1
@@ -1255,7 +1261,7 @@ class VariableValue(namedtuple("VariableValue", ["value", "varIdx"])):
 
 	_value_mapper = None
 
-	def __new__(cls, value, varIdx=0):
+	def __new__(cls, value, varIdx=0xFFFFFFFF):
 		return super().__new__(
 			cls,
 			cls._value_mapper(value) if cls._value_mapper else value,
@@ -1324,24 +1330,34 @@ class CompositeMode(IntEnum):
 	HSL_LUMINOSITY = 26
 
 
-class Paint(getFormatSwitchingBaseTableClass("uint8")):
+class PaintFormat(IntEnum):
+	PaintColrLayers = 1
+	PaintSolid = 2
+	PaintVarSolid = 3,
+	PaintLinearGradient = 4
+	PaintVarLinearGradient = 5
+	PaintRadialGradient = 6
+	PaintVarRadialGradient = 7
+	PaintSweepGradient = 8
+	PaintVarSweepGradient = 9
+	PaintGlyph = 10
+	PaintColrGlyph = 11
+	PaintTransform = 12
+	PaintVarTransform = 13
+	PaintTranslate = 14
+	PaintVarTranslate = 15
+	PaintRotate = 16
+	PaintVarRotate = 17
+	PaintSkew = 18
+	PaintVarSkew = 19
+	PaintComposite = 20
 
-	class Format(IntEnum):
-		PaintColrLayers = 1
-		PaintSolid = 2
-		PaintLinearGradient = 3
-		PaintRadialGradient = 4
-		PaintGlyph = 5
-		PaintColrGlyph = 6
-		PaintTransform = 7
-		PaintTranslate = 8
-		PaintRotate = 9
-		PaintSkew = 10
-		PaintComposite = 11
+
+class Paint(getFormatSwitchingBaseTableClass("uint8")):
 
 	def getFormatName(self):
 		try:
-			return self.__class__.Format(self.Format).name
+			return PaintFormat(self.Format).name
 		except ValueError:
 			raise NotImplementedError(f"Unknown Paint format: {self.Format}")
 
@@ -1356,6 +1372,40 @@ class Paint(getFormatSwitchingBaseTableClass("uint8")):
 		self.toXML2(xmlWriter, font)
 		xmlWriter.endtag(tableName)
 		xmlWriter.newline()
+
+	def getChildren(self, colr):
+		if self.Format == PaintFormat.PaintColrLayers:
+			return colr.LayerV1List.Paint[
+				self.FirstLayerIndex : self.FirstLayerIndex + self.NumLayers
+			]
+
+		if self.Format == PaintFormat.PaintColrGlyph:
+			for record in colr.BaseGlyphV1List.BaseGlyphV1Record:
+				if record.BaseGlyph == self.Glyph:
+					return [record.Paint]
+			else:
+				raise KeyError(f"{self.Glyph!r} not in colr.BaseGlyphV1List")
+
+		children = []
+		for conv in self.getConverters():
+			if conv.tableClass is not None and issubclass(conv.tableClass, type(self)):
+				children.append(getattr(self, conv.name))
+
+		return children
+
+	def traverse(self, colr: COLR, callback):
+		"""Depth-first traversal of graph rooted at self, callback on each node."""
+		if not callable(callback):
+			raise TypeError("callback must be callable")
+		stack = [self]
+		visited = set()
+		while stack:
+			current = stack.pop()
+			if id(current) in visited:
+				continue
+			callback(current)
+			visited.add(id(current))
+			stack.extend(reversed(current.getChildren(colr)))
 
 
 # For each subtable format there is a class. However, we don't really distinguish
@@ -1637,7 +1687,6 @@ def splitMarkBasePos(oldSubTable, newSubTable, overflowRecord):
 
 	oldSubTable.MarkCoverage.glyphs = oldMarkCoverage
 	newSubTable.MarkCoverage = oldSubTable.MarkCoverage.__class__()
-	newSubTable.MarkCoverage.Format = oldSubTable.MarkCoverage.Format
 	newSubTable.MarkCoverage.glyphs = newMarkCoverage
 
 	# share the same BaseCoverage in both halves
