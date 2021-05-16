@@ -1,3 +1,9 @@
+fonttools (4.23.1-1) UNRELEASED; urgency=medium
+
+  * New upstream version 4.23.1
+
+ -- Yao Wei (魏銘廷) <mwei@debian.org>  Sun, 16 May 2021 20:06:55 +0800
+
 fonttools (4.19.1-1) unstable; urgency=medium
 
   * New upstream version 4.19.1
