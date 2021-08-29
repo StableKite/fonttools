@@ -50,12 +50,11 @@ class SubsetTest(unittest.TestCase):
         lines = []
         with open(path, "r", encoding="utf-8") as ttx:
             for line in ttx.readlines():
-                # Elide ttFont attributes because ttLibVersion may change,
-                # and use os-native line separators so we can run difflib.
+                # Elide ttFont attributes because ttLibVersion may change.
                 if line.startswith("<ttFont "):
-                    lines.append("<ttFont>" + os.linesep)
+                    lines.append("<ttFont>\n")
                 else:
-                    lines.append(line.rstrip() + os.linesep)
+                    lines.append(line.rstrip() + "\n")
         return lines
 
     def expect_ttx(self, font, expected_ttx, tables=None):
@@ -1013,7 +1012,7 @@ def colrv1_path(tmp_path):
                     },
                     {
                         "Format": ot.PaintFormat.PaintGlyph,
-                        "Paint": (ot.PaintFormat.PaintSolid, (2, 0.3)),
+                        "Paint": (ot.PaintFormat.PaintSolid, 2, 0.3),
                         "Glyph": "glyph00011",
                     },
                 ],
@@ -1044,7 +1043,7 @@ def colrv1_path(tmp_path):
                     },
                     {
                         "Format": ot.PaintFormat.PaintGlyph,
-                        "Paint": (ot.PaintFormat.PaintSolid, (1, 0.5)),
+                        "Paint": (ot.PaintFormat.PaintSolid, 1, 0.5),
                         "Glyph": "glyph00013",
                     },
                 ],
@@ -1078,7 +1077,7 @@ def colrv1_path(tmp_path):
                 ],
             ),
             "uniE003": {
-                "Format": ot.PaintFormat.PaintRotate,
+                "Format": ot.PaintFormat.PaintRotateAroundCenter,
                 "Paint": {
                     "Format": ot.PaintFormat.PaintColrGlyph,
                     "Glyph": "uniE001",
@@ -1150,18 +1149,18 @@ def test_subset_COLRv1_and_CPAL(colrv1_path):
     colr = subset_font["COLR"].table
     assert colr.Version == 1
     assert len(colr.BaseGlyphRecordArray.BaseGlyphRecord) == 1
-    assert len(colr.BaseGlyphV1List.BaseGlyphV1Record) == 3  # was 4
+    assert len(colr.BaseGlyphList.BaseGlyphPaintRecord) == 3  # was 4
 
-    base = colr.BaseGlyphV1List.BaseGlyphV1Record[0]
+    base = colr.BaseGlyphList.BaseGlyphPaintRecord[0]
     assert base.BaseGlyph == "uniE001"
-    layers = colr.LayerV1List.Paint[
+    layers = colr.LayerList.Paint[
         base.Paint.FirstLayerIndex: base.Paint.FirstLayerIndex + base.Paint.NumLayers
     ]
     assert len(layers) == 2
     # check v1 palette indices were remapped
-    assert layers[0].Paint.Paint.ColorLine.ColorStop[0].Color.PaletteIndex == 0
-    assert layers[0].Paint.Paint.ColorLine.ColorStop[1].Color.PaletteIndex == 1
-    assert layers[1].Paint.Color.PaletteIndex == 0
+    assert layers[0].Paint.Paint.ColorLine.ColorStop[0].PaletteIndex == 0
+    assert layers[0].Paint.Paint.ColorLine.ColorStop[1].PaletteIndex == 1
+    assert layers[1].Paint.PaletteIndex == 0
 
     baseRecV0 = colr.BaseGlyphRecordArray.BaseGlyphRecord[0]
     assert baseRecV0.BaseGlyph == "uniE004"
@@ -1259,6 +1258,59 @@ def test_subset_COLRv1_drop_all_v0_glyphs(colrv1_path):
     assert colr.table.BaseGlyphRecordArray is None
     assert colr.table.LayerRecordArray is None
     assert colr.table.LayerRecordCount is 0
+
+
+def test_subset_keep_size_drop_empty_stylistic_set():
+    fb = FontBuilder(unitsPerEm=1000, isTTF=True)
+    glyph_order = [".notdef", "a", "b", "b.ss01"]
+    fb.setupGlyphOrder(glyph_order)
+    fb.setupGlyf({g: TTGlyphPen(None).glyph() for g in glyph_order})
+    fb.setupCharacterMap({ord("a"): "a", ord("b"): "b"})
+    fb.setupHorizontalMetrics({g: (500, 0) for g in glyph_order})
+    fb.setupHorizontalHeader()
+    fb.setupOS2()
+    fb.setupPost()
+    fb.setupNameTable({"familyName": "TestKeepSizeFeature", "styleName": "Regular"})
+    fb.addOpenTypeFeatures("""
+        feature size {
+          parameters 10.0 0;
+        } size;
+        feature ss01 {
+          featureNames {
+            name "Alternate b";
+          };
+          sub b by b.ss01;
+        } ss01;
+    """)
+
+    buf = io.BytesIO()
+    fb.save(buf)
+    buf.seek(0)
+
+    font = TTFont(buf)
+
+    gpos_features = font["GPOS"].table.FeatureList.FeatureRecord
+    assert gpos_features[0].FeatureTag == "size"
+    assert isinstance(gpos_features[0].Feature.FeatureParams, ot.FeatureParamsSize)
+    assert gpos_features[0].Feature.LookupCount == 0
+    gsub_features = font["GSUB"].table.FeatureList.FeatureRecord
+    assert gsub_features[0].FeatureTag == "ss01"
+    assert isinstance(
+        gsub_features[0].Feature.FeatureParams, ot.FeatureParamsStylisticSet
+    )
+
+    options = subset.Options(layout_features=["*"])
+    subsetter = subset.Subsetter(options)
+    subsetter.populate(unicodes=[ord("a")])
+    subsetter.subset(font)
+
+    # empty size feature was kept
+    gpos_features = font["GPOS"].table.FeatureList.FeatureRecord
+    assert gpos_features[0].FeatureTag == "size"
+    assert isinstance(gpos_features[0].Feature.FeatureParams, ot.FeatureParamsSize)
+    assert gpos_features[0].Feature.LookupCount == 0
+    # empty ss01 feature was dropped
+    assert font["GSUB"].table.FeatureList.FeatureCount == 0
 
 
 if __name__ == "__main__":

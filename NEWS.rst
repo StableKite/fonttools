@@ -1,3 +1,70 @@
+4.26.2 (released 2021-08-09)
+----------------------------
+
+- [otTables] Added missing ``CompositeMode.PLUS`` operator (#2390).
+
+4.26.1 (released 2021-08-03)
+----------------------------
+
+- [transform] Added ``transformVector`` and ``transformVectors`` methods to the
+  ``Transform`` class. Similar to ``transformPoint`` but ignore the translation
+  part (#2386).
+
+4.26.0 (released 2021-08-03)
+----------------------------
+
+- [xmlWriter] Default to ``"\n"`` for ``newlinestr`` instead of platform-specific
+  ``os.linesep`` (#2384).
+- [otData] Define COLRv1 ClipList and ClipBox (#2379).
+- [removeOverlaps/instancer] Added --ignore-overlap-errors option to work around
+  Skia PathOps.Simplify bug (#2382, #2363, google/fonts#3365).
+- NOTE: This will be the last version to support Python 3.6. FontTools will require
+  Python 3.7 or above from the next release (#2350)
+
+4.25.2 (released 2021-07-26)
+----------------------------
+
+- [COLRv1] Various changes to sync with the latest CORLv1 draft spec. In particular:  
+  define COLR.VarIndexMap, remove/inline ColorIndex struct, add VarIndexBase to ``PaintVar*`` tables (#2372);  
+  add reduced-precicion specialized transform Paints;  
+  define Angle as fraction of half circle encoded as F2Dot14;  
+  use FWORD (int16) for all Paint center coordinates;  
+  change PaintTransform to have an offset to Affine2x3;  
+- [ttLib] when importing XML, only set sfntVersion if the font has no reader and is empty (#2376)
+
+4.25.1 (released 2021-07-16)
+----------------------------
+
+- [ttGlyphPen] Fixed bug in ``TTGlyphPointPen``, whereby open contours (i.e. starting
+  with segmentType "move") would throw ``NotImplementedError``. They are now treated
+  as if they are closed, like with the ``TTGlyphPen`` (#2364, #2366).
+
+4.25.0 (released 2021-07-05)
+----------------------------
+
+- [tfmLib] Added new library for parsing TeX Font Metric (TFM) files (#2354).
+- [TupleVariation] Make shared tuples order deterministic on python < 3.7 where
+  Counter (subclass of dict) doesn't remember insertion order (#2351, #2353).
+- [otData] Renamed COLRv1 structs to remove 'v1' suffix and match the updated draft
+  spec: 'LayerV1List' -> 'LayerList', 'BaseGlyphV1List' -> 'BaseGlyphList',
+  'BaseGlyphV1Record' -> 'BaseGlyphPaintRecord' (#2346).
+  Added 8 new ``PaintScale*`` tables: with/without centers, uniform vs non-uniform.
+  Added ``*AroundCenter`` variants to ``PaintRotate`` and ``PaintSkew``: the default
+  versions no longer have centerX/Y, but default to origin.
+  ``PaintRotate``, ``PaintSkew`` and ``PaintComposite`` formats were re-numbered.
+  NOTE: these are breaking changes; clients using the experimental COLRv1 API will
+  have to be updated (#2348).
+- [pointPens] Allow ``GuessSmoothPointPen`` to accept a tolerance. Fixed call to
+  ``math.atan2`` with x/y parameters inverted. Sync the code with fontPens (#2344).
+- [post] Fixed parsing ``post`` table format 2.0 when it contains extra garbage
+  at the end of the stringData array (#2314).
+- [subset] drop empty features unless 'size' with FeatureParams table (#2324).
+- [otlLib] Added ``otlLib.optimize`` module; added GPOS compaction algorithm.
+  The compaction can be run on existing fonts with ``fonttools otlLib.optimize``
+  or using the snippet ``compact_gpos.py``. There's experimental support for
+  compacting fonts at compilation time using an environment variable, but that
+  might be removed later (#2326).
+
 4.24.4 (released 2021-05-25)
 ----------------------------
 
@@ -480,7 +547,7 @@
   instance, correctly map the value forward.
 - [varLib] The avar table can now contain mapping output values that are greater than
   OR EQUAL to the preceeding value, as the avar specification allows this.
-- [varLib] The errors of the module are now ordered hierarchically below VarLibError. 
+- [varLib] The errors of the module are now ordered hierarchically below VarLibError.
   See #1821.
 
 4.3.0 (released 2020-02-03)
@@ -774,13 +841,13 @@
 - [mutator] Set ``OVERLAP_SIMPLE`` and ``OVERLAP_COMPOUND`` glyf flags by
   default in ``instantiateVariableFont``. Added ``--no-overlap`` cli option
   to disable this (#1518).
-- [subset] Fixed subsetting ``VVAR`` table (#1516, #1517).  
+- [subset] Fixed subsetting ``VVAR`` table (#1516, #1517).
   Fixed subsetting an ``HVAR`` table that has an ``AdvanceWidthMap`` when the
   option ``--retain-gids`` is used.
-- [feaLib] Added ``forceChained`` in MultipleSubstStatement (#1511).  
-  Fixed double indentation of ``subtable`` statement (#1512).  
+- [feaLib] Added ``forceChained`` in MultipleSubstStatement (#1511).
+  Fixed double indentation of ``subtable`` statement (#1512).
   Added support for ``subtable`` statement in more places than just PairPos
-  lookups (#1520).  
+  lookups (#1520).
   Handle lookupflag 0 and lookupflag without a value (#1540).
 - [varLib] In ``load_designspace``, provide a default English name for the
   ``ital`` axis tag.
