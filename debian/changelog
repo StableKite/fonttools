@@ -1,3 +1,9 @@
+fonttools (4.26.2-2) unstable; urgency=medium
+
+  * debian/control: Add missing dependencies. Closes: #993482
+
+ -- Yao Wei (魏銘廷) <mwei@debian.org>  Thu, 02 Sep 2021 12:49:00 +0800
+
 fonttools (4.26.2-1) experimental; urgency=medium
 
   * New upstream version 4.26.2
