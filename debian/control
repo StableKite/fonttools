@@ -79,6 +79,8 @@ Depends:
  python3-fonttools (<< ${source:Version}.1~),
  ${misc:Depends}
 Architecture: all
+Multi-Arch: foreign
+
 Description: Converts OpenType and TrueType fonts to and from XML (Executables)
  FontTools/TTX is a library to manipulate font files from Python.
  It supports reading and writing of TrueType/OpenType fonts, reading
