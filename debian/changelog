@@ -1,8 +1,9 @@
-fonttools (4.26.2-3) UNRELEASED; urgency=medium
+fonttools (4.27.1-1) UNRELEASED; urgency=medium
 
   * debian/control: Add Multi-Arch: foreign to bin:fonttools. Closes: #995203
+  * New upstream version 4.27.1
 
- -- Yao Wei (魏銘廷) <mwei@debian.org>  Wed, 29 Sep 2021 09:13:58 +0800
+ -- Yao Wei (魏銘廷) <mwei@debian.org>  Sun, 24 Oct 2021 23:29:19 +0800
 
 fonttools (4.26.2-2) unstable; urgency=medium
 
