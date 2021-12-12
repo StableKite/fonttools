@@ -1,10 +1,12 @@
-fonttools (4.28.3-1) UNRELEASED; urgency=medium
+fonttools (4.28.3-1) unstable; urgency=medium
 
   * New upstream version 4.28.3
-  * debian/control: Update dependencies
+  * debian/control:
+    - Update dependencies
+    - Remove ufolib2 from Build-Depends to avoid circular dependency
   * debian/patches: Remove upstreamed patch
 
- -- Yao Wei (魏銘廷) <mwei@debian.org>  Sun, 12 Dec 2021 21:25:43 +0800
+ -- Yao Wei (魏銘廷) <mwei@debian.org>  Sun, 12 Dec 2021 22:06:03 +0800
 
 fonttools (4.27.1-1) unstable; urgency=medium
 
