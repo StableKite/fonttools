@@ -7,6 +7,7 @@ from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.ttLib import TTFont, newTable
 from fontTools.ttLib.tables import otTables as ot
 from fontTools.misc.loggingTools import CapturingLogHandler
+from fontTools.subset.svg import etree
 import difflib
 import logging
 import os
@@ -1269,6 +1270,23 @@ def test_subset_COLRv1_drop_all_v0_glyphs(colrv1_path):
     assert colr.table.LayerRecordCount is 0
 
 
+def test_subset_COLRv1_no_ClipList(colrv1_path):
+    font = TTFont(colrv1_path)
+    font["COLR"].table.ClipList = None  # empty ClipList
+    font.save(colrv1_path)
+
+    subset_path = colrv1_path.parent / (colrv1_path.name + ".subset")
+    subset.main(
+        [
+            str(colrv1_path),
+            f"--output-file={subset_path}",
+            "--unicodes=*",
+        ]
+    )
+    subset_font = TTFont(subset_path)
+    assert subset_font["COLR"].table.ClipList is None
+
+
 def test_subset_keep_size_drop_empty_stylistic_set():
     fb = FontBuilder(unitsPerEm=1000, isTTF=True)
     glyph_order = [".notdef", "a", "b", "b.ss01"]
@@ -1320,6 +1338,67 @@ def test_subset_keep_size_drop_empty_stylistic_set():
     assert gpos_features[0].Feature.LookupCount == 0
     # empty ss01 feature was dropped
     assert font["GSUB"].table.FeatureList.FeatureCount == 0
+
+
+@pytest.mark.skipif(etree is not None, reason="lxml is installed")
+def test_subset_svg_missing_lxml(ttf_path):
+    # add dummy SVG table and confirm we raise ImportError upon trying to subset it
+    font = TTFont(ttf_path)
+    font["SVG "] = newTable("SVG ")
+    font["SVG "].docList = [('<svg><g id="glyph1"/></svg>', 1, 1)]
+    font.save(ttf_path)
+
+    with pytest.raises(ModuleNotFoundError):
+        subset.main([str(ttf_path), "--gids=0,1"])
+
+
+def test_subset_COLR_glyph_closure(tmp_path):
+    # https://github.com/fonttools/fonttools/issues/2461
+    font = TTFont()
+    ttx = pathlib.Path(__file__).parent / "data" / "BungeeColor-Regular.ttx"
+    font.importXML(ttx)
+
+    color_layers = font["COLR"].ColorLayers
+    assert ".notdef" in color_layers
+    assert "Agrave" in color_layers
+    assert "grave" in color_layers
+
+    font_path = tmp_path / "BungeeColor-Regular.ttf"
+    subset_path = font_path.with_suffix(".subset.ttf)")
+    font.save(font_path)
+
+    subset.main(
+        [
+            str(font_path),
+            "--glyph-names",
+            f"--output-file={subset_path}",
+            "--glyphs=Agrave",
+        ]
+    )
+    subset_font = TTFont(subset_path)
+
+    glyph_order = subset_font.getGlyphOrder()
+
+    assert glyph_order == [
+        ".notdef",  # '.notdef' is always included automatically
+        "A",
+        "grave",
+        "Agrave",
+        ".notdef.alt001",
+        ".notdef.alt002",
+        "A.alt002",
+        "Agrave.alt001",
+        "Agrave.alt002",
+        "grave.alt002",
+    ]
+
+    color_layers = subset_font["COLR"].ColorLayers
+    assert ".notdef" in color_layers
+    assert "Agrave" in color_layers
+    # Agrave 'glyf' uses grave. It should be retained in 'glyf' but NOT in
+    # COLR when we subset down to Agrave.
+    assert "grave" not in color_layers
+
 
 
 if __name__ == "__main__":

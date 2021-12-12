@@ -24,7 +24,7 @@ log = logging.getLogger(__name__)
 def buildCoverage(glyphs, glyphMap):
     """Builds a coverage table.
 
-    Coverage tables (as defined in the `OpenType spec <https://docs.microsoft.com/en-gb/typography/opentype/spec/chapter2#coverage-table>`_)
+    Coverage tables (as defined in the `OpenType spec <https://docs.microsoft.com/en-gb/typography/opentype/spec/chapter2#coverage-table>`__)
     are used in all OpenType Layout lookups apart from the Extension type, and
     define the glyphs involved in a layout subtable. This allows shaping engines
     to compare the glyph stream with the coverage table and quickly determine
@@ -52,7 +52,7 @@ def buildCoverage(glyphs, glyphMap):
     if not glyphs:
         return None
     self = ot.Coverage()
-    self.glyphs = sorted(glyphs, key=glyphMap.__getitem__)
+    self.glyphs = sorted(set(glyphs), key=glyphMap.__getitem__)
     return self
 
 
@@ -66,7 +66,7 @@ LOOKUP_FLAG_USE_MARK_FILTERING_SET = 0x0010
 def buildLookup(subtables, flags=0, markFilterSet=None):
     """Turns a collection of rules into a lookup.
 
-    A Lookup (as defined in the `OpenType Spec <https://docs.microsoft.com/en-gb/typography/opentype/spec/chapter2#lookupTbl>`_)
+    A Lookup (as defined in the `OpenType Spec <https://docs.microsoft.com/en-gb/typography/opentype/spec/chapter2#lookupTbl>`__)
     wraps the individual rules in a layout operation (substitution or
     positioning) in a data structure expressing their overall lookup type -
     for example, single substitution, mark-to-base attachment, and so on -
@@ -959,12 +959,18 @@ class MarkBasePosBuilder(LookupBuilder):
             positioning lookup.
         """
         markClasses = self.buildMarkClasses_(self.marks)
-        marks = {
-            mark: (markClasses[mc], anchor) for mark, (mc, anchor) in self.marks.items()
-        }
+        marks = {}
+        for mark, (mc, anchor) in self.marks.items():
+            if mc not in markClasses:
+                raise ValueError("Mark class %s not found for mark glyph %s" % (mc, mark))
+            marks[mark] = (markClasses[mc], anchor)
         bases = {}
         for glyph, anchors in self.bases.items():
-            bases[glyph] = {markClasses[mc]: anchor for (mc, anchor) in anchors.items()}
+            bases[glyph] = {}
+            for mc, anchor in anchors.items():
+                if mc not in markClasses:
+                    raise ValueError("Mark class %s not found for base glyph %s" % (mc, mark))
+                bases[glyph][markClasses[mc]] = anchor
         subtables = buildMarkBasePos(marks, bases, self.glyphMap)
         return self.buildLookup_(subtables)
 

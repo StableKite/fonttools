@@ -1,3 +1,47 @@
+4.28.3 (released 2021-12-03)
+----------------------------
+
+- [subset] Fixed bug while subsetting ``COLR`` table, whereby incomplete layer records
+  pointing to missing glyphs were being retained leading to ``struct.error`` upon
+  compiling. Make it so that ``glyf`` glyph closure, which follows the ``COLR`` glyph
+  closure, does not influence the ``COLR`` table subsetting (#2461, #2462).
+- [docs] Fully document the ``cmap`` and ``glyf`` tables (#2454, #2457).
+- [colorLib.unbuilder] Fixed CLI by deleting no longer existing parameter (180bb1867).
+
+4.28.2 (released 2021-11-22)
+----------------------------
+
+- [otlLib] Remove duplicates when building coverage (#2433).
+- [docs] Add interrogate configuration (#2443).
+- [docs] Remove comment about missing “start” optional argument to ``calcChecksum`` (#2448).
+- [cu2qu/cli] Adapt to the latest ufoLib2.
+- [subset] Support subsetting SVG table and remove it from the list of  drop by default tables (#534).
+- [subset] add ``--pretty-svg`` option to pretty print SVG table contents (#2452).
+- [merge] Support merging ``CFF`` tables (CID-keyed ``CFF`` is still not supported) (#2447).
+- [merge] Support ``--output-file`` (#2447).
+- [docs] Split table docs into individual pages (#2444).
+- [feaLib] Forbid empty classes (#2446).
+- [docs] Improve documentation for ``fontTools.ttLib.ttFont`` (#2442).
+
+4.28.1 (released 2021-11-08)
+----------------------------
+
+- [subset] Fixed AttributeError while traversing a color glyph's Paint graph when there is no
+  LayerList, which is optional (#2441).
+
+4.28.0 (released 2021-11-05)
+----------------------------
+
+- Dropped support for EOL Python 3.6, require Python 3.7 (#2417).
+- [ufoLib/glifLib] Make filename-clash checks faster by using a set instead of a list (#2422).
+- [subset] Don't crash if optional ClipList and LayerList are ``None`` (empty) (#2424, 2439).
+- [OT-SVG] Removed support for old deprecated version 1 and embedded color palettes,
+  which were never officially part of the OpenType SVG spec. Upon compile, reuse offsets
+  to SVG documents that are identical (#2430).
+- [feaLib] Added support for Variable Feature File syntax. This is experimental and subject
+  to change until it is finalized in the Adobe FEA spec (#2432).
+- [unicodedata] Update Scripts/ScriptExtensions/Blocks to UnicodeData 14.0 (#2437).
+
 4.27.1 (released 2021-09-23)
 ----------------------------
 
