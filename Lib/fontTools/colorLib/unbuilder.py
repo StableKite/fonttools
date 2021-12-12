@@ -2,11 +2,14 @@ from fontTools.ttLib.tables import otTables as ot
 from .table_builder import TableUnbuilder
 
 
-def unbuildColrV1(layerV1List, baseGlyphV1List):
-    unbuilder = LayerListUnbuilder(layerV1List.Paint)
+def unbuildColrV1(layerList, baseGlyphList):
+    layers = []
+    if layerList:
+        layers = layerList.Paint
+    unbuilder = LayerListUnbuilder(layers)
     return {
         rec.BaseGlyph: unbuilder.unbuildPaint(rec.Paint)
-        for rec in baseGlyphV1List.BaseGlyphPaintRecord
+        for rec in baseGlyphList.BaseGlyphPaintRecord
     }
 
 
@@ -73,7 +76,6 @@ if __name__ == "__main__":
     colorGlyphs = unbuildColrV1(
         colr.table.LayerList,
         colr.table.BaseGlyphList,
-        ignoreVarIdx=not colr.table.VarStore,
     )
 
     pprint(colorGlyphs)
