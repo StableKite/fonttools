@@ -1,3 +1,25 @@
+4.28.5 (released 2021-12-19)
+----------------------------
+
+- [svgPathPen] Continuation of #2471: make sure all occurrences of ``str()`` are now
+  replaced with user-defined ``ntos`` callable.
+- [merge] Refactored code into submodules, plus several bugfixes and improvements:
+  fixed duplicate-glyph-resolution GSUB-lookup generation code; use tolerance in glyph
+  comparison for empty glyph's width; ignore space of default ignorable glyphs;
+  downgrade duplicates-resolution missing-GSUB from assert to warn; added --drop-tables
+  option (#2473, #2475, #2476).
+
+4.28.4 (released 2021-12-15)
+----------------------------
+
+- [merge] Merge GDEF marksets in Lookups properly (#2474).
+- [feaLib] Have ``fontTools feaLib`` script exit with error code when build fails (#2459)
+- [svgPathPen] Added ``ntos`` option to customize number formatting (e.g. rounding) (#2471).
+- [subset] Speed up subsetting of large CFF fonts (#2467).
+- [otTables] Speculatively promote lookups to extension to speed up compilation. If the
+  offset to lookup N is too big to fit in a ushort, the offset to lookup N+1 is going to
+  be too big as well, so we promote to extension all lookups from lookup N onwards (#2465).
+
 4.28.3 (released 2021-12-03)
 ----------------------------
 
