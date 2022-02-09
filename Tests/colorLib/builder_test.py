@@ -1,3 +1,4 @@
+from copy import deepcopy
 from fontTools.ttLib import newTable
 from fontTools.ttLib.tables import otTables as ot
 from fontTools.colorLib import builder
@@ -1692,6 +1693,33 @@ class BuildCOLRTest(object):
         assert clipBoxes["a"].Format == 2
         assert clipBoxes["c"].Format == 1
 
+    def test_duplicate_base_glyphs(self):
+        # If > 1 base glyphs refer to equivalent list of layers we expect them to share
+        # the same PaintColrLayers.
+        layers = {
+            "Format": ot.PaintFormat.PaintColrLayers,
+            "Layers": [
+                (ot.PaintFormat.PaintGlyph, (ot.PaintFormat.PaintSolid, 0), "d"),
+                (ot.PaintFormat.PaintGlyph, (ot.PaintFormat.PaintSolid, 1), "e"),
+            ],
+        }
+        # I copy the layers to ensure equality is by content, not by identity
+        colr = builder.buildCOLR(
+            {"a": layers, "b": deepcopy(layers), "c": deepcopy(layers)}
+        ).table
+
+        baseGlyphs = colr.BaseGlyphList.BaseGlyphPaintRecord
+        assert len(baseGlyphs) == 3
+
+        assert baseGlyphs[0].BaseGlyph == "a"
+        assert baseGlyphs[1].BaseGlyph == "b"
+        assert baseGlyphs[2].BaseGlyph == "c"
+
+        expected = {"Format": 1, "FirstLayerIndex": 0, "NumLayers": 2}
+        assert baseGlyphs[0].Paint.__dict__ == expected
+        assert baseGlyphs[1].Paint.__dict__ == expected
+        assert baseGlyphs[2].Paint.__dict__ == expected
+
 
 class TrickyRadialGradientTest:
     @staticmethod
@@ -1718,6 +1746,16 @@ class TrickyRadialGradientTest:
         c1 = (642.99108, 104.70327999999995)
         r1 = 260.0072
         assert self.round_start_circle(c0, r0, c1, r1, inside=True) == ((386, 71), 0)
+
+    def test_noto_emoji_horns_sign_u1f918_1f3fc(self):
+        # This radial gradient is taken from noto-emoji's 'SIGNS OF THE HORNS'
+        # (1f918_1f3fc). We check that c0 is inside c1 both before and after rounding.
+        c0 = (-437.6789059060543, -2116.9237094478003)
+        r0 = 0.0
+        c1 = (-488.7330118252256, -1876.5036857045086)
+        r1 = 245.77147821915673
+        assert self.circle_inside_circle(c0, r0, c1, r1)
+        assert self.circle_inside_circle(c0, r0, c1, r1, rounded=True)
 
     @pytest.mark.parametrize(
         "c0, r0, c1, r1, inside, expected",
