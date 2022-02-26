@@ -1,3 +1,10 @@
+fonttools (4.29.1-2) unstable; urgency=high
+
+  * debian/control: Add missing dependency of python3-unicodedata2
+    (Closes: #1005640)
+
+ -- Yao Wei (魏銘廷) <mwei@debian.org>  Sat, 26 Feb 2022 10:45:25 +0800
+
 fonttools (4.29.1-1) unstable; urgency=medium
 
   [ Laurent Bigonville ]
