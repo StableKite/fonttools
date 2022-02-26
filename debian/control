@@ -41,6 +41,7 @@ Depends:
  python3-fs (>= 2.4.11),
  python3-lxml (>= 4.5.0),
  python3-lz4 (>= 1.7.4.2),
+ python3-unicodedata2 (>= 14.0.0) | python3-all (>= 3.11.0),
  unicode-data (>= 14.0.0),
  ${misc:Depends},
  ${python3:Depends},
