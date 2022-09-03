@@ -819,13 +819,20 @@ class SubsetTest:
             if not have_uharfbuzz:
                 pytest.skip("uharfbuzz is not installed")
             if not ok:
-                # pretend hb.repack returns an error
+                # pretend hb.repack/repack_with_tag return an error
                 import uharfbuzz as hb
 
                 def mock_repack(data, obj_list):
                     raise hb.RepackerError("mocking")
 
                 monkeypatch.setattr(hb, "repack", mock_repack)
+
+                if hasattr(hb, "repack_with_tag"):  # uharfbuzz >= 0.30.0
+
+                    def mock_repack_with_tag(tag, data, obj_list):
+                        raise hb.RepackerError("mocking")
+
+                    monkeypatch.setattr(hb, "repack_with_tag", mock_repack_with_tag)
         else:
             if have_uharfbuzz:
                 # pretend uharfbuzz is not installed
@@ -1470,7 +1477,7 @@ def test_subset_svg_missing_lxml(ttf_path):
     font["SVG "].docList = [('<svg><g id="glyph1"/></svg>', 1, 1)]
     font.save(ttf_path)
 
-    with pytest.raises(ModuleNotFoundError):
+    with pytest.raises(ImportError):
         subset.main([str(ttf_path), "--gids=0,1"])
 
 
