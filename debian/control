@@ -21,6 +21,7 @@ Build-Depends:
  sphinx-common,
  unicode-data (>= 14.0.0),
 Build-Depends-Indep: 
+ python3-reportlab <!nodoc>,
  python3-sphinx <!nodoc>,
  python3-sphinx-rtd-theme <!nodoc>,
  python3-matplotlib <!nodoc>,
