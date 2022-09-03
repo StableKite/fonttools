@@ -1,3 +1,86 @@
+4.37.1 (released 2022-08-24)
+----------------------------
+
+- [subset] Fixed regression introduced with v4.37.0 while subsetting the VarStore of
+  ``HVAR`` and ``VVAR`` tables, whereby an ``AttributeError: subset_varidxes`` was
+  thrown because an apparently unused import statement (with the side-effect of
+  dynamically binding that ``subset_varidxes`` method to the VarStore class) had been
+  accidentally deleted in an unrelated PR (#2679, #2773).
+- [pens] Added ``cairoPen`` (#2678).
+- [gvar] Read ``gvar`` more lazily by not parsing all of the ``glyf`` table (#2771).
+- [ttGlyphSet] Make ``drawPoints(pointPen)`` method work for CFF fonts as well via
+  adapter pen (#2770).
+
+4.37.0 (released 2022-08-23)
+----------------------------
+
+- [varLib.models] Reverted PR #2717 which added support for "narrow tents" in v4.36.0,
+  as it introduced a regression (#2764, #2765). It will be restored in upcoming release
+  once we found a solution to the bug.
+- [cff.specializer] Fixed issue in charstring generalizer with the ``blend`` operator
+  (#2750, #1975).
+- [varLib.models] Added support for extrapolation (#2757).
+- [ttGlyphSet] Ensure the newly added ``_TTVarGlyphSet`` inherits from ``_TTGlyphSet``
+  to keep backward compatibility with existing API (#2762).
+- [kern] Allow compiling legacy kern tables with more than 64k entries (d21cfdede).
+- [visitor] Added new visitor API to traverse tree of objects and dispatch based
+  on the attribute type: cf. ``fontTools.misc.visitor`` and ``fontTools.ttLib.ttVisitor``. Added ``fontTools.ttLib.scaleUpem`` module that uses the latter to
+  change a font's units-per-em and scale all the related fields accordingly (#2718,
+  #2755).
+
+4.36.0 (released 2022-08-17)
+----------------------------
+
+- [varLib.models] Use a simpler model that generates narrower "tents" (regions, master
+  supports) whenever possible: specifically when any two axes that actively "cooperate"
+  (have masters at non-zero positions for both axes) have a complete set of intermediates.
+  The simpler algorithm produces fewer overlapping regions and behaves better with
+  respect to rounding at the peak positions than the generic solver, always matching
+  intermediate masters exactly, instead of maximally 0.5 units off. This may be useful
+  when 100% metrics compatibility is desired (#2218, #2717).
+- [feaLib] Remove warning when about ``GDEF`` not being built when explicitly not
+  requested; don't build one unconditonally even when not requested (#2744, also works
+  around #2747).
+- [ttFont] ``TTFont.getGlyphSet`` method now supports selecting a location that
+  represents an instance of a variable font (supports both user-scale and normalized
+  axes coordinates via the ``normalized=False`` parameter). Currently this only works
+  for TrueType-flavored variable fonts (#2738).
+
+4.35.0 (released 2022-08-15)
+----------------------------
+
+- [otData/otConverters] Added support for 'biased' PaintSweepGradient start/end angles
+  to match latest COLRv1 spec (#2743).
+- [varLib.instancer] Fixed bug in ``_instantiateFeatureVariations`` when at the same
+  time pinning one axis and restricting the range of a subsequent axis; the wrong axis
+  tag was being used in the latter step (as the records' axisIdx was updated in the
+  preceding step but looked up using the old axes order in the following step) (#2733,
+  #2734).
+- [mtiLib] Pad script tags with space when less than 4 char long (#1727).
+- [merge] Use ``'.'`` instead of ``'#'`` in duplicate glyph names (#2742).
+- [gvar] Added support for lazily loading glyph variations (#2741).
+- [varLib] In ``build_many``, we forgot to pass on ``colr_layer_reuse`` parameter to
+  the ``build`` method (#2730).
+- [svgPathPen] Add a main that prints SVG for input text (6df779fd).
+- [cffLib.width] Fixed off-by-one in optimized values; previous code didn't match the
+  code block above it (2963fa50).
+- [varLib.interpolatable] Support reading .designspace and .glyphs files (via optional
+  ``glyphsLib``).
+- Compile some modules with Cython when available and building/installing fonttools
+  from source: ``varLib.iup`` (35% faster), ``pens.momentsPen`` (makes
+  ``varLib.interpolatable`` 3x faster).
+- [feaLib] Allow features to be built for VF without also building a GDEF table (e.g.
+  only build GSUB); warn when GDEF would be needed but isn't requested (#2705, 2694).
+- [otBase] Fixed ``AttributeError`` when uharfbuzz < 0.23.0 and 'repack' method is
+  missing (32aa8eaf). Use new ``uharfbuzz.repack_with_tag`` when available (since
+  uharfbuzz>=0.30.0), enables table-specific optimizations to be performed during
+  repacking (#2724).
+- [statisticsPen] By default report all glyphs (4139d891). Avoid division-by-zero
+  (52b28f90).
+- [feaLib] Added missing required argument to FeatureLibError exception (#2693)
+- [varLib.merge] Fixed error during error reporting (#2689). Fixed undefined
+  ``NotANone`` variable (#2714).
+
 4.34.4 (released 2022-07-07)
 ----------------------------
 
