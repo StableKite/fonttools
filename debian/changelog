@@ -1,3 +1,10 @@
+fonttools (4.37.1-1) unstable; urgency=medium
+
+  * New upstream version 4.37.1
+  * debian/control: Add build dependency python3-reportlab
+
+ -- Yao Wei (魏銘廷) <mwei@debian.org>  Sat, 03 Sep 2022 20:19:40 +0800
+
 fonttools (4.34.4-1) unstable; urgency=medium
 
   * New upstream version 4.34.4
