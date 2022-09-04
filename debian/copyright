@@ -6,7 +6,7 @@ Files-Excluded: Lib/fontTools/unicodedata/Blocks.py
                 Lib/fontTools/unicodedata/ScriptExtensions.py
                 Lib/fontTools/unicodedata/Scripts.py
                 Lib/fontTools/ttLib/tables/__init__.py
-		.gitattributes
+ 		.gitattributes
 
 Files:     *
 Copyright: 1996- Just van Rossum <just@letterror.com>
