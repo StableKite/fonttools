@@ -1,3 +1,55 @@
+4.37.4 (released 2022-09-30)
+----------------------------
+
+4.37.4 (released 2022-09-30)
+----------------------------
+
+- [subset] Keep nameIDs used by CPAL palette entry labels (#2837).
+- [varLib] Avoid negative hmtx values when creating font from variable CFF2 font (#2827).
+- [instancer] Don't prune stat.ElidedFallbackNameID (#2828).
+- [unicodedata] Update Scripts/Blocks to Unicode 15.0 (#2833).
+
+4.37.3 (released 2022-09-20)
+----------------------------
+
+- Fix arguments in calls to (glyf) glyph.draw() and drawPoints(), whereby offset wasn't
+  correctly passed down; this fix also exposed a second bug, where lsb and tsb were not
+  set (#2824, #2825, adobe-type-tools/afdko#1560).
+
+4.37.2 (released 2022-09-15)
+----------------------------
+
+- [subset] Keep CPAL table and don't attempt to prune unused color indices if OT-SVG
+  table is present even if COLR table was subsetted away; OT-SVG may be referencing the
+  CPAL table; for now we assume that's the case (#2814, #2815).
+- [varLib.instancer] Downgrade GPOS/GSUB version if there are no more FeatureVariations
+  after instancing (#2812).
+- [subset] Added ``--no-lazy`` to optionally load fonts eagerly (mostly to ease
+  debugging of table lazy loading, no practical effects) (#2807).
+- [varLib] Avoid building empty COLR.DeltaSetIndexMap with only identity mappings (#2803).
+- [feaLib] Allow multiple value record types (by promoting to the most general format)
+  within the same PairPos subtable; e.g. this allows variable and non variable kerning
+  rules to share the same subtable. This also fixes a bug whereby some kerning pairs
+  would become unreachable while shapiong because of premature subtable splitting (#2772, #2776).
+- [feaLib] Speed up ``VarScalar`` by caching models for recurring master locations (#2798).
+- [feaLib] Optionally cythonize ``feaLib.lexer``, speeds up parsing FEA a bit (#2799).
+- [designspaceLib] Avoid crash when handling unbounded rule conditions (#2797).
+- [post] Don't crash if ``post`` legacy format 1 is malformed/improperly used (#2786)
+- [gvar] Don't be "lazy" (load all glyph variations up front) when TTFont.lazy=False (#2771).
+- [TTFont] Added ``normalizeLocation`` method to normalize a location dict from the
+  font's defined axes space (also known as "user space") into the normalized (-1..+1)
+  space. It applies ``avar`` mapping if the font contains an ``avar`` table (#2789).
+- [TTVarGlyphSet] Support drawing glyph instances from CFF2 variable glyph set (#2784).
+- [fontBuilder] Do not error when building cmap if there are zero code points (#2785).
+- [varLib.plot] Added ability to plot a variation model and set of accompaning master
+  values corresponding to the model's master locations into a pyplot figure (#2767).
+- [Snippets] Added ``statShape.py`` script to draw statistical shape of a glyph as an
+  ellips (requires pycairo) (baecd88).
+- [TTVarGlyphSet] implement drawPoints natively, avoiding going through
+  SegmentToPointPen (#2778).
+- [TTVarGlyphSet] Fixed bug whereby drawing a composite glyph multiple times, its
+  components would shif; needed an extra copy (#2774).
+
 4.37.1 (released 2022-08-24)
 ----------------------------
 
@@ -177,30 +229,30 @@
 - [OS/2 / merge] Automatically recalculate ``OS/2.xAvgCharWidth`` after merging
   fonts with ``fontTools.merge`` (#2591, #2538).
 - [misc/config] Added ``fontTools.misc.configTools`` module, a generic configuration
-  system (#2416, #2439).  
+  system (#2416, #2439).
   Added ``fontTools.config`` module, a fontTools-specific configuration
-  system using ``configTools`` above.  
+  system using ``configTools`` above.
   Attached a ``Config`` object to ``TTFont``.
 - [otlLib] Replaced environment variable for GPOS compression level with an
   equivalent option using the new config system.
-- [designspaceLib] Incremented format version to 5.0 (#2436).  
+- [designspaceLib] Incremented format version to 5.0 (#2436).
   Added discrete axes, variable fonts, STAT information, either design- or
-  user-space location on instances.  
+  user-space location on instances.
   Added ``fontTools.designspaceLib.split`` module to split a designspace
   into sub-spaces that interpolate and that represent the variable fonts
-  listed in the document.  
+  listed in the document.
   Made instance names optional and allow computing them from STAT data instead.
-  Added ``fontTools.designspaceLib.statNames`` module.  
-  Allow instances to have the same location as a previously defined STAT label.  
-  Deprecated some attributes:  
-  ``SourceDescriptor``: ``copyLib``, ``copyInfo``, ``copyGroups``, ``copyFeatures``.  
+  Added ``fontTools.designspaceLib.statNames`` module.
+  Allow instances to have the same location as a previously defined STAT label.
+  Deprecated some attributes:
+  ``SourceDescriptor``: ``copyLib``, ``copyInfo``, ``copyGroups``, ``copyFeatures``.
   ``InstanceDescriptor``: ``kerning``, ``info``; ``glyphs``: use rules or sparse
-  sources.  
-  For both, ``location``: use the more explicit designLocation.  
-  Note: all are soft deprecations and existing code should keep working.  
+  sources.
+  For both, ``location``: use the more explicit designLocation.
+  Note: all are soft deprecations and existing code should keep working.
   Updated documentation for Python methods and the XML format.
 - [varLib] Added ``build_many`` to build several variable fonts from a single
-  designspace document (#2436).  
+  designspace document (#2436).
   Added ``fontTools.varLib.stat`` module to build STAT tables from a designspace
   document.
 - [otBase] Try to use the Harfbuzz Repacker for packing GSUB/GPOS tables when
@@ -391,12 +443,12 @@
 4.25.2 (released 2021-07-26)
 ----------------------------
 
-- [COLRv1] Various changes to sync with the latest CORLv1 draft spec. In particular:  
-  define COLR.VarIndexMap, remove/inline ColorIndex struct, add VarIndexBase to ``PaintVar*`` tables (#2372);  
-  add reduced-precicion specialized transform Paints;  
-  define Angle as fraction of half circle encoded as F2Dot14;  
-  use FWORD (int16) for all Paint center coordinates;  
-  change PaintTransform to have an offset to Affine2x3;  
+- [COLRv1] Various changes to sync with the latest CORLv1 draft spec. In particular:
+  define COLR.VarIndexMap, remove/inline ColorIndex struct, add VarIndexBase to ``PaintVar*`` tables (#2372);
+  add reduced-precicion specialized transform Paints;
+  define Angle as fraction of half circle encoded as F2Dot14;
+  use FWORD (int16) for all Paint center coordinates;
+  change PaintTransform to have an offset to Affine2x3;
 - [ttLib] when importing XML, only set sfntVersion if the font has no reader and is empty (#2376)
 
 4.25.1 (released 2021-07-16)
