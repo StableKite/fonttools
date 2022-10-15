@@ -1,3 +1,11 @@
+fonttools (4.37.4-1) unstable; urgency=medium
+
+  * Team upload.
+  * New upstream release.
+  * Source-only upload to allow testing migration.
+
+ -- Boyuan Yang <byang@debian.org>  Sat, 15 Oct 2022 16:06:45 -0400
+
 fonttools (4.37.1-1) unstable; urgency=medium
 
   * New upstream version 4.37.1
