@@ -20,7 +20,7 @@ Build-Depends:
  python3-ufolib2 (>= 0.13.1) <!nocheck>,
  sphinx-common,
  unicode-data (>= 14.0.0),
-Build-Depends-Indep: 
+Build-Depends-Indep:
  python3-reportlab <!nodoc>,
  python3-sphinx <!nodoc>,
  python3-sphinx-rtd-theme <!nodoc>,
