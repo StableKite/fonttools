@@ -25,7 +25,7 @@ Build-Depends-Indep:
  python3-sphinx <!nodoc>,
  python3-sphinx-rtd-theme <!nodoc>,
  python3-matplotlib <!nodoc>,
-Standards-Version: 4.6.1
+Standards-Version: 4.6.2
 Homepage: https://github.com/fonttools/fonttools
 Vcs-Git: https://salsa.debian.org/fonts-team/fonttools.git
 Vcs-Browser: https://salsa.debian.org/fonts-team/fonttools

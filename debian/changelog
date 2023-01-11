@@ -1,3 +1,14 @@
+fonttools (4.38.0-1) unstable; urgency=medium
+
+  * Team upload.
+  * New upstream release.
+
+  [ Debian Janitor ]
+  * debian/copyright: Trim trailing whitespace and tab2space.
+  * Set upstream metadata fields.
+
+ -- Boyuan Yang <byang@debian.org>  Wed, 11 Jan 2023 14:03:00 -0500
+
 fonttools (4.37.4-1) unstable; urgency=medium
 
   * Team upload.
