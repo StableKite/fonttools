@@ -1,3 +1,10 @@
+fonttools (4.46.0-1) UNRELEASED; urgency=medium
+
+  * Team upload
+  * New upstream release
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Tue, 05 Dec 2023 16:28:03 -0500
+
 fonttools (4.38.0-1) unstable; urgency=medium
 
   * Team upload.
