@@ -2,13 +2,13 @@ fonttools (4.54.1-1~exp1) experimental; urgency=medium
 
   * Team upload.
   * New upstream release.
-  * Upload to experimental first due to dependencies.
+  * Upload to experimental due to failed doctest.
   * debian/control: Add new build-dependencies:
     + python3-glyphslib (optional)
     + python3-ufo2ft (>= 3.2.7) <!nocheck>
   * debian/control: Bump Standards-Version to 4.7.0.
 
- -- Boyuan Yang <byang@debian.org>  Wed, 16 Oct 2024 20:37:47 -0400
+ -- Boyuan Yang <byang@debian.org>  Wed, 16 Oct 2024 20:48:44 -0400
 
 fonttools (4.51.0-1) unstable; urgency=medium
 
