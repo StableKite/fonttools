@@ -15,9 +15,12 @@ Build-Depends:
  python3-pytest <!nocheck>,
  python3-scipy (>= 1.10.0) <!nocheck> | python3-munkres (>= 1.1.4) <!nocheck>,
  python3-setuptools,
+# python3-glyphslib: optional
+ python3-glyphslib,
  python3-fs (>= 2.4.16) <!nocheck>,
  python3-lxml (>= 4.9.3) <!nocheck>,
  python3-ufolib2 (>= 0.16.0) <!nocheck>,
+ python3-ufo2ft (>= 3.2.7) <!nocheck>,
  sphinx-common,
  unicode-data (>= 15.1.0),
 Build-Depends-Indep:
@@ -25,7 +28,7 @@ Build-Depends-Indep:
  python3-sphinx <!nodoc>,
  python3-sphinx-rtd-theme <!nodoc>,
  python3-matplotlib <!nodoc>,
-Standards-Version: 4.6.2
+Standards-Version: 4.7.0
 Homepage: https://github.com/fonttools/fonttools
 Vcs-Git: https://salsa.debian.org/fonts-team/fonttools.git
 Vcs-Browser: https://salsa.debian.org/fonts-team/fonttools
