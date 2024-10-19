@@ -1,3 +1,10 @@
+fonttools (4.54.1-1) unstable; urgency=medium
+
+  * Team upload.
+  * Upload to unstable.
+
+ -- Boyuan Yang <byang@debian.org>  Sat, 19 Oct 2024 17:53:41 -0400
+
 fonttools (4.54.1-1~exp1) experimental; urgency=medium
 
   * Team upload.
