@@ -1,0 +1,26 @@
+From: Boyuan Yang <byang@debian.org>
+Date: Sat, 19 Oct 2024 21:13:28 -0400
+Subject: keep doctest compatible with Unicode 15.1
+
+Revert changes made in
+https://github.com/fonttools/fonttools/commit/10a61ef7de0f5c99f37584840641ee6c62dc74bd
+before Debian packages support for unicode 16.0.
+
+Forwarded: not-needed
+---
+ Lib/fontTools/unicodedata/__init__.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Lib/fontTools/unicodedata/__init__.py b/Lib/fontTools/unicodedata/__init__.py
+index edae44e..06eb461 100644
+--- a/Lib/fontTools/unicodedata/__init__.py
++++ b/Lib/fontTools/unicodedata/__init__.py
+@@ -77,7 +77,7 @@ def script_extension(char):
+ 
+     >>> script_extension("a") == {'Latn'}
+     True
+-    >>> script_extension(chr(0x060C)) == {'Nkoo', 'Arab', 'Rohg', 'Thaa', 'Syrc', 'Gara', 'Yezi'}
++    >>> script_extension(chr(0x060C)) == {'Rohg', 'Syrc', 'Yezi', 'Arab', 'Thaa', 'Nkoo'}
+     True
+     >>> script_extension(chr(0x10FFFF)) == {'Zzzz'}
+     True

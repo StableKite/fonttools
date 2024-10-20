@@ -1,3 +1,13 @@
+fonttools (4.54.1-2) unstable; urgency=medium
+
+  * Team upload.
+  * debian/patches/0002-keep-doctest-compatible-with-Unicode-15.1.patch:
+    Add patch to keep tests compatible with unicode 15.1 for now.
+    Once Debian packages unicode-data (>= 16.0), this patch should be
+    dropped.
+
+ -- Boyuan Yang <byang@debian.org>  Sat, 19 Oct 2024 21:16:08 -0400
+
 fonttools (4.54.1-1) unstable; urgency=medium
 
   * Team upload.

@@ -23,6 +23,8 @@ Build-Depends:
  python3-ufo2ft (>= 3.2.7) <!nocheck>,
  sphinx-common,
  unicode-data (>= 15.1.0),
+# To enable unicode 16.x support, drop related debian-specific patch
+ unicode-data (<< 16),
 Build-Depends-Indep:
  python3-reportlab <!nodoc>,
  python3-sphinx <!nodoc>,
