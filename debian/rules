@@ -22,7 +22,3 @@ override_dh_sphinxdoc:
 	sphinx-build $(CURDIR)/Doc/source $(CURDIR)/debian/python-fonttools-doc/usr/share/doc/fonttools/html/
 	dh_sphinxdoc
 endif
-
-override_dh_auto_test:
-	# Allow failure in experimental build
-	-dh_auto_test
