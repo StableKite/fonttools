@@ -9,7 +9,8 @@ before Debian packages support for unicode 16.0.
 Forwarded: not-needed
 ---
  Lib/fontTools/unicodedata/__init__.py | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ Tests/unicodedata_test.py             | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/Lib/fontTools/unicodedata/__init__.py b/Lib/fontTools/unicodedata/__init__.py
 index edae44e..06eb461 100644
@@ -24,3 +25,16 @@ index edae44e..06eb461 100644
      True
      >>> script_extension(chr(0x10FFFF)) == {'Zzzz'}
      True
+diff --git a/Tests/unicodedata_test.py b/Tests/unicodedata_test.py
+index 12cbd80..ac3d205 100644
+--- a/Tests/unicodedata_test.py
++++ b/Tests/unicodedata_test.py
+@@ -182,7 +182,7 @@ def test_script_extension():
+         "Taml",
+         "Telu",
+         "Tirh",
+-        "Onao",
++#        "Onao",
+     }
+ 
+ 
