@@ -47,8 +47,10 @@ jobs:
         shell: bash
     strategy:
       fail-fast: false
+      # macos-13 runners are still x86_64, macos-14 (latest) are arm64; we want to build
+      # the x86_64 wheel on/for x86_64 macs
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
+        os: [macos-13, windows-latest, ubuntu-latest]
         arch: [auto64]
         include:
           - os: macos-latest
@@ -82,13 +84,13 @@ jobs:
     strategy:
       matrix:
         # aarch64 uses qemu so it's slow, build each py version in parallel jobs
-        python: [38, 39, 310, 311, 312]
+        python: [38, 39, 310, 311, 312, 313]
         arch: [aarch64]
     steps:
     - uses: actions/checkout@v4
       with:
         submodules: true
-    - uses: docker/setup-qemu-action@v3.1.0
+    - uses: docker/setup-qemu-action@v3.2.0
       with:
         platforms: all
     - name: Install dependencies
@@ -118,7 +120,7 @@ jobs:
         # so that all artifacts are downloaded in the same directory specified by 'path'
         merge-multiple: true
         path: dist
-    - uses: pypa/gh-action-pypi-publish@v1.10.2
+    - uses: pypa/gh-action-pypi-publish@v1.12.2
       with:
         user: __token__
         password: ${{ secrets.PYPI_PASSWORD }}
