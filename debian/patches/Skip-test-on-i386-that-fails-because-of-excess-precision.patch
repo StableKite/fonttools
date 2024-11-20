@@ -15,7 +15,7 @@ index f2acc79..4391495 100644
  
      @pytest.mark.skipif(
 -        sys.version_info[:2] == (3, 8), reason="Fails on Python 3.8 for unknown reasons"
-+        platform.machine().startswith('i686'), reason="excess precision https://github.com/fonttools/fonttools/issues/3696 ")
++        platform.machine().startswith('i686'), reason="excess precision https://github.com/fonttools/fonttools/issues/3696 "
      )
      def test_interpolatable_cff2(self):
          suffix = ".otf"
