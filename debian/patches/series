@@ -1,2 +1,3 @@
 0001-add-module-path-for-automodule-directive.patch
 0002-keep-doctest-compatible-with-Unicode-15.1.patch
+Skip-test-on-i386-that-fails-because-of-excess-precision.patch
