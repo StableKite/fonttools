@@ -1,3 +1,11 @@
+fonttools (4.55.0-2) unstable; urgency=medium
+
+  * Team upload
+  * Don't require some build test dependencies on i386
+  * Add patch to skip new test that fails on i386 because of excess precision
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Wed, 20 Nov 2024 14:39:06 -0500
+
 fonttools (4.55.0-1) unstable; urgency=medium
 
   * Team upload
