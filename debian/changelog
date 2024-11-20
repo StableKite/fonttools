@@ -1,3 +1,10 @@
+fonttools (4.55.0-3) unstable; urgency=medium
+
+  * Team upload
+  * Fix autopkgtest patch
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Wed, 20 Nov 2024 15:57:04 -0500
+
 fonttools (4.55.0-2) unstable; urgency=medium
 
   * Team upload
