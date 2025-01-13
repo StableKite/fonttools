@@ -38,13 +38,18 @@ extensions = [
     "sphinx.ext.autosectionlabel",
 ]
 
-autodoc_mock_imports = ["gtk", "reportlab"]
+autodoc_mock_imports = ["gtk", "reportlab", "Quartz"]
 
 autodoc_default_options = {
     "members": True,
-    "inherited-members": True,
+    "inherited-members": False,
     "show-inheritance": True,
+    "member-order": "bysource",
 }
+
+# This option allows show-inheritace to work but not clutter up the output
+# with the (surplus) full inheritance stack.
+autodoc_inherit_docstrings = False
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -88,6 +93,9 @@ language = "en"
 # directories to ignore when looking for source files.
 # This patterns also effect to html_static_path and html_extra_path
 exclude_patterns = []
+
+# The programming language to be used by default in syntax highlighting.
+highlight_language = "python"
 
 # The name of the Pygments (syntax highlighting) style to use.
 # pygments_style = "sphinx" (the default sphinx docs style on RTD)

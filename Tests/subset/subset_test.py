@@ -938,6 +938,34 @@ class SubsetTest:
         subsetfont = TTFont(subsetpath)
         self.expect_ttx(subsetfont, self.getpath("CmapSubsetTest.subset.ttx"), ["cmap"])
 
+    def test_cmap_format14(self):
+        fontpath = self.compile_font(self.getpath("cmap14_font1.ttx"), ".otf")
+        subsetpath = self.temp_path(".otf")
+
+        subset.main([fontpath, "--unicodes=4e05", "--output-file=%s" % subsetpath])
+        subsetfont = TTFont(subsetpath)
+        self.expect_ttx(subsetfont, self.getpath("cmap14_font1.no_uvs.ttx"), ["cmap"])
+
+        subset.main(
+            [fontpath, "--unicodes=4e05,e0100", "--output-file=%s" % subsetpath]
+        )
+        subsetfont = TTFont(subsetpath)
+        self.expect_ttx(subsetfont, self.getpath("cmap14_font1.uvs.ttx"), ["cmap"])
+
+        subset.main([fontpath, "--unicodes=4e10", "--output-file=%s" % subsetpath])
+        subsetfont = TTFont(subsetpath)
+        self.expect_ttx(
+            subsetfont, self.getpath("cmap14_font1.no_uvs_non_default.ttx"), ["cmap"]
+        )
+
+        subset.main(
+            [fontpath, "--unicodes=4e10,e0100", "--output-file=%s" % subsetpath]
+        )
+        subsetfont = TTFont(subsetpath)
+        self.expect_ttx(
+            subsetfont, self.getpath("cmap14_font1.uvs_non_default.ttx"), ["cmap"]
+        )
+
     @pytest.mark.parametrize("text, n", [("!", 1), ("#", 2)])
     def test_GPOS_PairPos_Format2_useClass0(self, text, n):
         # Check two things related to class 0 ('every other glyph'):
@@ -1752,7 +1780,7 @@ def test_subset_COLRv1_drop_all_v0_glyphs(colrv1_path):
     assert colr.table.BaseGlyphRecordCount == 0
     assert colr.table.BaseGlyphRecordArray is None
     assert colr.table.LayerRecordArray is None
-    assert colr.table.LayerRecordCount is 0
+    assert colr.table.LayerRecordCount == 0
 
 
 def test_subset_COLRv1_no_ClipList(colrv1_path):
