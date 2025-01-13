@@ -1,3 +1,26 @@
+4.55.3 (released 2024-12-10)
+----------------------------
+
+
+- [Docs] fill out ttLib table section [#3716]
+- [feaLib] More efficient inline format 4 lookups [#3726]
+
+4.55.2 (released 2024-12-05)
+----------------------------
+
+- [Docs] update Sphinx config (#3712)
+- [designspaceLib] Allow axisOrdering to be set to zero (#3715)
+- [feaLib] Don’t modify variable anchors in place (#3717)
+
+4.55.1 (released 2024-12-02)
+----------------------------
+
+- [ttGlyphSet] Support VARC CFF2 fonts (#3683)
+- [DecomposedTransform] Document and implement always skewY == 0 (#3697)
+- [varLib] "Fix" cython iup issue? (#3704)
+- Cython minor refactor (#3705)
+
+
 4.55.0 (released 2024-11-14)
 ----------------------------
 
