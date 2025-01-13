@@ -1,3 +1,12 @@
+fonttools (4.55.3-1) unstable; urgency=medium
+
+  * Team upload.
+  * New upstream release.
+  * debian/control: Drop useless dependency to python3-pkg-resources.
+    (Closes: #1083404)
+
+ -- Boyuan Yang <byang@debian.org>  Mon, 13 Jan 2025 12:22:25 -0500
+
 fonttools (4.55.0-3) unstable; urgency=medium
 
   * Team upload
