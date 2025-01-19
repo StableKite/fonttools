@@ -1,3 +1,10 @@
+fonttools (4.55.3-2) unstable; urgency=medium
+
+  * Team upload.
+  * debian/control: Mark glyphslib build-dep as <!nocheck>. (Closes: #1093538)
+
+ -- Boyuan Yang <byang@debian.org>  Sun, 19 Jan 2025 15:10:49 -0500
+
 fonttools (4.55.3-1) unstable; urgency=medium
 
   * Team upload.

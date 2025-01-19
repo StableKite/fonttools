@@ -13,8 +13,8 @@ Build-Depends:
  python3-all-dev,
  python3-brotli (>= 1.1.0) <!nocheck>,
  python3-fs (>= 2.4.16) <!nocheck>,
-# python3-glyphslib: optional
- python3-glyphslib (>= 6.9.4) [!i386],
+# python3-glyphslib: optional test build-dependency
+ python3-glyphslib (>= 6.9.4) [!i386] <!nocheck>,
  python3-lxml (>= 4.9.3) <!nocheck>,
  python3-pytest <!nocheck>,
  python3-scipy (>= 1.10.0) <!nocheck> | python3-munkres (>= 1.1.4) <!nocheck>,
