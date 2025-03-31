@@ -3,9 +3,12 @@ fonttools (4.55.8-1) unstable; urgency=medium
   * Team upload.
   * New upstream release.
   * debian/control: Bump Standards-Version to 4.7.2.
-  * debian/control: Add build-dep of python3-zopfli. (Closes: #1101435)
+  * debian/control: Add missing ${sphinxdoc:Built-Using} to the
+    doc package.
+  * debian/control: Add build-dep and binary dependency to
+    python3-zopfli. (Closes: #1101435)
 
- -- Boyuan Yang <byang@debian.org>  Mon, 31 Mar 2025 15:16:45 -0400
+ -- Boyuan Yang <byang@debian.org>  Mon, 31 Mar 2025 15:24:19 -0400
 
 fonttools (4.55.3-2) unstable; urgency=medium
 
