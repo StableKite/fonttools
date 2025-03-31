@@ -1,6 +1,33 @@
-4.55.3 (released 2024-12-10)
+4.55.8 (released 2025-01-29)
 ----------------------------
 
+- [MetaTools] Fixed bug in buildUCD.py script whereby the first non-header line of some UCD text file was being skipped. This affected in particular the U+00B7 (MIDDLE DOT) entry of ScriptExtensions.txt (#3756).
+
+4.55.7 (released 2025-01-28)
+----------------------------
+
+- Shorten the changelog included in PyPI package description to accommodate maximum length limit imposed by Azure DevOps. No actual code changes since v4.55.6 (#3754).
+
+4.55.6 (released 2025-01-24)
+----------------------------
+
+- [glyf] Fixed regression introduced in 4.55.5 when computing bounds of nested composite glyphs  with transformed components (#3752).
+
+4.55.5 (released 2025-01-23)
+----------------------------
+
+- [glyf] Fixed recalcBounds of transformed components with unrounded coordinates (#3750).
+- [feaLib] Allow duplicate script/language statements (#3749).
+
+4.55.4 (released 2025-01-21)
+----------------------------
+
+- [bezierTools] Fixed ``splitCubicAtT`` sometimes not returning identical start/end points as result of numerical precision (#3742, #3743).
+- [feaLib/ast] Fixed docstring of ``AlternateSubstStatement`` (#3735).
+- [transform] Typing fixes (#3734).
+
+4.55.3 (released 2024-12-10)
+----------------------------
 
 - [Docs] fill out ttLib table section [#3716]
 - [feaLib] More efficient inline format 4 lookups [#3726]
@@ -23,7 +50,6 @@
 
 4.55.0 (released 2024-11-14)
 ----------------------------
-
 
 - [cffLib.specializer] Adjust stack use calculation (#3689)
 - [varLib] Lets not add mac names if the rest of name doesn't have them (#3688)
@@ -1623,6 +1649,8 @@ Minor release to fix uploading wheels to PyPI.
   a given axis (38a8eb0e).
 - [cffLib] Make sure glyph names are unique (#1699).
 - [feaLib] Fix feature parser to correctly handle octal numbers (#1700).
+
+.. package description limit
 
 3.44.0 (released 2019-08-02)
 ----------------------------
