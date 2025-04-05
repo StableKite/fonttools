@@ -1,3 +1,12 @@
+fonttools (4.57.0-1) unstable; urgency=medium
+
+  * Team upload.
+  * New upstream release.
+  * debian/patches/0004: Disable tests related to the new unicode
+    for now to fix autopkgtest.
+
+ -- Boyuan Yang <byang@debian.org>  Sat, 05 Apr 2025 15:52:02 -0400
+
 fonttools (4.55.8-1) unstable; urgency=medium
 
   * Team upload.
