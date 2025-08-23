@@ -84,6 +84,7 @@ Description: ${source:Synopsis} (Executables)
 Package: python-fonttools-doc
 Section: doc
 Architecture: all
+Multi-Arch: foreign
 Depends:
  ${misc:Depends},
  ${sphinxdoc:Depends},
