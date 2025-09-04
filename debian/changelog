@@ -1,3 +1,15 @@
+fonttools (4.57.0-2) unstable; urgency=high
+
+  * Team upload
+
+  [ Jeremy Bícha ]
+  * Build with unicode-data 16
+
+  [ Alexandre Detiste ]
+  * apply Multi-Arch: hint
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Thu, 04 Sep 2025 14:25:36 -0400
+
 fonttools (4.57.0-1) unstable; urgency=medium
 
   * Team upload.
