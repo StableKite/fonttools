@@ -1,3 +1,10 @@
+fonttools (4.57.0-3) unstable; urgency=medium
+
+  * Team upload
+  * Use munkres over scipy to get scipy out of key pkgs
+
+ -- Bastian Germann <bage@debian.org>  Tue, 25 Nov 2025 18:07:37 +0100
+
 fonttools (4.57.0-2) unstable; urgency=high
 
   * Team upload
