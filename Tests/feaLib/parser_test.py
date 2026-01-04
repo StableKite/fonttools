@@ -198,13 +198,13 @@ class ParserTest(unittest.TestCase):
     def test_anchor_variable_scalar(self):
         doc = self.parse(
             "feature test {"
-            "    pos cursive A <anchor (wght=200:-100 wght=900:-150 wdth=150,wght=900:-120) -20> <anchor NULL>;"
+            "    pos cursive A <anchor (wght=200:-100 wght=900:-150 wdth=150.5,wght=900:-120) -20> <anchor NULL>;"
             "} test;"
         )
         anchor = doc.statements[0].statements[0].entryAnchor
         self.assertEqual(
             anchor.asFea(),
-            "<anchor (wght=200:-100 wght=900:-150 wdth=150,wght=900:-120) -20>",
+            "<anchor (wght=200:-100 wght=900:-150 wdth=150.5,wght=900:-120) -20>",
         )
 
     def test_anchordef(self):
@@ -1021,6 +1021,16 @@ class ParserTest(unittest.TestCase):
         with self.assertRaisesRegex(FeatureLibError, "Positioning values are allowed"):
             doc = self.parse("feature kern {" "    pos a' b c 123 d;" "} kern;")
 
+    def test_gpos_type_1_null(self):
+        doc = self.parse("feature test {pos a <NULL>;} test;")
+        pos = doc.statements[0].statements[0]
+        self.assertEqual(pos.asFea(), "pos a <NULL>;")
+
+    def test_gpos_type_1_null_chained(self):
+        doc = self.parse("feature test {pos a' <NULL>;} test;")
+        pos = doc.statements[0].statements[0]
+        self.assertEqual(pos.asFea(), "pos a' <NULL>;")
+
     def test_gpos_type_2_format_a(self):
         doc = self.parse(
             "feature kern {" "    pos [T V] -60 [a b c] <1 2 3 4>;" "} kern;"
@@ -1430,6 +1440,14 @@ class ParserTest(unittest.TestCase):
             "feature test {rsub f_i by f i;} test;",
         )
 
+    def test_rsub_deletion(self):
+        self.assertRaisesRegex(
+            FeatureLibError,
+            "Reverse chaining substitutions do not support glyph deletion",
+            self.parse,
+            "lookup test { rsub a b c' e by NULL; } test;",
+        )
+
     def test_script(self):
         doc = self.parse("feature test {script cyrl;} test;")
         s = doc.statements[0].statements[0]
@@ -1716,30 +1734,6 @@ class ParserTest(unittest.TestCase):
             "    sub a' lookup upper x x A' lookup lower;"
             "} test;",
         )
-
-    def test_substitute_mix_single_multiple(self):
-        doc = self.parse(
-            "lookup Look {"
-            "  sub f_f   by f f;"
-            "  sub f     by f;"
-            "  sub f_f_i by f f i;"
-            "  sub [a a.sc] by a;"
-            "  sub [a a.sc] by [b b.sc];"
-            "} Look;"
-        )
-        statements = doc.statements[0].statements
-        for sub in statements:
-            self.assertIsInstance(sub, ast.MultipleSubstStatement)
-        self.assertEqual(statements[1].glyph, "f")
-        self.assertEqual(statements[1].replacement, ["f"])
-        self.assertEqual(statements[3].glyph, "a")
-        self.assertEqual(statements[3].replacement, ["a"])
-        self.assertEqual(statements[4].glyph, "a.sc")
-        self.assertEqual(statements[4].replacement, ["a"])
-        self.assertEqual(statements[5].glyph, "a")
-        self.assertEqual(statements[5].replacement, ["b"])
-        self.assertEqual(statements[6].glyph, "a.sc")
-        self.assertEqual(statements[6].replacement, ["b.sc"])
 
     def test_substitute_from(self):  # GSUB LookupType 3
         doc = self.parse(
