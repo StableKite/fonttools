@@ -1,3 +1,23 @@
+fonttools (4.61.1-1) unstable; urgency=medium
+
+  * Team upload.
+
+  [ Dr. Tobias Quathamer ]
+  * New upstream version 4.61.1
+    - This release includes the fix for CVE-2025-66034. Closes: #1121605
+    - Refresh patch
+    - Remove patch, has been fixed upstream
+  * Update FSF address in d/copyright
+  * Remove Priority: optional from d/control
+  * Update Standards-Version to 4.7.3
+  * Depend on python3-ufolib2 (>= 0.18.1)
+  * Remove dependency on python3-fs (Closes: #1082582)
+
+  [ Debian Janitor ]
+  * Remove constraints unnecessary since buster (archived release)
+
+ -- Dr. Tobias Quathamer <toddy@debian.org>  Sun, 04 Jan 2026 17:34:24 +0100
+
 fonttools (4.57.0-3) unstable; urgency=medium
 
   * Team upload
