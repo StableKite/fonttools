@@ -1,6 +1,5 @@
 Source: fonttools
 Section: devel
-Priority: optional
 Maintainer: Debian Fonts Task Force <debian-fonts@lists.debian.org>
 Uploaders:
  Luke Faraone <lfaraone@debian.org>,
