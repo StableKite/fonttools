@@ -1,3 +1,14 @@
+fonttools (4.61.1-2) unstable; urgency=medium
+
+  * Team upload.
+  * Skip test on i386.
+    The test fails due to excess precision on that architecture, see
+    https://wiki.debian.org/ArchitectureSpecificsMemo#i386.
+    On i386, the calculated value is 326.4999999999999 instead
+    of the expected 326.49999999999994.
+
+ -- Dr. Tobias Quathamer <toddy@debian.org>  Sun, 11 Jan 2026 14:04:44 +0100
+
 fonttools (4.61.1-1) unstable; urgency=medium
 
   * Team upload.
