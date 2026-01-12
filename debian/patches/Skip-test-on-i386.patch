@@ -15,7 +15,7 @@ https://ci.debian.net/packages/f/fonttools/testing/i386/67681284/
  1 file changed, 5 insertions(+)
 
 diff --git a/Tests/cu2qu/cu2qu_test.py b/Tests/cu2qu/cu2qu_test.py
-index ef3524b..494d31f 100644
+index ef3524b..32eb93d 100644
 --- a/Tests/cu2qu/cu2qu_test.py
 +++ b/Tests/cu2qu/cu2qu_test.py
 @@ -14,6 +14,7 @@
@@ -26,14 +26,14 @@ index ef3524b..494d31f 100644
  import unittest
  import os
  import json
-@@ -234,6 +235,10 @@ def test_cu2qu_degenerate_curve_with_collinear_points():
+@@ -233,6 +234,10 @@ def test_cu2qu_degenerate_curve_with_collinear_points():
+         assert p1 == pytest.approx(p2), f"point {i} does not match"
  
  
++# https://wiki.debian.org/ArchitectureSpecificsMemo#i386
++@pytest.mark.skipif(
++    platform.machine().startswith("i686"), reason="Excess precision on i386"
++)
  def test_cu2qu_complex_division_floating_point_precision():
-+    # https://wiki.debian.org/ArchitectureSpecificsMemo#i386
-+    @pytest.mark.skipif(
-+        platform.machine().startswith('i686'), reason="Excess precision on i386"
-+    )
      # This test ensures that cu2qu produces identical results whether compiled with
      # Cython or running in pure Python mode. The specific curves from Ojuju.glyphs
-     # ("brackeleft" glyph) below exposed a bug where Cython's complex division by
