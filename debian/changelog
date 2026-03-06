@@ -1,3 +1,10 @@
+fonttools (4.61.1-7~exp1) experimental; urgency=medium
+
+  * Team upload.
+  * debian/control: Build-depends on unicode-data (>> 17).
+
+ -- Boyuan Yang <byang@debian.org>  Thu, 05 Mar 2026 20:47:21 -0500
+
 fonttools (4.61.1-4) unstable; urgency=medium
 
   * Team upload
