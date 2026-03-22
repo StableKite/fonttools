@@ -1,3 +1,10 @@
+fonttools (4.62.1-1) unstable; urgency=medium
+
+  * Team upload.
+  * New upstream release. (Closes: #1131426)
+
+ -- Boyuan Yang <byang@debian.org>  Sun, 22 Mar 2026 13:10:06 -0400
+
 fonttools (4.61.1-4) unstable; urgency=medium
 
   * Team upload
