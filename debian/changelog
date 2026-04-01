@@ -2,8 +2,9 @@ fonttools (4.62.1-2) unstable; urgency=medium
 
   * Team upload.
   * debian/control: Build-depends on unicode-data (>> 17).
+  * Depend on skia-pathops.
 
- -- Boyuan Yang <byang@debian.org>  Thu, 05 Mar 2026 20:47:21 -0500
+ -- Bastian Germann <bage@debian.org>  Wed, 01 Apr 2026 20:21:06 +0200
 
 fonttools (4.62.1-1) unstable; urgency=medium
 
