@@ -21,8 +21,8 @@ Build-Depends:
  python3-ufolib2 (>= 0.18.1) <!nocheck>,
  python3-zopfli,
  sphinx-common,
- unicode-data (<< 17),
- unicode-data (>= 16),
+ unicode-data (<< 18),
+ unicode-data (>= 17),
 Build-Depends-Indep:
  python3-matplotlib <!nodoc>,
  python3-reportlab <!nodoc>,
