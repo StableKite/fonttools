@@ -1,3 +1,13 @@
+fonttools (4.62.1-4) unstable; urgency=medium
+
+  * Team upload.
+  * debian/control: Do not build-depends on python3-skia-pathops for
+    architectures that does not have working skia library.
+  * debian/control: Demote python3-skia-pathops dependency to Recommends:
+    field.
+
+ -- Boyuan Yang <byang@debian.org>  Wed, 01 Apr 2026 20:53:52 -0400
+
 fonttools (4.62.1-3) unstable; urgency=medium
 
   * Team upload.

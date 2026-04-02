@@ -17,7 +17,8 @@ Build-Depends:
  python3-pytest <!nocheck>,
  python3-munkres <!nocheck>,
  python3-setuptools,
- python3-skia-pathops (>= 0.5.0) <!nocheck>,
+# Do not enable skia-pathops on big-endian and those without gn
+ python3-skia-pathops (>= 0.5.0) [!s390x !alpha !hppa !hurd-any !m68k !powerpc !ppc64 !sh4 !sparc64 !x32] <!nocheck>,
  python3-ufo2ft (>= 3.3.1) [!i386] <!nocheck>,
  python3-ufolib2 (>= 0.18.1) <!nocheck>,
  python3-uharfbuzz <!nocheck>,
@@ -53,12 +54,13 @@ Depends:
  python3-ufolib2 (>= 0.18.1) | python3-defcon,
  python3-uharfbuzz,
  python3-unicodedata2 (>= 15.1.0) | python3-all (>= 3.11.0),
- python3-skia-pathops,
  python3-zopfli,
  unicode-data (>= 16),
  ${misc:Depends},
  ${python3:Depends},
  ${shlibs:Depends},
+Recommends:
+ python3-skia-pathops,
 Description: ${source:Synopsis} (Python 3 Library)
  ${source:Extended-Description}
  .
