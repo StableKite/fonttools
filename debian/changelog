@@ -1,3 +1,13 @@
+fonttools (4.62.1-6) unstable; urgency=medium
+
+  * Team upload.
+  * Further remove some (test-)build-dep: glyphslib, ufo2ft temporarily.
+    They should be added back later when fonttools builds on s390x.
+  * debian/tests/: Dropped for now. They should be added back later
+    when fonttools builds on s390x.
+
+ -- Boyuan Yang <byang@debian.org>  Fri, 03 Apr 2026 18:05:17 -0400
+
 fonttools (4.62.1-5) unstable; urgency=medium
 
   * Team upload.
