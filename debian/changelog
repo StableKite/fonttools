@@ -1,3 +1,13 @@
+fonttools (4.62.1-7) unstable; urgency=medium
+
+  * Team upload.
+  * Remove previous temporary changes.
+  * debian/tests/control: Recover to previous versions.
+  * debian/control: Let python3-fonttools breaks python3-glyphslib
+    (<< 6.12.7+ds-6) to avoid broken autopkgtest from being triggered.
+
+ -- Boyuan Yang <byang@debian.org>  Fri, 03 Apr 2026 20:34:46 -0400
+
 fonttools (4.62.1-6) unstable; urgency=medium
 
   * Team upload.
