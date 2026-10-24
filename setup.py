@@ -3,6 +3,7 @@
 from __future__ import print_function
 import io
 import sys
+import sysconfig
 import os
 from os.path import isfile, join as pjoin
 from glob import glob
@@ -486,7 +487,7 @@ class cython_build_ext(_build_ext):
 
         self.distribution.ext_modules[:] = cythonize(
             self.distribution.ext_modules,
-            force=linetrace or self.force,
+            force=linetrace or self.force or bool(sysconfig.get_config_var("Py_GIL_DISABLED")),
             annotate=os.environ.get("CYTHON_ANNOTATE") == "1",
             quiet=not self.verbose,
             compiler_directives=directives,
