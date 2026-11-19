@@ -1,0 +1,41 @@
+From 0e999b55f05ad0dd8423f389673a32de9c5199bb Mon Sep 17 00:00:00 2001
+From: Cosimo Lupo <cosimo@anthrotype.com>
+Date: Thu, 14 May 2026 12:15:12 +0100
+Subject: [PATCH] Declare Cython extensions as free-threading compatible
+
+Add the `freethreading_compatible` Cython compiler directive when building
+on Python 3.13+, so that importing the compiled extensions on free-threaded
+Python (3.13t/3.14t) no longer re-enables the GIL.
+
+Fixes #4073
+
+diff --git a/setup.py b/setup.py
+index a66fae1b3..41e0b653a 100755
+--- a/setup.py
++++ b/setup.py
+@@ -476,16 +476,20 @@ class cython_build_ext(_build_ext):
+         # optionally enable line tracing for test coverage support
+         linetrace = os.environ.get("CYTHON_TRACE") == "1"
+ 
++        directives = {
++            "linetrace": linetrace,
++            "language_level": 3,
++            "embedsignature": True,
++        }
++        if sys.version_info >= (3, 13):
++            directives["freethreading_compatible"] = True
++
+         self.distribution.ext_modules[:] = cythonize(
+             self.distribution.ext_modules,
+             force=linetrace or self.force,
+             annotate=os.environ.get("CYTHON_ANNOTATE") == "1",
+             quiet=not self.verbose,
+-            compiler_directives={
+-                "linetrace": linetrace,
+-                "language_level": 3,
+-                "embedsignature": True,
+-            },
++            compiler_directives=directives,
+         )
+ 
+         _build_ext.finalize_options(self)

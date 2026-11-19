@@ -1,2 +1,4 @@
 0001-add-module-path-for-automodule-directive.patch
 Skip-test-on-i386.patch
+declare-cython-free-threading.patch
+regenerate-native-extensions-for-free-threading.patch

@@ -1,0 +1,24 @@
+Description: Regenerate extensions when building against free-threaded Python
+ Generated C from an earlier build can retain the old interpreter lock policy.
+ Regenerate the accelerator source with the active Cython compiler for FT.
+Origin: other, https://github.com/StableKite/fonttools/commit/b2658713a17ab5e82f9b76ac7696332d623a1088
+Forwarded: no
+--- a/setup.py
++++ b/setup.py
+@@ -3,6 +3,7 @@
+ from __future__ import print_function
+ import io
+ import sys
++import sysconfig
+ import os
+ from os.path import isfile, join as pjoin
+ from glob import glob
+@@ -485,7 +486,7 @@ class cython_build_ext(_build_ext):
+ 
+         self.distribution.ext_modules[:] = cythonize(
+             self.distribution.ext_modules,
+-            force=linetrace or self.force,
++            force=linetrace or self.force or bool(sysconfig.get_config_var("Py_GIL_DISABLED")),
+             annotate=os.environ.get("CYTHON_ANNOTATE") == "1",
+             quiet=not self.verbose,
+             compiler_directives=directives,
