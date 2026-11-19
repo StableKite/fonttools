@@ -2,3 +2,4 @@
 Skip-test-on-i386.patch
 declare-cython-free-threading.patch
 regenerate-native-extensions-for-free-threading.patch
+use-public-glob-api.patch
